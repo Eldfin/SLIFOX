@@ -1,8 +1,8 @@
 import numpy as np
 import h5py
 from numba import njit
-from SLIF import full_fitfunction, angle_distance
-from wrapped_distributions import distribution_pdf
+from .SLIF import full_fitfunction, angle_distance
+from .wrapped_distributions import distribution_pdf
 from collections import deque
 import os
 import imageio
@@ -186,7 +186,7 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution):
 
     return peak_pairs
 
-def calculate_directions(peak_pairs, output_mus, dictionary = None):
+def calculate_directions(peak_pairs, output_mus, directory = None):
     x_range = peak_pairs.shape[0]
     y_range = peak_pairs.shape[1]
     directions = np.full((x_range, y_range, 2), -1, dtype=np.float64)
@@ -207,12 +207,12 @@ def calculate_directions(peak_pairs, output_mus, dictionary = None):
 
                 directions[x][y][k] = direction
 
-    if dictionary != None:
-        if not os.path.exists(dictionary):
-                os.makedirs(dictionary)
+    if directory != None:
+        if not os.path.exists(directory):
+                os.makedirs(directory)
 
         for dir_n in range(directions.shape[-1]):
-            imageio.imwrite(f'{dictionary}/dir_{dir_n + 1}.tiff', np.swapaxes(directions[:, :, dir_n], 0, 1))
+            imageio.imwrite(f'{directory}/dir_{dir_n + 1}.tiff', np.swapaxes(directions[:, :, dir_n], 0, 1))
 
     return directions
 

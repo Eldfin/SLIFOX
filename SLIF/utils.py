@@ -85,7 +85,7 @@ def pick_data(filename, dataset_path, area = None, randoms = 0):
         data_shape = h5f[dataset_path].shape
 
         if area == None:
-            x_indices, y_indices = np.indices((data.shape[0], data.shape[1]))
+            x_indices, y_indices = np.indices((data_shape[0], data_shape[1]))
 
         else:
             x_indices, y_indices = np.indices((area[1] - area[0], area[3] - area[2]))
@@ -93,11 +93,45 @@ def pick_data(filename, dataset_path, area = None, randoms = 0):
             y_indices += area[2]
 
         if randoms > 0:
-            x_indices = x_indices[np.random.randint(0, len(x_indices), randoms)]
-            y_indices = y_indices[np.random.randint(0, len(y_indices), randoms)]
+            x_indices = x_indices.flatten()
+            y_indices = y_indices.flatten()
+            random_indices = np.random.choice(len(x_indices), randoms, replace=False)
+            x_indices = x_indices[random_indices]
+            y_indices = y_indices[random_indices]
 
-        data = h5f[dataset_path][x_indices, y_indices, :]
-        indices = np.stack((x_indices, y_indices), axis=-1, dtype=np.int64)
+            data = np.empty((randoms, 1, data_shape[2]), dtype=h5f[dataset_path].dtype)
+            indices = np.empty((randoms, 1, 2), dtype=int)
+            for i in range(randoms):
+                data[i, 0] = h5f[dataset_path][x_indices[i], y_indices[i], :]
+                indices[i, 0, 0] = x_indices[i]
+                indices[i, 0, 1] = y_indices[i]
+
+        else:
+            if area == None:
+                data = h5f[dataset_path][:]
+            else:
+                data = h5f[dataset_path][area[0]:area[1], area[2]:area[3], :]
+
+            indices = np.stack((x_indices, y_indices), axis=-1, dtype=np.int64)
 
     return data, indices
+
+
+    if fit_full_pyramid:
+        reduced_data = h5f[dataset_path][:]
+    else:
+        reduced_data = np.empty((image_size, image_size, data_shape[2]), dtype=h5f[dataset_path].dtype)
+        
+        sample_size = image_size**2
+        row_indices = np.random.randint(0, data_shape[0], sample_size)
+        col_indices = np.random.randint(0, data_shape[1], sample_size)
+        
+        indices = np.empty((image_size, image_size, 2), dtype=int)
+        
+        for k in range(sample_size):
+            i = k // image_size
+            j = k % image_size
+            reduced_data[i, j] = h5f[dataset_path][row_indices[k], col_indices[k]]
+            indices[i, j, 0] = row_indices[k]
+            indices[i, j, 1] = col_indices[k]
 

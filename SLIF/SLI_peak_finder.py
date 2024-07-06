@@ -1,6 +1,6 @@
 import numpy as np
 from numba import njit
-from utils import angle_distance, numba_insert, numba_unique, mean_angle
+from .utils import angle_distance, numba_insert, numba_unique, mean_angle
 from collections import namedtuple
 
 PeakFinderParams = namedtuple('PeakFinderParams', [

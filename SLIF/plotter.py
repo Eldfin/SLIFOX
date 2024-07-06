@@ -1,7 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from wrapped_distributions import distribution_pdf
+from .SLIF import full_fitfunction
+from .peaks_evaluator import calculate_peaks_gof
+from .wrapped_distributions import distribution_pdf
+from .utils import angle_distance
 
 def alternating_vline(x, ax=None, colors=['blue', 'red'], num_segments=100, **kwargs):
     if ax is None:
@@ -55,8 +58,8 @@ def plot_peaks_gof(peaks_gof, heights, mus, scales,
         plt.plot((x_f*180/np.pi) % 360, peak_y_f, marker='None', linestyle="--", color=color)
         plt.vlines((mus[k]*180/np.pi) % 360, 0, ymax , color = color)
 
-def plot_directions(peak_pairs, heights, scales, distribution):
-    for k, pair in enumerate(peak_pairs[i][j]):
+def plot_directions(peak_pairs, heights, mus, scales, distribution):
+    for k, pair in enumerate(peak_pairs):
         if pair[0] == -1 and pair[1] == -1: continue
         colors = []
         for index in pair:
@@ -86,8 +89,8 @@ def plot_directions(peak_pairs, heights, scales, distribution):
             alternating_vline(direction, colors=colors, num_segments=10)
             alternating_vline(direction + 180, colors=colors, num_segments=10)
 
-def show_pixel(intensities, best_parameters, peaks_mask, distribution):
-    angles = np.linspace(0, 2*np.pi, num=data.shape[2], endpoint=False)
+def show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distribution):
+    angles = np.linspace(0, 2*np.pi, num=len(intensities), endpoint=False)
 
     model_y = full_fitfunction(angles, best_parameters, distribution)
     peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
@@ -105,7 +108,7 @@ def show_pixel(intensities, best_parameters, peaks_mask, distribution):
     plot_peaks_gof(peaks_gof, heights, mus, scales, 
                             distribution, peaks_mask, angles, gof_weight = 1)
 
-    FitLine, = plt.plot(x_f*180/np.pi, y_f, marker='None', linestyle="-", color="white")
+    FitLine, = plt.plot(x_f*180/np.pi, y_f, marker='None', linestyle="-", color="black")
     plt.show()
 
 
@@ -145,7 +148,7 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, distrib
             plot_peaks_gof(peaks_gof, heights, mus, scales, 
                             distribution, peaks_mask, angles)
 
-            plot_directions(peak_pairs, heights, scales, distribution)
+            plot_directions(peak_pairs[i, j], heights, mus, scales, distribution)
 
             x_f = np.linspace(0, 2*np.pi, 2000, endpoint=False)
             y_f = full_fitfunction(x_f, params, distribution)
@@ -154,7 +157,7 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, distrib
 
             max_rows = len(str(data.shape[0] - 1)) 
             max_cols = len(str(data.shape[1] - 1))
-            if indices == None:
+            if indices is None:
                 x_str = f"{str(i):0{max_rows}d}"
                 y_str = f"{str(j):0{max_cols}d}"
             else:
@@ -164,7 +167,7 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, distrib
             if not os.path.exists(directory):
                 os.makedirs(directory)
 
-            plt.savefig(f"{directory}/{dataset_path}/x{x_str}y{y_str}.png")
+            plt.savefig(f"{directory}/x{x_str}y{y_str}.png")
             plt.clf()
             
 

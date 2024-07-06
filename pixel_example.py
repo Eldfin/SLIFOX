@@ -4,7 +4,7 @@ from SLIF import fit_pixel_stack, show_pixel
 from SLIF.signal_filters import apply_filter
 
 # Settings:
-filename = "SLI_Data.h5"
+filename = "/home/jyxus/workspace/SLIF alt/SLI_Data.h5"
 dataset_path = "pyramid/02"
 pixel = [1250, 734]
 distribution = "wrapped_cauchy"
@@ -36,4 +36,4 @@ print("Optimized parameters:", best_parameters)
 print("r_chi2: ", r_chi2)
 
 # Show the pixel
-show_pixel(intensities, best_parameters, peaks_mask, distribution)
+show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distribution)

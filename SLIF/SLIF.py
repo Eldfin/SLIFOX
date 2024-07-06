@@ -5,10 +5,10 @@ import pymp
 from numba import njit
 from fcmaes import bitecpp
 from time import time
-from signal_filters import apply_filter
-from wrapped_distributions import distribution_pdf
-from utils import angle_distance, calculate_chi2
-from SLI_peak_finder import find_peaks
+from .signal_filters import apply_filter
+from .wrapped_distributions import distribution_pdf
+from .utils import angle_distance, calculate_chi2
+from .SLI_peak_finder import find_peaks
 
 @njit(cache = True, fastmath = True)
 def objective(params, x, y, y_err, distribution):

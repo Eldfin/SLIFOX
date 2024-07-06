@@ -1,18 +1,18 @@
 import h5py
 import matplotlib.pyplot as plt
-from SLIF import fit_image_stack, calculate_peak_pairs, calculate_directions, pick_data, plot_pixels
+from SLIF import fit_image_stack, calculate_peak_pairs, calculate_directions, pick_data, plot_data_pixels
 
 # Settings
 dataset_path = "pyramid/00"
 distribution = "wrapped_cauchy"
-data_path = "input_p0_x(5500, 5650)_y(3000,3150).h5"
+data_path = "SLI_Data.h5"
 output_directory = ""
-output_filename = "output_p0_x(5500, 5650)_y(3000,3150).h5"
+output_filename = "output.h5"
 area = None
-random = 0
+randoms = 0
 
 # Pick the SLI measurement data
-data, indices = pick_data(data_path, dataset_path, area = None, randoms = 0)
+data, indices = pick_data(data_path, dataset_path, area = area, randoms = randoms)
 
 # Optional: Write the picked data array to a HDF5 file
 #with h5py.File("input.h5", "w") as h5f:
@@ -44,7 +44,9 @@ with h5py.File(output_directory + output_filename, "w") as h5f:
 peak_pairs = calculate_peak_pairs(data, output_params, output_peaks_mask, distribution)
 
 # Optional: Plot the picked data
-#plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, distribution, indices, directory = "plots")
+plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, distribution, indices, 
+                        directory = "plots")
 
-# Calculate the nerve fiber directions and save direction map in dictionary
-directions = calculate_directions(peak_pairs, output_mus, dictionary = "direction_maps")
+# Calculate the nerve fiber directions and save direction map in directory
+output_mus = output_params[:, :, 1::3]
+directions = calculate_directions(peak_pairs, output_mus, directory = "direction_maps")

@@ -5,14 +5,14 @@ import os
 # Settings
 dataset_path = "pyramid/00"
 distribution = "wrapped_cauchy"
-data_path = "input_p0_x(5500, 5650)_y(3000,3150).h5"
+data_path = "SLI_Data.h5"
 output_directory = ""
-output_filename = "output_p0_x(5500, 5650)_y(3000,3150).h5"
+output_filename = "output.h5"
 area = None
-random = 0
+randoms = 0
 
 # Pick the SLI measurement data
-data, indices = pick_data(data_path, dataset_path, area = None, randoms = 0)
+data, indices = pick_data(data_path, dataset_path, area = area, randoms = randoms)
 
 # Optional: Write the picked data array to a HDF5 file
 #with h5py.File("input.h5", "w") as h5f:
