@@ -29,7 +29,7 @@ pip install fcmaes, h5py, imageio, lmfit, matplotlib, numba, numpy, scipy, pympi
 ```python
 import h5py
 import matplotlib.pyplot as plt
-from SLIF import fit_image_stack, calculate_peak_pairs, calculate_directions, pick_data, plot_pixels
+from SLIF import fit_image_stack, calculate_peak_pairs, calculate_directions, pick_data, plot_data_pixels
 
 # Settings
 dataset_path = "pyramid/00"
