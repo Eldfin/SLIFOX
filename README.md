@@ -10,17 +10,34 @@ Finds the peaks in Scattered Light Imaging measurement data, fits a given distri
 
 ## Installation
 
+Installed Python version >= 3.12.5 is necessary.
+
 ### Clone the repository
 
 ```bash
 git clone https://github.com/Eldfin/SLIF.git
 ```
 
+### Create a virtual environment
+```bash
+cd SLIF
+python -m venv venv
+```
+
+### Activate the virtual environment
+* On Windows:
+```bash
+venv\Scripts\activate
+```
+* On macOS and Linux:
+```bash
+source venv/bin/activate
+```
+
 ### Dependencies
 Install the dependencies if necesarry.
 
 ```bash
-cd your-repository
 pip install fcmaes, h5py, imageio, lmfit, matplotlib, numba, numpy, scipy, pympi-pypi, PyQt5
 ```
 
