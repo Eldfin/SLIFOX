@@ -35,7 +35,7 @@ source venv/bin/activate
 ```
 
 ### Dependencies
-Install the dependencies if necesarry.
+Install the dependencies:
 
 ```bash
 pip install fcmaes, h5py, imageio, lmfit, matplotlib, numba, numpy, scipy, pympi-pypi, PyQt5
