@@ -21,24 +21,22 @@ git clone https://github.com/Eldfin/SLIF.git
 ### Create a virtual environment
 ```bash
 cd SLIF
-python -m venv venv
+python -m venv .venv
 ```
 
 ### Activate the virtual environment
 * On Windows:
 ```bash
-venv\Scripts\activate
+.venv\Scripts\activate
 ```
 * On macOS and Linux:
 ```bash
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
-### Dependencies
-Install the dependencies:
-
+### Install the SLIF package
 ```bash
-pip install fcmaes h5py imageio lmfit matplotlib numba numpy scipy pymp-pypi PyQt5
+pip install .
 ```
 
 ## Usage
