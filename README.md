@@ -1,5 +1,5 @@
 # SLIF
-Scattered Light Imaging Fitter
+Scattered Light Imaging Fitter  
 Finds the peaks in Scattered Light Imaging measurement data, fits a given distribution to this peaks and calculates the found nerve fiber directions.
 
 ## Table of Contents
