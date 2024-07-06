@@ -25,7 +25,7 @@ setup(
     install_requires=[  # List of dependencies
         "numpy>=1.19.5",
         "fcmaes>=1.6.5",
-        "h5py>="3.11.0",
+        "h5py>=3.11.0",
         "imageio>=2.34.1",
         "lmfit>=1.3.1",
         "matplotlib>=3.8.4",
