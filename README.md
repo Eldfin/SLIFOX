@@ -7,9 +7,6 @@ Finds the peaks in Scattered Light Imaging measurement data, fits a given distri
 - [Installation](#installation)
 - [Usage](#usage)
 - [Features](#features)
-- [Contributing](#contributing)
-- [License](#license)
-- [Contact](#contact)
 
 ## Installation
 
@@ -27,7 +24,8 @@ cd your-repository
 pip install fcmaes, h5py, imageio, lmfit, matplotlib, numba, numpy, scipy, pympi-pypi, PyQt5
 ```
 
-## Usage Example
+## Usage
+### Example
 ```python
 import h5py
 import matplotlib.pyplot as plt
@@ -81,6 +79,7 @@ peak_pairs = calculate_peak_pairs(data, output_params, output_peaks_mask, distri
 directions = calculate_directions(peak_pairs, output_mus, dictionary = "direction_maps")
 ```
 
+## Features
 
 
 
