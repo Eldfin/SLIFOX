@@ -1,6 +1,6 @@
 import numpy as np
 from numba import njit
-from .utils import angle_distance, numba_insert, numba_unique, mean_angle
+from .utils import angle_distance, numba_insert, numba_unique, mean_angle, set_diff
 from collections import namedtuple
 
 PeakFinderParams = namedtuple('PeakFinderParams', [
@@ -697,8 +697,8 @@ def _handle_extrema(angles, intensities, intensities_err, first_diff, params):
 @njit(cache = True, fastmath = True)
 def equalize_difference(angles, intensities, indices, indices_reverse, extrema_tolerance):
 
-    different_indices = np.setdiff1d(indices, indices_reverse)
-    different_indices_reverse = np.setdiff1d(indices_reverse, indices)
+    different_indices = set_diff(indices, indices_reverse)
+    different_indices_reverse = set_diff(indices_reverse, indices)
 
     for index in different_indices:
         # Find closest reverse index
@@ -721,9 +721,9 @@ def equalize_difference(angles, intensities, indices, indices_reverse, extrema_t
 
         if all_below:
             insert_index = np.searchsorted(indices, closest_reverse_index)
-            indices = np.insert(indices, insert_index, closest_reverse_index)
+            indices = numba_insert(indices, insert_index, closest_reverse_index)
             insert_index = np.searchsorted(indices_reverse, index)
-            indices_reverse = np.insert(indices_reverse, insert_index, index)
+            indices_reverse = numba_insert(indices_reverse, insert_index, index)
 
     return indices, indices_reverse
 
@@ -754,8 +754,6 @@ def _find_extremas_full(angles, intensities, first_diff, second_diff, params):
                                             local_maxima_reverse, extrema_tolerance)
     local_minima, local_minima_reverse = equalize_difference(angles, intensities, local_minima, 
                                             local_minima_reverse, extrema_tolerance)
-    turning_points, turning_points_reverse = equalize_difference(angles, intensities, turning_points,
-                                            turning_points_reverse, extrema_tolerance)
 
     # Pick extremas found independent from search direction
     local_maxima = np.intersect1d(local_maxima, local_maxima_reverse)

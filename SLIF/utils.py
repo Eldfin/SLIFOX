@@ -49,6 +49,22 @@ def numba_unique(arr):
     
     return np.array(unique_values), np.array(counts)
 
+# define function like numpy.setdiff1d for numba
+@njit(cache = True, fastmath = True)
+def set_diff(arr1, arr2):
+    # Create a boolean array to mark elements of arr1 that are not in arr2
+    mask = np.ones(arr1.shape, dtype=np.bool_)
+
+    for i in range(arr1.size):
+        for j in range(arr2.size):
+            if arr1[i] == arr2[j]:
+                mask[i] = False
+                break
+    
+    # Use the boolean mask to filter out the elements
+    result = arr1[mask]
+    return result
+
 @njit(cache=True, fastmath = True)
 def calculate_chi2(model_y, ydata, xdata, ydata_err, num_params):
     
