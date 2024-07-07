@@ -1,0 +1,17 @@
+build/
+SLIF.egg-info/
+venv/
+.venv/
+/*/__pycache__/
+.vscode/
+*/__pycache__
+*/*/__pycache__
+.coverage
+htmlcov/
+.pytest_cache
+notebooks/
+.vs
+*/*-checkpoint*
+*/.ipynb_checkpoints
+tools/
+scripts/
