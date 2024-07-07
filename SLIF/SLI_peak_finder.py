@@ -479,7 +479,8 @@ def _find_best_center(angles, current_angles, intensities, current_intensities,
             left_border = (mu_maximum - 1.5 * max_peak_hwhm) % (2 * np.pi)
             right_border = (mu_maximum + 1.5 * max_peak_hwhm) % (2 * np.pi)
 
-            left_border, right_border = _adjust_borders(left_border, right_border, 
+            left_border, right_border, index_left_min, index_right_min, \
+                left_minima_distances, right_minima_distances = _adjust_borders(left_border, right_border, 
                                 mu_maximum, local_minima_angles, angles, local_minima)
 
             if left_border < right_border:
@@ -491,27 +492,20 @@ def _find_best_center(angles, current_angles, intensities, current_intensities,
             peak_intensities = current_intensities[~ condition]
 
             if len(local_minima) > 0:
-                minima_distances = angle_distance(mu_maximum, local_minima_angles)
-                left_minima_distances = minima_distances[minima_distances < 0]
-                right_minima_distances = minima_distances[minima_distances > 0]
-                if len(left_minima_distances) > 0:
-                    index_left_min = local_minima[minima_distances == np.max(left_minima_distances)][0]
-                    left_min = angles[index_left_min]
-                    if left_min not in peak_angles and \
-                            np.abs(angle_distance(left_min, left_border)) <= angle_spacing:
+                left_min = angles[index_left_min]
+                right_min = angles[index_right_min]
+                if len(left_minima_distances) > 0 and left_min not in peak_angles:
+                    if np.abs(angle_distance(left_min, left_border)) <= angle_spacing:
                         insert_index = np.searchsorted(peak_angles, left_min)
                         peak_angles = numba_insert(peak_angles, insert_index, left_min)
-                        peak_intensities = numba_insert(peak_intensities, insert_index, 
-                                                        intensities[index_left_min])
-                if len(right_minima_distances) > 0:
-                    index_right_min = local_minima[minima_distances == np.max(right_minima_distances)][0]
-                    right_min = angles[index_right_min]
-                    if right_min not in peak_angles and \
-                            np.abs(angle_distance(right_min, right_border)) <= angle_spacing:
+                        peak_intensities = numba_insert(peak_intensities, 
+                                        insert_index, intensities[index_left_min])
+                if len(right_minima_distances) > 0 and right_min not in peak_angles:
+                    if np.abs(angle_distance(right_min, right_border)) <= angle_spacing:
                         insert_index = np.searchsorted(peak_angles, right_min)
                         peak_angles = numba_insert(peak_angles, insert_index, right_min)
                         peak_intensities = numba_insert(peak_intensities, insert_index, 
-                                                        intensities[index_right_min])
+                                        intensities[index_right_min])
 
             closest_left_border = left_border
             closest_right_border = right_border
@@ -650,7 +644,8 @@ def _adjust_borders(left_border, right_border, mu_maximum, local_minima_angles, 
             else:
                 closest_right_border = right_border
 
-    return closest_left_border, closest_right_border
+    return closest_left_border, closest_right_border, index_left_min, index_right_min, \
+                left_minima_distances, right_minima_distances
 
 @njit(cache = True, fastmath = True)
 def _handle_extrema(angles, intensities, intensities_err, first_diff, params):
@@ -773,7 +768,8 @@ def _find_peaks_from_extrema(angles, intensities, intensities_err, params):
 
         # Adjust borders to the closest local minima around the peak
 
-        closest_left_border, closest_right_border = _adjust_borders(left_border, right_border, 
+        closest_left_border, closest_right_border, index_left_min, index_right_min, \
+            left_minima_distances, right_minima_distances = _adjust_borders(left_border, right_border, 
                                                     mu_maximum, local_minima_angles, angles, local_minima)
 
         # Define condition for the angles exluding the peak angles
@@ -808,28 +804,19 @@ def _find_peaks_from_extrema(angles, intensities, intensities_err, params):
             # If a local minimum is neighbour of peak, append it to peak_angles
             # so that the local minima can be used by both neighbouring peaks
             if len(local_minima) > 0:
-                minima_distances = angle_distance(mu_maximum, local_minima_angles)
-                left_minima_distances = minima_distances[minima_distances < 0]
-                right_minima_distances = minima_distances[minima_distances > 0]
-                if len(left_minima_distances) > 0:
-                    index_left_min = local_minima[minima_distances == np.max(left_minima_distances)][0]
-                    left_min = angles[index_left_min]
-                    if left_min not in peak_angles and \
-                            np.abs(angle_distance(left_min, closest_left_border)) <= angle_spacing:
+                left_min = angles[index_left_min]
+                right_min = angles[index_right_min]
+                if len(left_minima_distances) > 0 and left_min not in peak_angles:
+                    if np.abs(angle_distance(left_min, closest_left_border)) <= angle_spacing:
                         insert_index = np.searchsorted(peak_angles, left_min)
                         peak_angles = numba_insert(peak_angles, insert_index, left_min)
-                        peak_intensities = numba_insert(peak_intensities, insert_index, 
-                                                        intensities[index_left_min])
-                if len(right_minima_distances) > 0:
-                    index_right_min = local_minima[minima_distances == np.max(right_minima_distances)][0]
-                    right_min = angles[index_right_min]
-                    if right_min not in peak_angles and \
-                            np.abs(angle_distance(right_min, closest_right_border)) <= angle_spacing:
+                        peak_intensities = numba_insert(peak_intensities, insert_index, intensities[index_left_min])
+                if len(right_minima_distances) > 0 and right_min not in peak_angles:
+                    if np.abs(angle_distance(right_min, closest_right_border)) <= angle_spacing:
                         insert_index = np.searchsorted(peak_angles, right_min)
                         peak_angles = numba_insert(peak_angles, insert_index, right_min)
-                        peak_intensities = numba_insert(peak_intensities, insert_index, 
-                                                        intensities[index_right_min])
-            
+                        peak_intensities = numba_insert(peak_intensities, insert_index, intensities[index_right_min])
+        
             relative_angles = angle_distance(mu_maximum, peak_angles)
             angles_left = peak_angles[relative_angles < 0]
             angles_right = peak_angles[relative_angles > 0]

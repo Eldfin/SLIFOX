@@ -4,7 +4,7 @@ from SLIF import fit_pixel_stack, show_pixel
 from SLIF.signal_filters import apply_filter
 
 # Settings:
-filename = "/home/jyxus/workspace/SLIF alt/SLI_Data.h5"
+filename = "SLI_Data.h5"
 dataset_path = "pyramid/02"
 pixel = [1250, 734]
 distribution = "wrapped_cauchy"

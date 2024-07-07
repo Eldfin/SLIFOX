@@ -32,7 +32,7 @@ output_params, output_peaks_mask = fit_image_stack(data, fit_height_nonlinear = 
 if output_directory != "" and not os.path.exists(output_directory):
     os.makedirs(output_directory)
 
-with h5py.File(output_directory + output_filename, "w") as h5f:
+with h5py.File(output_directory + "/" + output_filename, "w") as h5f:
     group = h5f.create_group(dataset_path)
     group.create_dataset("params", data=output_params)
     group.create_dataset("peaks_mask", data=output_peaks_mask)

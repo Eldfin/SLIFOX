@@ -105,10 +105,11 @@ def show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distri
     scales = best_parameters[2::3]
     mus = best_parameters[1::3]
 
+    FitLine, = plt.plot(x_f*180/np.pi, y_f, marker='None', linestyle="-", color="black")
+
     plot_peaks_gof(peaks_gof, heights, mus, scales, 
                             distribution, peaks_mask, angles, gof_weight = 1)
 
-    FitLine, = plt.plot(x_f*180/np.pi, y_f, marker='None', linestyle="-", color="black")
     plt.show()
 
 
@@ -145,6 +146,8 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, distrib
             plt.xlabel("Winkel")
             plt.ylabel("Intensität")
 
+            FitLine, = plt.plot(x_f*180/np.pi, y_f, marker='None', linestyle="-", color="black")
+
             plot_peaks_gof(peaks_gof, heights, mus, scales, 
                             distribution, peaks_mask, angles)
 
@@ -152,8 +155,6 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, distrib
 
             x_f = np.linspace(0, 2*np.pi, 2000, endpoint=False)
             y_f = full_fitfunction(x_f, params, distribution)
-
-            FitLine, = plt.plot(x_f*180/np.pi, y_f, marker='None', linestyle="-", color="black")
 
             max_rows = len(str(data.shape[0] - 1)) 
             max_cols = len(str(data.shape[1] - 1))
@@ -170,4 +171,3 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, distrib
             plt.savefig(f"{directory}/x{x_str}y{y_str}.png")
             plt.clf()
             
-
