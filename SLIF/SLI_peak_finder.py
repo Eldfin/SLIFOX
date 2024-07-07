@@ -446,12 +446,13 @@ def _find_hidden_peaks(local_maxima, local_minima, local_minima_angles, local_ma
 def _find_best_center(angles, current_angles, intensities, current_intensities,
                         peak_angles, peak_intensities, angles_left, index_maximum,
                         angles_right, intensities_left, intensities_right, angle_spacing, mu_maximum, 
-                        max_peak_hwhm, local_minima, local_minima_angles):
+                        max_peak_hwhm, local_minima, local_minima_angles, closest_left_border,
+                        closest_right_border):
     shortest_len = min(len(intensities_left), len(intensities_right))
     if shortest_len >= 2:
         # Find left/right values with lowest diff (most symmetric) and caculate best center
         # check diff also for neighbours (k)
-        lowest_diff = np.inf
+        lowest_diff = np.abs(intensities[index_maximum] - intensities[(index_maximum + 1) % len(angles)])
         for i in range(1, shortest_len + 1):
             for k in range(3):
                 if (i + k - 1) > shortest_len: break
@@ -694,6 +695,18 @@ def _handle_extrema(angles, intensities, intensities_err, first_diff, params):
             local_minima_angles, is_merged, is_hidden_peak
 
 @njit(cache = True, fastmath = True)
+def equalize_indices(intensities, indices, indices_reverse):
+    for i, index in enumerate(indices):
+        next_index = index + 1 % len(intensities)
+        last_index = index - 1 % len(intensities)
+        if intensities[index] == intensities[next_index] and next_index in indices_reverse:
+            indices[i] = next_index
+        elif intensities[index] == intensities[last_index] and last_index in indices_reverse:
+            indices[i] = last_index
+
+    return indices
+
+@njit(cache = True, fastmath = True)
 def _find_extremas_full(intensities, first_diff, second_diff, params):
 
     max_A = params.max_A
@@ -713,6 +726,11 @@ def _find_extremas_full(intensities, first_diff, second_diff, params):
                     _find_extremas(intensities, first_diff, second_diff, max_A, extrema_tolerance,
                     turning_point_tolerance, turning_point_tolerance_2, turning_point_tolerance_3,
                     reverse = True)
+
+    # if neighbouring intensities have the same value and are extrema, make index equal
+    local_maxima = equalize_indices(intensities, local_maxima, local_maxima_reverse)
+    local_minima = equalize_indices(intensities, local_minima, local_minima_reverse)
+    turning_points = equalize_indices(intensities, turning_points, turning_points_reverse)
 
     # Pick extremas found independent from search direction
     local_maxima = np.intersect1d(local_maxima, local_maxima_reverse)
@@ -839,7 +857,8 @@ def _find_peaks_from_extrema(angles, intensities, intensities_err, params):
                         closest_right_border = _find_best_center(angles, current_angles, intensities,
                         current_intensities, peak_angles, peak_intensities, angles_left, index_maximum,
                         angles_right, intensities_left, intensities_right, angle_spacing, mu_maximum, 
-                        max_peak_hwhm, local_minima, local_minima_angles)
+                        max_peak_hwhm, local_minima, local_minima_angles, closest_left_border,
+                        closest_right_border)
 
             is_peak[n] = _is_real_peak(angles, intensities, peak_angles, peak_intensities, intensities_left,
                 intensities_right, angles_left, angles_right, global_amplitude, 
