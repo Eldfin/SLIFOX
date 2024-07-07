@@ -695,19 +695,40 @@ def _handle_extrema(angles, intensities, intensities_err, first_diff, params):
             local_minima_angles, is_merged, is_hidden_peak
 
 @njit(cache = True, fastmath = True)
-def equalize_indices(intensities, indices, indices_reverse):
-    for i, index in enumerate(indices):
-        next_index = index + 1 % len(intensities)
-        last_index = index - 1 % len(intensities)
-        if intensities[index] == intensities[next_index] and next_index in indices_reverse:
-            indices[i] = next_index
-        elif intensities[index] == intensities[last_index] and last_index in indices_reverse:
-            indices[i] = last_index
+def equalize_difference(angles, intensities, indices, indices_reverse, extrema_tolerance):
 
-    return indices
+    different_indices = np.setdiff1d(indices, indices_reverse)
+    different_indices_reverse = np.setdiff1d(indices_reverse, indices)
+
+    for index in different_indices:
+        # Find closest reverse index
+        distances = np.abs(angle_distance(angles[index], angles[different_indices_reverse]))
+        closest_reverse_index = different_indices_reverse[np.argmin(distances)]
+
+        # If difference of intensities between both indices are all below tolerance
+        # append both indices (and they will be merged later)
+        direction = 1
+        if angle_distance(angles[index], angles[closest_reverse_index]) < 0:
+            direction = -1
+        all_below = True
+        for i in range(1, len(angles)):
+            next_index = (index + i * direction) % len(angles)
+            if np.abs(intensities[next_index] - intensities[index]) > extrema_tolerance:
+                all_below = False
+                break
+            if next_index == closest_reverse_index: 
+                break
+
+        if all_below:
+            insert_index = np.searchsorted(indices, closest_reverse_index)
+            indices = np.insert(indices, insert_index, closest_reverse_index)
+            insert_index = np.searchsorted(indices_reverse, index)
+            indices_reverse = np.insert(indices_reverse, insert_index, index)
+
+    return indices, indices_reverse
 
 @njit(cache = True, fastmath = True)
-def _find_extremas_full(intensities, first_diff, second_diff, params):
+def _find_extremas_full(angles, intensities, first_diff, second_diff, params):
 
     max_A = params.max_A
     extrema_tolerance = params.extrema_tolerance
@@ -727,10 +748,14 @@ def _find_extremas_full(intensities, first_diff, second_diff, params):
                     turning_point_tolerance, turning_point_tolerance_2, turning_point_tolerance_3,
                     reverse = True)
 
-    # if neighbouring intensities have the same value and are extrema, make index equal
-    local_maxima = equalize_indices(intensities, local_maxima, local_maxima_reverse)
-    local_minima = equalize_indices(intensities, local_minima, local_minima_reverse)
-    turning_points = equalize_indices(intensities, turning_points, turning_points_reverse)
+    # If difference of intensities between different indices are all below tolerance
+    # append both indices (and they will be merged later)
+    local_maxima, local_maxima_reverse = equalize_difference(angles, intensities, local_maxima, 
+                                            local_maxima_reverse, extrema_tolerance)
+    local_minima, local_minima_reverse = equalize_difference(angles, intensities, local_minima, 
+                                            local_minima_reverse, extrema_tolerance)
+    turning_points, turning_points_reverse = equalize_difference(angles, intensities, turning_points,
+                                            turning_points_reverse, extrema_tolerance)
 
     # Pick extremas found independent from search direction
     local_maxima = np.intersect1d(local_maxima, local_maxima_reverse)
@@ -958,7 +983,7 @@ def find_peaks(angles, intensities, intensities_err, max_found_peaks = 24, max_p
     )
 
     local_maxima, local_minima, turning_points, turning_points_directions = \
-                    _find_extremas_full(intensities, first_diff, second_diff, params)
+                    _find_extremas_full(angles, intensities, first_diff, second_diff, params)
 
     params = params._replace(
         local_maxima = local_maxima,
