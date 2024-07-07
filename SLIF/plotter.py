@@ -67,6 +67,8 @@ def plot_directions(peak_pairs, heights, mus, scales, distribution):
             elif index == 1: colors.append("red")
             elif index == 2: colors.append("green")
             elif index == 3: colors.append("brown")
+            elif index == 4: colors.append("purple")
+            elif index == 5: colors.append("orange")
 
         if len(colors) == 1:
             ax = plt.gca()
