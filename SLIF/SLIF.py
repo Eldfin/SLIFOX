@@ -456,6 +456,7 @@ def _format_time(hours, minutes, seconds):
     return ", ".join(parts) if parts else "0 seconds"
 
 def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_nonlinear = True,
+                    threshold = 1000,
                     n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 5,
                         refit_steps = 1, n_steps_fit = [3, 6], 
                         init_fit_filter = None, method = "leastsq", 
@@ -466,7 +467,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
 
     total_pixels = image_stack.shape[0]*image_stack.shape[1]
     flattened_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))
-    mask = np.mean(flattened_stack, axis = 1) > 1000
+    mask = np.mean(flattened_stack, axis = 1) > threshold
     mask_pixels, = mask.nonzero()
     num_params = 3 * max_peaks + 1
     output_params = pymp.shared.array((flattened_stack.shape[0], num_params), dtype='float')

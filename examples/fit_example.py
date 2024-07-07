@@ -22,6 +22,7 @@ data, indices = pick_data(data_path, dataset_path, area = area, randoms = random
 
 # Fit the picked data
 output_params, output_peaks_mask = fit_image_stack(data, fit_height_nonlinear = True, 
+                                threshold = 1000,
                                 n_steps_fit = 10, n_steps_height = 10, n_steps_mu = 10, 
                                 n_steps_scale = 10, refit_steps = 1, init_fit_filter = None, 
                                 method="leastsq")
