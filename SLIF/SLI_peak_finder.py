@@ -454,12 +454,13 @@ def _find_best_center(angles, current_angles, intensities, current_intensities,
         # check diff also for neighbours (k)
         right_index = (index_maximum + 1) % len(angles)
         lowest_diff = np.abs(intensities[index_maximum] - intensities[right_index])
-        best_left, best_right = index_maximum, right_index
+        best_left, best_right = angles[index_maximum], angles[right_index]
         for i in range(1, shortest_len + 1):
-            for k in range(3):
+            for k in range(4):
                 if (i + k - 1) > shortest_len: break
                 left_index = (index_maximum - i) % len(angles)
                 right_index = (index_maximum + i + k - 1) % len(angles)
+                if not (angles[right_index] in peak_angles): break
                 #if left_index == right_index: continue
                 diff_mirrow = np.abs(intensities[left_index] - intensities[right_index])
                 if diff_mirrow < lowest_diff:
