@@ -470,13 +470,13 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
     mask = np.mean(flattened_stack, axis = 1) > threshold
     mask_pixels, = mask.nonzero()
     num_params = 3 * max_peaks + 1
-    output_params = pymp.shared.array((flattened_stack.shape[0], num_params), dtype='float')
+    output_params = pymp.shared.array((flattened_stack.shape[0], num_params))
     output_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_peaks, image_stack.shape[2]), dtype=np.bool_)
     goals = np.array([len(mask_pixels) * (i+1)/num_processes for i in range(num_processes)])
-    statuses = pymp.shared.array(num_processes, dtype='float')
-    start_time = pymp.shared.array((1,), dtype='f')
-    process_started = pymp.shared.array((1,), dtype='b')
-    elapsed_time = pymp.shared.array((1,), dtype='f')
+    statuses = pymp.shared.array(num_processes)
+    start_time = pymp.shared.array((1,))
+    process_started = pymp.shared.array((1,), dtype=np.bool_)
+    elapsed_time = pymp.shared.array((1,))
     start_time[0] = 0
     process_started[0] = False
     elapsed_time[0] = 0
@@ -557,13 +557,13 @@ def find_image_peaks(image_stack, init_fit_filter = None, max_found_peaks = 24, 
     flattened_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))
     mask = np.mean(flattened_stack, axis = 1) > 1000
     mask_pixels, = mask.nonzero()
-    output_peaks_mus = pymp.shared.array((flattened_stack.shape[0], max_peaks), dtype='float')
+    output_peaks_mus = pymp.shared.array((flattened_stack.shape[0], max_peaks))
     output_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_peaks, image_stack.shape[2]), dtype=np.bool_)
     goals = np.array([len(mask_pixels) * (i+1)/num_processes for i in range(num_processes)])
-    statuses = pymp.shared.array(num_processes, dtype='float')
-    start_time = pymp.shared.array((1,), dtype='f')
-    process_started = pymp.shared.array((1,), dtype='b')
-    elapsed_time = pymp.shared.array((1,), dtype='f')
+    statuses = pymp.shared.array(num_processes)
+    start_time = pymp.shared.array((1,))
+    process_started = pymp.shared.array((1,), dtype=np.bool_)
+    elapsed_time = pymp.shared.array((1,))
     start_time[0] = 0
     process_started[0] = False
     elapsed_time[0] = 0
