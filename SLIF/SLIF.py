@@ -306,9 +306,9 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
                     peaks_mask, peaks_mus, mu_range, scale_range,
                     min_peak_hwhm, max_peak_hwhm, global_amplitude, min_int)
 
-    # if no peaks found return params of zeros, np.NAN as chi2, zeros as peaks_mask
+    # if no peaks found return params of zeros, np.nan as chi2, zeros as peaks_mask
     if np.all(bounds_max == 0):
-        return np.zeros(4), np.NAN, np.zeros((1, len(angles)), dtype = np.bool_)
+        return np.zeros(4), np.nan, np.zeros((1, len(angles)), dtype = np.bool_)
 
     if method == "biteopt":
         if not fit_height_nonlinear:
