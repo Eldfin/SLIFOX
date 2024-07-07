@@ -22,10 +22,10 @@ data, indices = pick_data(data_path, dataset_path, area = area, randoms = random
 
 # Fit the picked data
 output_params, output_peaks_mask = fit_image_stack(data, fit_height_nonlinear = True, 
-                                threshold = 1000,
+                                threshold = 1000, distribution = distribution,
                                 n_steps_fit = 10, n_steps_height = 10, n_steps_mu = 10, 
                                 n_steps_scale = 10, refit_steps = 1, init_fit_filter = None, 
-                                method="leastsq")
+                                method="leastsq", num_processes = 2)
 
 # Write the output to a HDF5 file
 if output_directory != "" and not os.path.exists(output_directory):
