@@ -15,3 +15,5 @@ notebooks/
 */.ipynb_checkpoints
 tools/
 scripts/
+plots/
+direction_maps/
