@@ -12,7 +12,7 @@ PeakFinderParams = namedtuple('PeakFinderParams', [
     'max_found_peaks', 'max_peaks'
 ])
 
-#@njit(cache = True, fastmath = True)
+@njit(cache = True, fastmath = True)
 def _find_extremas(intensities, first_diff, second_diff, max_A, extrema_tolerance,
                     turning_point_tolerance, turning_point_tolerance_2, turning_point_tolerance_3,
                     reverse = False):
@@ -116,7 +116,7 @@ def _find_extremas(intensities, first_diff, second_diff, max_A, extrema_toleranc
 
     return local_maxima, local_minima, turning_points, turning_points_directions
 
-#@njit(cache = True, fastmath = True)
+@njit(cache = True, fastmath = True)
 def _merge_maxima(local_maxima, local_minima, intensities, angles, local_maxima_angles, 
                     max_peak_hwhm, global_amplitude):
 
@@ -179,7 +179,7 @@ def _merge_maxima(local_maxima, local_minima, intensities, angles, local_maxima_
 
     return local_maxima, local_maxima_angles, local_minima
 
-#@njit(cache = True, fastmath = True)
+@njit(cache = True, fastmath = True)
 def _append_similar_minima(local_minima, local_maxima, turning_points, intensities, 
                             intensities_err, global_amplitude):
     for index_minimum in local_minima:
@@ -206,7 +206,7 @@ def _append_similar_minima(local_minima, local_maxima, turning_points, intensiti
 
     return local_minima
 
-#@njit(cache = True, fastmath = True)
+@njit(cache = True, fastmath = True)
 def _handle_turning_points(turning_points, turning_points_directions,
                             local_maxima, local_minima, local_maxima_angles, angles, 
                             intensities, first_diff, min_peak_hwhm, global_amplitude, mu_range):
@@ -328,7 +328,7 @@ def _handle_turning_points(turning_points, turning_points_directions,
 
     return local_minima, local_maxima, local_maxima_angles, is_merged, turning_points
 
-#@njit(cache = True, fastmath = True)
+@njit(cache = True, fastmath = True)
 def _find_hidden_peaks(local_maxima, local_minima, local_minima_angles, local_maxima_angles,
                         angles, intensities, first_diff, is_merged, 
                         max_peak_hwhm, max_A, global_amplitude):
@@ -442,7 +442,7 @@ def _find_hidden_peaks(local_maxima, local_minima, local_minima_angles, local_ma
 
     return local_maxima, local_maxima_angles, local_minima, local_minima_angles, is_merged, is_hidden_peak
 
-#@njit(cache = True, fastmath = True)
+@njit(cache = True, fastmath = True)
 def _find_best_center(angles, current_angles, intensities, current_intensities,
                         peak_angles, peak_intensities, angles_left, index_maximum,
                         angles_right, intensities_left, intensities_right, angle_spacing, mu_maximum, 
@@ -521,7 +521,7 @@ def _find_best_center(angles, current_angles, intensities, current_intensities,
     return mu_maximum, peak_angles, peak_intensities, angles_left, \
             angles_right, intensities_left, intensities_right, closest_left_border, closest_right_border
 
-#@njit(cache = True, fastmath = True)
+@njit(cache = True, fastmath = True)
 def _is_real_peak(angles, intensities, peak_angles, peak_intensities, intensities_left,
                 intensities_right, angles_left, angles_right, global_amplitude, 
                     local_max_int, intensities_err, extrema_tolerance, index_maximum,
@@ -618,7 +618,7 @@ def _is_real_peak(angles, intensities, peak_angles, peak_intensities, intensitie
 
     return is_peak
     
-#@njit(cache = True, fastmath = True)
+@njit(cache = True, fastmath = True)
 def _adjust_borders(left_border, right_border, mu_maximum, local_minima_angles, angles, local_minima):
     if len(local_minima) == 0:
         closest_left_border = left_border
@@ -650,7 +650,7 @@ def _adjust_borders(left_border, right_border, mu_maximum, local_minima_angles, 
     return closest_left_border, closest_right_border, index_left_min, index_right_min, \
                 left_minima_distances, right_minima_distances
 
-#@njit(cache = True, fastmath = True)
+@njit(cache = True, fastmath = True)
 def _handle_extrema(angles, intensities, intensities_err, first_diff, params):
 
     local_maxima = params.local_maxima
@@ -696,7 +696,7 @@ def _handle_extrema(angles, intensities, intensities_err, first_diff, params):
     return local_maxima, local_minima, turning_points, local_maxima_angles, \
             local_minima_angles, is_merged, is_hidden_peak
 
-#@njit(cache = True, fastmath = True)
+@njit(cache = True, fastmath = True)
 def equalize_difference(angles, intensities, indices, indices_reverse, extrema_tolerance):
 
     different_indices = set_diff(indices, indices_reverse)
@@ -730,7 +730,7 @@ def equalize_difference(angles, intensities, indices, indices_reverse, extrema_t
 
     return indices, indices_reverse
 
-#@njit(cache = True, fastmath = True)
+@njit(cache = True, fastmath = True)
 def _find_extremas_full(angles, intensities, first_diff, second_diff, params):
 
     max_A = params.max_A
@@ -766,7 +766,7 @@ def _find_extremas_full(angles, intensities, first_diff, second_diff, params):
 
     return local_maxima, local_minima, turning_points, turning_points_directions
 
-#@njit(cache = True, fastmath = True)
+@njit(cache = True, fastmath = True)
 def _find_peaks_from_extrema(angles, intensities, intensities_err, params):
     peaks_found = 0
     angle_spacing = 2 * np.pi / len(angles)
