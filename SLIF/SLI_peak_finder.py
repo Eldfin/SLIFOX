@@ -747,8 +747,9 @@ def _find_extremas_full(angles, intensities, first_diff, second_diff, params):
                     reverse = False)
 
     # Find extremas starting from right
-    local_maxima_reverse, local_minima_reverse, turning_points_reverse, turning_points_directions = \
-                    _find_extremas(intensities, first_diff, second_diff, max_A, extrema_tolerance,
+    local_maxima_reverse, local_minima_reverse, turning_points_reverse, \
+    turning_points_directions_reverse = _find_extremas(intensities, first_diff, 
+                    second_diff, max_A, extrema_tolerance,
                     turning_point_tolerance, turning_point_tolerance_2, turning_point_tolerance_3,
                     reverse = True)
 
@@ -762,8 +763,26 @@ def _find_extremas_full(angles, intensities, first_diff, second_diff, params):
     # Pick extremas found independent from search direction
     local_maxima = np.intersect1d(local_maxima, local_maxima_reverse)
     local_minima = np.intersect1d(local_minima, local_minima_reverse)
-    turning_points = np.intersect1d(turning_points, turning_points_reverse)
-    turning_points_directions = turning_points_directions[turning_points]
+
+    #turning_points = np.concatenate((turning_points, turning_points_reverse))
+    #unique_turning_points = numba_unique(turning_points)[0]
+
+    tps = np.zeros(len(angles), dtype=np.bool_)
+    tp_directions = np.zeros(len(angles), dtype=np.int64)
+    for i in range(len(angles)):
+        if turning_points_directions[i] != 0 and turning_points_directions_reverse[i] == 0:
+            tps[i] = True
+            tp_directions[i] = turning_points_directions[i]
+        elif turning_points_directions[i] == 0 and turning_points_directions_reverse[i] != 0:
+            tps[i] = True
+            tp_directions[i] = turning_points_directions_reverse[i]
+        elif turning_points_directions[i] != 0 and turning_points_directions_reverse[i] != 0 \
+                and turning_points_directions[i] == turning_points_directions_reverse[i]:
+            tps[i] = True
+            tp_directions[i] = turning_points_directions[i]   
+
+    turning_points = tps.nonzero()[0]
+    turning_points_directions = tp_directions[tp_directions != 0]
 
     return local_maxima, local_minima, turning_points, turning_points_directions
 
