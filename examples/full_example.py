@@ -9,8 +9,8 @@ distribution = "wrapped_cauchy"
 data_path = "SLI_Data.h5"
 output_directory = ""
 output_filename = "output.h5"
-area = None
-randoms = 0
+area = None  # [x_left, x_right, y_top, y_bot]
+randoms = 0 # number of random pixels to pick from data (0 equals full data)
 
 # Pick the SLI measurement data
 data, indices = pick_data(data_path, dataset_path, area = area, randoms = randoms)

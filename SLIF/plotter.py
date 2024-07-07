@@ -146,15 +146,14 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, distrib
             plt.xlabel("Winkel")
             plt.ylabel("Intensität")
 
+            x_f = np.linspace(0, 2*np.pi, 2000, endpoint=False)
+            y_f = full_fitfunction(x_f, params, distribution)
             FitLine, = plt.plot(x_f*180/np.pi, y_f, marker='None', linestyle="-", color="black")
 
             plot_peaks_gof(peaks_gof, heights, mus, scales, 
                             distribution, peaks_mask, angles)
 
             plot_directions(peak_pairs[i, j], heights, mus, scales, distribution)
-
-            x_f = np.linspace(0, 2*np.pi, 2000, endpoint=False)
-            y_f = full_fitfunction(x_f, params, distribution)
 
             max_rows = len(str(data.shape[0] - 1)) 
             max_cols = len(str(data.shape[1] - 1))
