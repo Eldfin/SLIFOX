@@ -7,6 +7,9 @@ from .wrapped_distributions import distribution_pdf
 from .utils import angle_distance
 
 def alternating_vline(x, ax=None, colors=['blue', 'red'], num_segments=100, **kwargs):
+    """
+    Plots a vline at position x with alternating colors.
+    """
     if ax is None:
         ax = plt.gca()
     
@@ -18,6 +21,22 @@ def alternating_vline(x, ax=None, colors=['blue', 'red'], num_segments=100, **kw
 
 def plot_peaks_gof(peaks_gof, heights, mus, scales, 
                         distribution, peaks_mask, angles, gof_weight = 1):
+    """
+    Visualizes the goodnes-of-fit with the amplitudes of the peaks in the current plot.
+
+    Parameters:
+    - peaks_gof: np.ndarray (n_peaks, )
+        The goodness of fit values for both peaks.
+    - peaks_mask: np.ndarray (n_peaks, m)
+        The mask array defining which of the m measurements of the pixel corresponds to a peak.
+    - amplitudes: np.ndarray (n_peaks, )
+        The amplitudes of the peaks.
+    - angles: np.ndarray (m, )
+        The angles at which the intensities of the pixel are measured.
+    - gof_weight: float
+        The weight of the goodnes-of-fit ranging from 0 to 1.
+    """
+    
     for k, gof in enumerate(peaks_gof):
         if k == 0: color = "blue"
         elif k == 1: color = "red"
@@ -59,6 +78,21 @@ def plot_peaks_gof(peaks_gof, heights, mus, scales,
         plt.vlines((mus[k]*180/np.pi) % 360, 0, ymax , color = color)
 
 def plot_directions(peak_pairs, heights, mus, scales, distribution):
+    """
+    Plots the found directions (peak pairs) in the current plot.
+
+    Parameters:
+    - peaks_pairs: np.ndarray (3, 2)
+        The array containing the number of peaks that are paired (max 3 pairings and 2 peaks per pair).
+    - heights: np.ndarray (n_peaks, )
+        The heights of the peaks
+    - mus: np.ndarray (n_peaks, )
+        The mus (centers) of the peaks.
+    - scales: np.ndarray (n_peaks, )
+        The scale factors of the peaks.
+    - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
+        The name of the distribution.
+    """
     for k, pair in enumerate(peak_pairs):
         if pair[0] == -1 and pair[1] == -1: continue
         colors = []
@@ -92,6 +126,21 @@ def plot_directions(peak_pairs, heights, mus, scales, distribution):
             alternating_vline(direction + 180, colors=colors, num_segments=10)
 
 def show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distribution):
+    """
+    Plots and shows the intensity profile of a pixel.
+
+    Parameters:
+    - intensities: np.ndarray (n, )
+        The measured intensities of the pixel.
+    - intensities_err: np.ndarray (n, )
+        The errors (standard deviation) of the measured intensities.
+    - best_parameters: np.ndarray (m, )
+        The found best parameters of the full fitfunction from the fitting process.
+    - peaks_mask: np.ndarray (n_peaks, n)
+        The mask array defining which intensities corresponds to which peak.
+    - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
+        The name of the distribution.
+    """
     angles = np.linspace(0, 2*np.pi, num=len(intensities), endpoint=False)
 
     model_y = full_fitfunction(angles, best_parameters, distribution)
@@ -115,8 +164,35 @@ def show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distri
     plt.show()
 
 
-def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, distribution, indices = None,
+def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, 
+                distribution = "wrapped_cauchy", indices = None,
                 directory = "plots"):
+    """
+    Plots all the intensity profiles of the pixels of given data.
+
+    Parameters:
+    - data: np.ndarray (n, m, p)
+        The image stack containing the measured intensities.
+        n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
+    - output_params: np.ndarray (n, m, q)
+        The output of fitting the image stack, which stores the parameters of the full fitfunction.
+        q = 3 * n_peaks + 1, is the number of parameters (max 19 for 6 peaks).
+    - output_peaks_mask: np.ndarray (n, m, n_peaks, p)
+        The mask defining which of the p-measurements corresponds to one of the peaks.
+        The first two dimensions are the image dimensions.
+    - peak_pairs: np.ndarray (n, m, 3, 2)
+        The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
+        a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
+        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+        The first two dimensions are the image dimensions.
+    - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
+        The name of the distribution.
+    - indices: np.ndarray (n, m, 2)
+        The array storing the x- and y-coordinate of one pixel (if plotted data != full data).
+    - directory: string
+        The directory path where the plots should be written to.
+    """
+
     angles = np.linspace(0, 2*np.pi, num=data.shape[2], endpoint=False)
 
     for i in range(data.shape[0]):

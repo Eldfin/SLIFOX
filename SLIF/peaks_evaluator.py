@@ -7,12 +7,25 @@ from collections import deque
 import os
 import imageio
 
-similarity_weights = [1, 1]
-dataset_path = "pyramid/00"
-distribution = "wrapped_cauchy"
-
 @njit(cache = True, fastmath = True)
 def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "nrmse"):
+    """
+    Calculate the goodness-of-fit for given peaks.
+
+    Parameters:
+    - intensities: np.ndarray (n, )
+        The measured intensities (y-data) from SLI with n-measurements of one pixel.
+    - model_y: np.ndarray (n, )
+        The fitted (model) intensities with n-measurements of one pixel
+    - peaks_mask: np.ndarray (m, n)
+        m is the number of peaks.
+        The mask defining which of the n-measurements corresponds to one of the m-peaks.
+
+    Returns:
+    - peaks_gof: np.ndarray (m, )
+        The goodness-of-fit values, one value for each of the m-peaks
+    """
+
     number_of_peaks = len(peaks_mask)
     if number_of_peaks == 0:
         return np.zeros(1)
@@ -49,8 +62,21 @@ def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "nrmse"):
 
     return peaks_gof
 
-
 def _find_closest_true_pixel(mask, start_pixel):
+    """
+    Finds the closest true pixel for a given 2d-mask and a start_pixel.
+
+    Parameters:
+    - mask: np.ndarray (n, m)
+        The boolean mask defining which pixels are False or True.
+    - start_pixel: tuple
+        The x- and y-coordinates of the start_pixel.
+
+    Returns:
+    - closest_true_pixel: tuple
+        The x- and y-coordinates of the closest true pixel.
+    """
+
     rows, cols = mask.shape
     visited = np.zeros_like(mask, dtype=bool)
     queue = deque([start_pixel])
@@ -72,6 +98,29 @@ def _find_closest_true_pixel(mask, start_pixel):
     return (-1, -1)
 
 def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution):
+    """
+    Calculates all the peak_pairs for a whole image stack.
+
+    Parameters:
+    - data: np.ndarray (n, m, p)
+        The image stack containing the measured intensities.
+        n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
+    - output_params: np.ndarray (n, m, q)
+        The output of fitting the image stack, which stores the parameters of the full fitfunction.
+        q = 3 * n_peaks + 1, is the number of parameters (max 19 for 6 peaks).
+    - output_peaks_mask: np.ndarray (n, m, n_peaks, p)
+        The mask defining which of the p-measurements corresponds to one of the peaks.
+        The first two dimensions are the image dimensions.
+    - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
+        The name of the distribution.
+
+    Returns:
+    - peak_pairs: np.ndarray (n, m, 3, 2)
+        The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
+        a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
+        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+        The first two dimensions are the image dimensions.
+    """
 
     output_heights = output_params[:, :, 0:-1:3]
     output_mus = output_params[:, :, 1::3]
@@ -88,7 +137,7 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution):
                     output_amplitudes[i][j][k] = output_heights[i][j][k] / (np.pi * output_scales[i][j][k])
 
     #directions = np.full((output_mus.shape[0], output_mus.shape[1], 2), -1, dtype=np.float64)
-    peak_pairs = np.full((output_mus.shape[0], output_mus.shape[1], 2, 2), -1, dtype=np.int64)
+    peak_pairs = np.full((output_mus.shape[0], output_mus.shape[1], 3, 2), -1, dtype=np.int64)
 
     # First calculate for one and two peak pixels, then 3, then 4:
     for p in range(2, 5):
@@ -140,7 +189,7 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution):
                     #distance = angle_distance(mus[0], mus[1])
                     #directions[i][j][0] = (mus[0] + distance / 2) % (np.pi)
                     continue
-                elif num_sig_peaks == 3 or num_sig_peaks == 4:
+                elif num_sig_peaks >= 3:
                     # Get closest pixel with defined direction
 
                     # Create mask of pixels where at least 2 peaks are paired
@@ -187,9 +236,30 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution):
     return peak_pairs
 
 def calculate_directions(peak_pairs, output_mus, directory = None):
+    """
+    Calculates the directions from given peak_pairs.
+
+    Parameters:
+    - peak_pairs: np.ndarray (n, m, 3, 2)
+        The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
+        a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
+        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+        The first two dimensions are the image dimensions.
+    - output_mus: np.ndarray (n, m, n_peaks)
+        The mus (centers) of the found (n_peaks) peaks for everyone of the (n * m) pixels.
+    - directory: string
+        The directory path defining where direction images should be writen to.
+        If None, no images will be writen.
+
+    Returns:
+    - directions: (n, m, 3)
+        The calculated directions for everyoe of the (n * m) pixels.
+        Max 3 directions (for 6 peaks).
+    """
+
     x_range = peak_pairs.shape[0]
     y_range = peak_pairs.shape[1]
-    directions = np.full((x_range, y_range, 2), -1, dtype=np.float64)
+    directions = np.full((x_range, y_range, 3), -1, dtype=np.float64)
     for x in range(x_range):
         for y in range(y_range):
             mus = output_mus[x][y]
@@ -217,6 +287,25 @@ def calculate_directions(peak_pairs, output_mus, directory = None):
     return directions
 
 def direction_significance(peak_pair, peaks_gof, amplitudes, intensities, weights = [1, 1]):
+    """
+    Calculates the significance of one direction for one pixel.
+
+    Parameters:
+    - peak_pair: np.ndarray (2, )
+        The peak pair containing both number of peaks (e.g. [1, 3], for peak number 1 and 3 beeing paired).
+    - peaks_gof: np.ndarray (2, )
+        The goodness of fit values for both peaks.
+    - amplitudes: np.ndarray (2, )
+        The amplitudes of the peaks.
+    - intensities: np.ndarray (n, )
+        The measured intensities of the pixel.
+    - weights: array (2, )
+        The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
+
+    Returns:
+    - significance: float
+        The calculated significance ranging from 0 to 1.
+    """
     global_amplitude = np.max(intensities) - np.min(intensities)
     amplitude_significance = np.mean(amplitudes / global_amplitude)
     gof_significance = np.mean(peaks_gof)

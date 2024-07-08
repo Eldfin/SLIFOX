@@ -20,14 +20,6 @@ def wrapped_cauchy_pdf(x, mu, scale):
     mu = mu % (2 * np.pi)
 
     pdf = 1 / (2*np.pi) * np.sinh(scale) / (np.cosh(scale) - np.cos(x - mu))
-
-    """
-    with warnings.catch_warnings(record=True) as w:
-        pdf = 1 / (2*np.pi) * np.sinh(scale) / (np.cosh(scale) - np.cos(x - mu))
-        if len(w) > 0:
-            print("Warning on value:")
-            print(np.cosh(scale), scale)
-    """
     
     return pdf
 
@@ -44,6 +36,17 @@ def bessel_i0(scale):
 
 @njit(cache = True, fastmath = True)
 def von_mises_pdf(x, mu, scale):
+    """
+    Calculate the PDF of a von-mises distribution.
+
+    Parameters:
+    - x: np.array, the angles (in radians) at which to evaluate the PDF.
+    - mu: float, the location parameter of the distribution, corresponding to the peak (peak position).
+    - scale: float, the scale parameter of the distribution (peak width).
+    
+    Returns:
+    - pdf: np.array, the PDF values corresponding to x.
+    """
   
     # wrap x and mu angles
     x = x % (2 * np.pi)
@@ -55,15 +58,15 @@ def von_mises_pdf(x, mu, scale):
 @njit(cache = True, fastmath = True)
 def wrapped_laplace_pdf(x, mu, scale):
     """
-    Compute the probability density function (PDF) of the wrapped Laplace distribution.
-    
+    Calculate the PDF of a wrapped laplace distribution.
+
     Parameters:
-        x (float or numpy array): Value(s) at which to evaluate the PDF.
-        mu (float): Mean of the wrapped Laplace distribution.
-        scale (float): Scale parameter of the wrapped Laplace distribution.
-        
+    - x: np.array, the angles (in radians) at which to evaluate the PDF.
+    - mu: float, the location parameter of the distribution, corresponding to the peak (peak position).
+    - scale: float, the scale parameter of the distribution (peak width).
+    
     Returns:
-        float or numpy array: PDF value(s) corresponding to the input value(s) x.
+    - pdf: np.array, the PDF values corresponding to x.
     """
 
     # wrap x and mu angles
@@ -79,6 +82,19 @@ def wrapped_laplace_pdf(x, mu, scale):
 
 @njit(cache = True, fastmath = True)
 def distribution_pdf(x, mu, scale, distribution):
+    """
+    Calculate the PDF of a given distribution.
+
+    Parameters:
+    - x: np.array, the angles (in radians) at which to evaluate the PDF.
+    - mu: float, the location parameter of the distribution, corresponding to the peak (peak position).
+    - scale: float, the scale parameter of the distribution (peak width).
+    - distribution: "wrapped_cauchy", "von_mises", or "wrapped_laplace", the name of the distribution.
+    
+    Returns:
+    - pdf: np.array, the PDF values corresponding to x.
+    """
+    
     if distribution == "wrapped_cauchy":
         return wrapped_cauchy_pdf(x, mu, scale)
     elif distribution == "von_mises":

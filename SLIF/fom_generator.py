@@ -14,7 +14,7 @@ class Colormap:
         hsv_stack = np.moveaxis(hsv_stack, 0, -1)
         return np.clip(hsv_to_rgb(hsv_stack), 0, 1)
 
-def merge_direction_images(direction_files):
+def _merge_direction_images(direction_files):
     direction_image = None
     for direction_file in direction_files:
         single_direction_image = io.imread(direction_file)
@@ -178,7 +178,7 @@ def color_bubble(colormap, offset=0, shape=(1000, 1000, 3)):
 
 def write_fom(args, direction_files, output_path):
     
-    direction_image = merge_direction_images(direction_files)
+    direction_image = _merge_direction_images(direction_files)
 
     rgb_fom = create_fom(direction_image)
     io.imwrite_rgb(f"{output_path}/fom.tiff", rgb_fom)
