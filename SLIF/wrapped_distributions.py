@@ -7,12 +7,16 @@ def wrapped_cauchy_pdf(x, mu, scale):
     Calculate the PDF of a wrapped Cauchy distribution.
 
     Parameters:
-    - x: np.array, the angles (in radians) at which to evaluate the PDF.
-    - mu: float, the location parameter of the distribution, corresponding to the peak (peak position).
-    - scale: float, the scale parameter of the distribution (peak width).
+    - x: np.ndarray (n, )
+        The angles (in radians) at which to evaluate the PDF.
+    - mu: float
+        The location parameter of the distribution, corresponding to the peak (peak position).
+    - scale: float
+        The scale parameter of the distribution (peak width).
     
     Returns:
-    - pdf: np.array, the PDF values corresponding to x.
+    - pdf: np.ndarray (n, )
+        The PDF values corresponding to x.
     """
 
     # wrap x and mu angles
@@ -40,12 +44,16 @@ def von_mises_pdf(x, mu, scale):
     Calculate the PDF of a von-mises distribution.
 
     Parameters:
-    - x: np.array, the angles (in radians) at which to evaluate the PDF.
-    - mu: float, the location parameter of the distribution, corresponding to the peak (peak position).
-    - scale: float, the scale parameter of the distribution (peak width).
+    - x: np.ndarray (n, )
+        The angles (in radians) at which to evaluate the PDF.
+    - mu: float
+        The location parameter of the distribution, corresponding to the peak (peak position).
+    - scale: float 
+        The scale parameter of the distribution (peak width).
     
     Returns:
-    - pdf: np.array, the PDF values corresponding to x.
+    - pdf: np.ndarray (n, )
+        The PDF values corresponding to x.
     """
   
     # wrap x and mu angles
@@ -61,12 +69,16 @@ def wrapped_laplace_pdf(x, mu, scale):
     Calculate the PDF of a wrapped laplace distribution.
 
     Parameters:
-    - x: np.array, the angles (in radians) at which to evaluate the PDF.
-    - mu: float, the location parameter of the distribution, corresponding to the peak (peak position).
-    - scale: float, the scale parameter of the distribution (peak width).
+    - x: np.ndarray (n, )
+        The angles (in radians) at which to evaluate the PDF.
+    - mu: float
+        The location parameter of the distribution, corresponding to the peak (peak position).
+    - scale: float 
+        The scale parameter of the distribution (peak width).
     
     Returns:
-    - pdf: np.array, the PDF values corresponding to x.
+    - pdf: np.ndarray (n, )
+        The PDF values corresponding to x.
     """
 
     # wrap x and mu angles
@@ -86,15 +98,20 @@ def distribution_pdf(x, mu, scale, distribution):
     Calculate the PDF of a given distribution.
 
     Parameters:
-    - x: np.array, the angles (in radians) at which to evaluate the PDF.
-    - mu: float, the location parameter of the distribution, corresponding to the peak (peak position).
-    - scale: float, the scale parameter of the distribution (peak width).
-    - distribution: "wrapped_cauchy", "von_mises", or "wrapped_laplace", the name of the distribution.
+    - x: np.ndarray (n, )
+        The angles (in radians) at which to evaluate the PDF.
+    - mu: float
+        The location parameter of the distribution, corresponding to the peak (peak position).
+    - scale: float 
+        The scale parameter of the distribution (peak width).
+    - distribution: "wrapped_cauchy", "von_mises", or "wrapped_laplace"
+        The name of the distribution.
     
     Returns:
-    - pdf: np.array, the PDF values corresponding to x.
+    - pdf: np.ndarray (n, )
+        The PDF values corresponding to x.
     """
-    
+
     if distribution == "wrapped_cauchy":
         return wrapped_cauchy_pdf(x, mu, scale)
     elif distribution == "von_mises":

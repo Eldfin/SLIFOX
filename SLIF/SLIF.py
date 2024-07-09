@@ -11,7 +11,26 @@ from .utils import angle_distance, calculate_chi2
 from .SLI_peak_finder import find_peaks
 
 @njit(cache = True, fastmath = True)
-def objective(params, x, y, y_err, distribution):
+def _objective(params, x, y, y_err, distribution):
+    """
+    The objective function to minimize (for the biteopt method)
+
+    Parameters:
+    - params: np.ndarray (m, )
+        The params for the fitfunction
+    - x: np.ndarray (n, )
+        The x-data (angles in radians) for the fitfunction.
+    - y: np.ndarray (n, )
+        The (measured) y-data.
+    - y_err: np.ndarray (n, )
+        The error (standard deviation) of the y-data.
+    - distribution: "wrapped_cauchy", "von_mises", or "wrapped_laplace"
+        The name of the distribution.
+    
+    Returns:
+    - res: float
+        The sum of the squared residuals
+    """
     model = full_fitfunction(x, params, distribution)
     residuals = (y - model) / y_err
     return np.sum(residuals**2)
@@ -23,14 +42,15 @@ def full_fitfunction(x, params, distribution = "wrapped_cauchy"):
 
     Parameters
     ----------
-    x : ndarray (m, ), angles (in radians)
-    params : ndarray (3 * n+1, ), the array of params (I, mu, scale) per peak + A (underground)
-             count of params not zero define the number of peaks n
+    - x: np.ndarray (n, )
+        The angles (in radians)
+    - params: np.ndarray (3 * n_peaks + 1, )
+        The array of params: (I, mu, scale) per peak + A (underground)
 
     Returns
     -------
-    res : ndarray (m, )
-        predicted light intensities at all positions of x
+    - res: np.ndarray (n, )
+        Intensities of the model at all positions of x
     """
 
     y = np.full_like(x, params[-1])
@@ -42,7 +62,8 @@ def full_fitfunction(x, params, distribution = "wrapped_cauchy"):
                                            
     return y
 
-def lmfit_fitfunction(x, **params):
+def _lmfit_fitfunction(x, **params):
+    # wrapper of the fitfunction for lmfit
 
     # First parameter name is the distribution name
     distribution = next(iter(params))
@@ -53,6 +74,29 @@ def lmfit_fitfunction(x, **params):
 
 @njit(cache = True, fastmath = True)
 def _calculate_scale_bounds(distribution, min_peak_hwhm, max_peak_hwhm, hwhm, scale_range):
+    """
+    Calculates the bounds for the scale parameter. 
+
+    Parameters
+    ----------
+    - distribution: "wrapped_cauchy", "von_mises", or "wrapped_laplace"
+        The name of the distribution.
+    - min_peak_hwhm: float
+        Estimated minimum peak half width at half maximum.
+    - max_peak_hwhm: float
+        Estimated maximum peak half width at half maximum.
+    - hwhm: float
+        The measured hwhm.
+    - scale_range: float
+        Range of scale (regarding estimated maximum and minimum bounds around true scale).
+
+    Returns
+    -------
+    - min_scale: float
+        Minimum bound for the scale parameter.
+    - max_scale: float
+        Maximum bound for the scale parameter.
+    """
 
     if distribution == "wrapped_cauchy":
         # hwhm = scale (=: gamma)
@@ -95,6 +139,43 @@ def _calculate_scale_bounds(distribution, min_peak_hwhm, max_peak_hwhm, hwhm, sc
 def create_bounds(angles, intensities, intensities_err, distribution, 
                     peaks_mask, peaks_mus, mu_range, scale_range,
                     min_peak_hwhm, max_peak_hwhm, global_amplitude, min_int):
+    """
+    Create the bounds for the fitting parameters. 
+
+    Parameters
+    ----------
+    - angles: np.ndarray (n, )
+        Array that stores the angles at which the intensities are measured.
+    - intensities: np.ndarray (n, )
+        The measured intensities of the pixel.
+    - intensities_err: np.ndarray (n, )
+        The error (standard deviation) of the corresponding measured intensities of the pixel.
+    - distribution: "wrapped_cauchy", "von_mises", or "wrapped_laplace"
+        The name of the distribution.
+    - peaks_mask: np.ndarray (n_peaks, n)
+        Array that stores the indices of the measurements that are local minima.
+    - peaks_mus: np.ndarray (n_peaks, )
+        Array that stores the angles of the centers (mus) of the peaks.
+    - mu_range: float
+        Range of mu (regarding estimated maximum and minimum bounds around true mu).
+    - scale_range: float
+        Range of scale (regarding estimated maximum and minimum bounds around true scale).
+    - min_peak_hwhm: float
+        Estimated minimum peak half width at half maximum.
+    - max_peak_hwhm: float
+        Estimated maximum peak half width at half maximum.
+    - global_amplitude: float
+        The difference between the maximum and minimum intensity of the pixel.
+    - min_int: float
+        The minimum of the measured intensities.
+    
+    Returns
+    -------
+    - bounds_min: np.ndarray (m, )
+        Minimum bounds for each parameter.
+    - bounds_max: np.ndarray (m, )
+        Maximum bounds for each parameter.
+    """
 
     # Bounds for underground
     min_A = 0
@@ -172,6 +253,38 @@ def create_bounds(angles, intensities, intensities_err, distribution,
 @njit(cache = True, fastmath = True)
 def create_init_guesses(angles, intensities, intensities_err, bounds_min, bounds_max, distribution,
                     n_steps_height = 10,  n_steps_mu = 10, n_steps_scale = 5, n_steps_fit = 10):
+    """
+    Create the (best) initial guesses for the fitting process. 
+
+    Parameters
+    ----------
+    - angles: np.ndarray (n, )
+        Array that stores the angles at which the intensities are measured.
+    - intensities: np.ndarray (n, )
+        The measured intensities of the pixel.
+    - intensities_err: np.ndarray (n, )
+        The error (standard deviation) of the corresponding measured intensities of the pixel.
+    - bounds_min: np.ndarray (m, )
+        Minimum bounds for each parameter.
+    - bounds_max: np.ndarray (m, )
+        Maximum bounds for each parameter.
+    - distribution: "wrapped_cauchy", "von_mises", or "wrapped_laplace"
+        The name of the distribution.
+    - n_steps_height: int
+        Number of variations in height to search for best initial guess.
+    - n_steps_mu: int
+        Number of variations in mu to search for best initial guess.
+    - n_steps_scale: int
+        Number of variations in scale to search for best initial guess.
+    - n_steps_fit: int
+        Number of initial guesses to pick for fitting (starting from best inital guesses).
+
+    Returns
+    -------
+    - initial_guesses: np.ndarray (n_steps_fit, m + 1)
+        Array which stores the params and chi2 for every initial guess.
+        First entry of rows are the calculated chi2 and the following entries are the params.
+    """
 
     n_peaks = len(bounds_min) // 3
 
@@ -240,7 +353,29 @@ def create_init_guesses(angles, intensities, intensities_err, bounds_min, bounds
     return initial_guesses
 
 @njit(cache = True, fastmath = True)
-def build_design_matrix(angles, intensities, intensities_err, best_parameters, distribution):
+def _build_design_matrix(angles, intensities, intensities_err, best_parameters, distribution):
+    """
+    Build the design matrix for non negative least square fitting (linear regression).
+
+    Parameters
+    ----------
+    - angles: np.ndarray (n, )
+        Array that stores the angles at which the intensities are measured.
+    - intensities: np.ndarray (n, )
+        The measured intensities of the pixel.
+    - intensities_err: np.ndarray (n, )
+        The error (standard deviation) of the corresponding measured intensities of the pixel.
+    - best_parameters: np.ndarray (m, )
+        Array which stores the found parameters of nonlinear fitting.
+    - distribution: "wrapped_cauchy", "von_mises", or "wrapped_laplace"
+        The name of the distribution.
+
+    Returns
+    -------
+    - weighted_design_matrix: np.ndarray (n, n_peaks + 1)
+    - weighted_y_data: np.ndarray (n, )
+
+    """
     # Calculate weights
     weights = 1 / intensities_err**2
 
@@ -264,9 +399,31 @@ def build_design_matrix(angles, intensities, intensities_err, best_parameters, d
     return weighted_design_matrix, weighted_y_data
     
 def fit_heights_linear(angles, intensities, intensities_err, best_parameters, distribution):
+    """
+    Build the design matrix for non negative least square fitting (linear regression).
+
+    Parameters
+    ----------
+    - angles: np.ndarray (n, )
+        Array that stores the angles at which the intensities are measured.
+    - intensities: np.ndarray (n, )
+        The measured intensities of the pixel.
+    - intensities_err: np.ndarray (n, )
+        The error (standard deviation) of the corresponding measured intensities of the pixel.
+    - best_parameters: np.ndarray (m, )
+        Array which stores the found parameters of nonlinear fitting.
+    - distribution: "wrapped_cauchy", "von_mises", or "wrapped_laplace"
+        The name of the distribution.
+
+    Returns
+    -------
+    - corrected_heights: np.ndarray (p, )
+        The result of nonlinear least square fitting the heights.
+    
+    """
     
     # Apply bounded (and weighted) linear regression (linear least squares)
-    weighted_design_matrix, weighted_y_data = build_design_matrix(angles, intensities, 
+    weighted_design_matrix, weighted_y_data = _build_design_matrix(angles, intensities, 
                         intensities_err, best_parameters, distribution)
 
     corrected_heights,_ = nnls(weighted_design_matrix, weighted_y_data)
@@ -277,11 +434,98 @@ def fit_heights_linear(angles, intensities, intensities_err, best_parameters, di
 
 def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrapped_cauchy", 
                     n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 5, 
-                    n_steps_fit = [3, 6], fit_height_nonlinear = True, 
+                    n_steps_fit = 10, fit_height_nonlinear = True, 
                     refit_steps = 1, init_fit_filter = None,
                     method = "leastsq", only_peaks_count = -1, max_peaks = 4,
                     max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                     mu_range = 40 * np.pi/180, scale_range = 0.4):
+    """
+    Fits the data of one pixel.
+
+    Parameters
+    ----------
+    - angles: np.ndarray (n, )
+        Array that stores the angles at which the intensities are measured.
+    - intensities: np.ndarray (n, )
+        The measured intensities of the pixel.
+    - intensities_err: np.ndarray (n, )
+        The error (standard deviation) of the corresponding measured intensities of the pixel.
+    - distribution: "wrapped_cauchy", "von_mises", or "wrapped_laplace"
+        The name of the distribution.
+    - n_steps_height: int
+        Number of variations in height to search for best initial guess.
+    - n_steps_mu: int
+        Number of variations in mu to search for best initial guess.
+    - n_steps_scale: int
+        Number of variations in scale to search for best initial guess.
+    - n_steps_fit: int
+        Number of initial guesses to pick for fitting (starting from best inital guesses).
+    - fit_height_nonlinear: boolean
+        Whether to include the heights in the nonlinear fitting or not.
+    - refit_steps: int
+        Number that defines how often the fitting process should be repeated with the result
+        as new initial guess.
+    - init_fit_filter: None or list
+        List that defines which filter to apply before the first fit. 
+        This filter will be applied on the intensities before doing anything and
+        will be remove after one fit is done. Then the normal fitting process starts with
+        this result as initial guess.
+        First value of the list is a string with:
+        "fourier", "gauss", "uniform", "median", "moving_average", or "savgol".
+        The following one to two values are the params for this filter (scipy docs).
+    - method: string
+        Defines which fitting method to use. Can be anything from the methods in lmfit.minimize
+        and additionally "biteopt".
+        Full list: 
+            leastsq: Levenberg-Marquardt (default)
+            least_squares: Least-Squares minimization, using Trust Region Reflective method
+            differential_evolution: differential evolution
+            brute: brute force method
+            basinhopping: basinhopping
+            ampgo: Adaptive Memory Programming for Global Optimization
+            nelder: Nelder-Mead
+            lbfgsb: L-BFGS-B
+            powell: Powell
+            cg: Conjugate-Gradient
+            newton: Newton-CG
+            cobyla: Cobyla
+            bfgs: BFGS
+            tnc: Truncated Newton
+            trust-ncg: Newton-CG trust-region
+            trust-exact: nearly exact trust-region
+            trust-krylov: Newton GLTR trust-region
+            trust-constr: trust-region for constrained optimization
+            dogleg: Dog-leg trust-region
+            slsqp: Sequential Linear Squares Programming
+            emcee: Maximum likelihood via Monte-Carlo Markov Chain
+            shgo: Simplicial Homology Global Optimization
+            dual_annealing: Dual Annealing optimization
+            biteopt: Derivative-Free Global Optimization Method
+    - only_peaks_count: int
+        Defines a filter for found peaks, so that if the count of found peaks is not equal that number,
+        the function return the same as if no peaks are found.
+    - max_peaks: int
+        Defines the maximum number of peaks that should be returned from the 
+        total found peaks (starting from highest peak).
+    - max_peak_hwhm: float
+        Estimated maximum peak half width at half maximum.
+    - min_peak_hwhm: float
+        Estimated minimum peak half width at half maximum.
+    - mu_range: float
+        Range of mu (regarding estimated maximum and minimum bounds around true mu).
+    - scale_range: float
+        Range of scale (regarding estimated maximum and minimum bounds around true scale).
+
+    Returns
+    -------
+    - best_parameters: np.ndarray (m, )
+        Array which stores the best found parameters.
+    - best_redchi: float
+        Calculated Chi2 of the model with the found parameters and given data.
+    - peaks_mask: np.ndarray (n_peaks, n)
+        Array that stores the indices of the measurements that corresponds (mainly) to a peak.
+    
+    """
 
     # Ensure no overflow in (subtract) operations happen:
     intensities = intensities.astype(np.int32)
@@ -339,7 +583,7 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
                         params = np.insert(params, range(0, len(params), 2), heights)
                         params = np.append(params, offset)
                     
-                    return objective(params, angles, intensities, intensities_err, distribution)
+                    return _objective(params, angles, intensities, intensities_err, distribution)
                 
                 result = bitecpp.minimize(biteopt_objective, bounds = bounds, x0 = init_guess, max_evaluations = 10000)
                 
@@ -351,7 +595,7 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
                 redchi = calculate_chi2(model_y, intensities, angles, intensities_err, len(result.x))
             else:
 
-                wcm_model = Model(lmfit_fitfunction)
+                wcm_model = Model(_lmfit_fitfunction)
 
                 # Create params
                 params = wcm_model.make_params()
@@ -409,7 +653,7 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
                 params = np.insert(params, range(0, len(params), 2), heights)
                 params = np.append(params, offset)
                 
-                return objective(params, angles, intensities, intensities_err, distribution)
+                return _objective(params, angles, intensities, intensities_err, distribution)
             init_guess = np.delete(best_parameters, np.s_[0::3])
             result = bitecpp.minimize(biteopt_objective, bounds, x0 = init_guess, max_evaluations = 10000)
             result.x = np.insert(result.x, range(0, len(result.x), 2), heights)
@@ -458,12 +702,98 @@ def _format_time(hours, minutes, seconds):
 def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_nonlinear = True,
                     threshold = 1000,
                     n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 5,
-                        refit_steps = 1, n_steps_fit = [3, 6], 
+                        n_steps_fit = 10, refit_steps = 1,
                         init_fit_filter = None, method = "leastsq", 
                         only_peaks_count = -1, max_peaks = 4,
                         max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
                         num_processes = 2):
+    """
+    Fits the data (of a full image stack).
+
+    Parameters
+    ----------
+    - image_stack: np.ndarray (n, m, p)
+        Array that stores the p intensity measurements for every pixel in the (n*m sized) image
+    - distribution: "wrapped_cauchy", "von_mises", or "wrapped_laplace"
+        The name of the distribution.
+    - fit_height_nonlinear: boolean
+        Whether to include the heights in the nonlinear fitting or not.
+    - threshold: int
+        Threshold value. If the mean intensity of one pixel is lower than that threshold value,
+        the pixel will not be evaluated.
+    - n_steps_height: int
+        Number of variations in height to search for best initial guess.
+    - n_steps_mu: int
+        Number of variations in mu to search for best initial guess.
+    - n_steps_scale: int
+        Number of variations in scale to search for best initial guess.
+    - n_steps_fit: int
+        Number of initial guesses to pick for fitting (starting from best inital guesses).
+    - refit_steps: int
+        Number that defines how often the fitting process should be repeated with the result
+        as new initial guess.
+    - init_fit_filter: None or list
+        List that defines which filter to apply before the first fit. 
+        This filter will be applied on the intensities before doing anything and
+        will be remove after one fit is done. Then the normal fitting process starts with
+        this result as initial guess.
+        First value of the list is a string with:
+        "fourier", "gauss", "uniform", "median", "moving_average", or "savgol".
+        The following one to two values are the params for this filter (scipy docs).
+    - method: string
+        Defines which fitting method to use. Can be anything from the methods in lmfit.minimize
+        and additionally "biteopt".
+        Full list: 
+            leastsq: Levenberg-Marquardt (default)
+            least_squares: Least-Squares minimization, using Trust Region Reflective method
+            differential_evolution: differential evolution
+            brute: brute force method
+            basinhopping: basinhopping
+            ampgo: Adaptive Memory Programming for Global Optimization
+            nelder: Nelder-Mead
+            lbfgsb: L-BFGS-B
+            powell: Powell
+            cg: Conjugate-Gradient
+            newton: Newton-CG
+            cobyla: Cobyla
+            bfgs: BFGS
+            tnc: Truncated Newton
+            trust-ncg: Newton-CG trust-region
+            trust-exact: nearly exact trust-region
+            trust-krylov: Newton GLTR trust-region
+            trust-constr: trust-region for constrained optimization
+            dogleg: Dog-leg trust-region
+            slsqp: Sequential Linear Squares Programming
+            emcee: Maximum likelihood via Monte-Carlo Markov Chain
+            shgo: Simplicial Homology Global Optimization
+            dual_annealing: Dual Annealing optimization
+            biteopt: Derivative-Free Global Optimization Method
+    - only_peaks_count: int
+        Defines a filter for found peaks, so that if the count of found peaks is not equal that number,
+        the function return the same as if no peaks are found.
+    - max_peaks: int
+        Defines the maximum number of peaks that should be returned from the 
+        total found peaks (starting from highest peak).
+    - max_peak_hwhm: float
+        Estimated maximum peak half width at half maximum.
+    - min_peak_hwhm: float
+        Estimated minimum peak half width at half maximum.
+    - mu_range: float
+        Range of mu (regarding estimated maximum and minimum bounds around true mu).
+    - scale_range: float
+        Range of scale (regarding estimated maximum and minimum bounds around true scale).
+    - num_processes: int
+        Number that defines in how many sub-processes the fitting process should be split into.
+
+    Returns
+    -------
+    - deflattened_params: np.ndarray (n, m, q)
+        Array which stores the best found parameters for every pixel (of n*m pixels).
+    - deflattened_peaks_mask: np.ndarray (n, m, max_peaks, p)
+        Array that stores the indices of the measurements that corresponds (mainly) to a peak,
+        for every pixel (of n*m pixels).
+    """
 
     total_pixels = image_stack.shape[0]*image_stack.shape[1]
     flattened_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))
@@ -548,14 +878,58 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                                             output_peaks_mask.shape[2]))
     return deflattened_params, deflattened_peaks_mask
 
-def find_image_peaks(image_stack, init_fit_filter = None, only_peaks_count = -1, max_peaks = 4,
+def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None, 
+                        only_peaks_count = -1, max_peaks = 4,
                         max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
                         num_processes = 2):
+    """
+    Finds the peas of an image stack using only the peak finder.
+
+    Parameters
+    ----------
+    - image_stack: np.ndarray (n, m, p)
+        Array that stores the p intensity measurements for every pixel in the (n*m sized) image
+    - threshold: int
+        Threshold value. If the mean intensity of one pixel is lower than that threshold value,
+        the pixel will not be evaluated.
+    - init_fit_filter: None or list
+        List that defines which filter to apply before the first fit. 
+        This filter will be applied on the intensities before doing anything and
+        will be remove after one fit is done. Then the normal fitting process starts with
+        this result as initial guess.
+        First value of the list is a string with:
+        "fourier", "gauss", "uniform", "median", "moving_average", or "savgol".
+        The following one to two values are the params for this filter (scipy docs).
+    - only_peaks_count: int
+        Defines a filter for found peaks, so that if the count of found peaks is not equal that number,
+        the function return the same as if no peaks are found.
+    - max_peaks: int
+        Defines the maximum number of peaks that should be returned from the 
+        total found peaks (starting from highest peak).
+    - max_peak_hwhm: float
+        Estimated maximum peak half width at half maximum.
+    - min_peak_hwhm: float
+        Estimated minimum peak half width at half maximum.
+    - mu_range: float
+        Range of mu (regarding estimated maximum and minimum bounds around true mu).
+    - scale_range: float
+        Range of scale (regarding estimated maximum and minimum bounds around true scale).
+    - num_processes: int
+        Number that defines in how many sub-processes the fitting process should be split into.
+
+    Returns
+    -------
+    - deflattened_params: np.ndarray (n, m, q)
+        Array which stores the best found parameters for every pixel (of n*m pixels).
+    - deflattened_peaks_mask: np.ndarray (n, m, max_peaks, p)
+        Array that stores the indices of the measurements that corresponds (mainly) to a peak,
+        for every pixel (of n*m pixels).
+    """
 
     total_pixels = image_stack.shape[0]*image_stack.shape[1]
     flattened_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))
-    mask = np.mean(flattened_stack, axis = 1) > 1000
+    mask = np.mean(flattened_stack, axis = 1) > threshold
     mask_pixels, = mask.nonzero()
     output_peaks_mus = pymp.shared.array((flattened_stack.shape[0], max_peaks))
     output_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_peaks, image_stack.shape[2]), dtype=np.bool_)

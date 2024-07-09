@@ -1091,7 +1091,7 @@ def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1, max_
 
     Returns:
     - peaks_mask: np.ndarray (n_peaks, n)
-        Array that stores the indices of the measurements that are local minima.
+        Array that stores the indices of the measurements that corresponds (mainly) to a peak.
     - peaks_mus: np.ndarray (n_peaks, )
         Array that stores the angles of the centers (mus) of the peaks.
     """

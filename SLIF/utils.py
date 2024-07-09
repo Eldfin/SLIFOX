@@ -4,6 +4,19 @@ from numba import njit
 
 @njit(cache = True, fastmath = True)
 def angle_distance(angle1, angle2):
+    """
+    Calculates the circular distance between two angles.
+
+    Parameters:
+    - angle1: float
+        First angle in radians.
+    - angle2: float
+        Second angle in radians.
+
+    Returns:
+    - distance: float
+        Shortest distance between both angles considering the cyclic nature.
+    """
     # Calculate the difference between the angles
     diff = angle2 - angle1
     
@@ -12,6 +25,7 @@ def angle_distance(angle1, angle2):
     
     return distance
 
+# define function like numpy.insert for use with numba
 @njit(cache = True, fastmath = True)
 def numba_insert(array, index, value):
     new_array = np.empty(len(array) + 1, dtype=array.dtype)
@@ -66,7 +80,25 @@ def set_diff(arr1, arr2):
     return result
 
 @njit(cache=True, fastmath = True)
-def calculate_chi2(model_y, ydata, xdata, ydata_err, num_params):
+def calculate_chi2(model_y, ydata, xdata, ydata_err, num_params = 0):
+    """
+    Calculates the (reduces) chi2 of given data.
+
+    Parameters:
+    - model_y: np.ndarray (n, )
+        The model values.
+    - ydata: np.ndarray (n, )
+        The y-data values.
+    - xdata: np.ndarray (n, )
+        The x-data values (only the number of them is used).
+    - ydata_err: np.ndarray (n, )
+        The error (standard deviation) of the y-data values.
+    - num_params: int
+        The number of parameters for calculating the reduced chi2.
+
+    Returns:
+    - chi2: float
+    """
     
     residuals = np.abs(model_y - ydata)
     n_res = residuals/ydata_err # normalized Residuals
@@ -79,6 +111,16 @@ def calculate_chi2(model_y, ydata, xdata, ydata_err, num_params):
 
 @njit(cache = True, fastmath = True)
 def mean_angle(angles):
+    """
+    Calculates the cyclic mean of given angles.
+
+    Parameters:
+    - angles: np.ndarray (n, )
+        The angle values in radians.
+
+    Returns:
+    - mean_angle: float
+    """
     sin_angles = np.sin(angles)
     cos_angles = np.cos(angles)
     mean_sin = np.mean(sin_angles)
@@ -88,15 +130,31 @@ def mean_angle(angles):
     
     return mean_angle
 
-def pick_data(filename, dataset_path, area = None, randoms = 0):
+def pick_data(filepath, dataset_path, area = None, randoms = 0):
+    """
+    Picks data from a HDF5 file. The data should be 3 dimensional (image stack).
 
-    # area = [x_left, x_right, y_top, y_bot]
-    # where x_left and x_right are the x-borders
-    # and y_top and y_bot are the y_borders
+    Parameters:
+    - filepath: string
+        The path to the file.
+    - dataset_path: string
+        The name (path) to the dataset in the HDF5 file.
+    - area: list
+        Should have the layout: [x_left, x_right, y_top, y_bot]
+        Where x_left and x_right are the x_borders and y_top and y_bot are the y_borders.
+    - randoms: int
+        The number of randoms to pick from the data. 0 equals picking the full data.
 
-    # randoms = number of random pixels to pick from area
+    Returns:
+    - data: np.ndarray (n, m, p)
+        Returns the chosen data.
+    - indices: np.ndarray (n, m, 2)
+        Stores the picked indices from the data. 
+        For every data point (n, m) the indices array has two values,
+        which are the picked indices from the data.
+    """
 
-    with h5py.File(filename, "r") as h5f:
+    with h5py.File(filepath, "r") as h5f:
 
         data_shape = h5f[dataset_path].shape
 
@@ -131,23 +189,3 @@ def pick_data(filename, dataset_path, area = None, randoms = 0):
             indices = np.stack((x_indices, y_indices), axis=-1, dtype=np.int64)
 
     return data, indices
-
-
-    if fit_full_pyramid:
-        reduced_data = h5f[dataset_path][:]
-    else:
-        reduced_data = np.empty((image_size, image_size, data_shape[2]), dtype=h5f[dataset_path].dtype)
-        
-        sample_size = image_size**2
-        row_indices = np.random.randint(0, data_shape[0], sample_size)
-        col_indices = np.random.randint(0, data_shape[1], sample_size)
-        
-        indices = np.empty((image_size, image_size, 2), dtype=int)
-        
-        for k in range(sample_size):
-            i = k // image_size
-            j = k % image_size
-            reduced_data[i, j] = h5f[dataset_path][row_indices[k], col_indices[k]]
-            indices[i, j, 0] = row_indices[k]
-            indices[i, j, 1] = col_indices[k]
-
