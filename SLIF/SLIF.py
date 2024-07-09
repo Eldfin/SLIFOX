@@ -279,7 +279,7 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
                     n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 5, 
                     n_steps_fit = [3, 6], fit_height_nonlinear = True, 
                     refit_steps = 1, init_fit_filter = None,
-                    method = "leastsq", max_found_peaks = 24, max_peaks = 4,
+                    method = "leastsq", only_peaks_count = -1, max_peaks = 4,
                     max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                     mu_range = 40 * np.pi/180, scale_range = 0.4):
 
@@ -298,7 +298,7 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
         refit_steps += 1
 
     peaks_mask, peaks_mus = find_peaks(angles, intensities, intensities_err, 
-                    max_found_peaks = max_found_peaks, max_peaks = max_peaks,
+                    only_peaks_count = only_peaks_count, max_peaks = max_peaks,
                     max_peak_hwhm = max_peak_hwhm, min_peak_hwhm = min_peak_hwhm, 
                     mu_range = mu_range, scale_range = scale_range)
 
@@ -460,7 +460,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                     n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 5,
                         refit_steps = 1, n_steps_fit = [3, 6], 
                         init_fit_filter = None, method = "leastsq", 
-                        max_found_peaks = 24, max_peaks = 4,
+                        only_peaks_count = -1, max_peaks = 4,
                         max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
                         num_processes = 2):
@@ -518,7 +518,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                                     distribution, n_steps_height, n_steps_mu, n_steps_scale,
                                     fit_height_nonlinear = fit_height_nonlinear, refit_steps = refit_steps,
                                     n_steps_fit = n_steps_fit, init_fit_filter = init_fit_filter, 
-                                    method = method, max_found_peaks = max_found_peaks, 
+                                    method = method, only_peaks_count = only_peaks_count, 
                                     max_peaks = max_peaks,
                                     max_peak_hwhm = max_peak_hwhm, min_peak_hwhm = min_peak_hwhm, 
                                     mu_range = mu_range, scale_range = scale_range)
@@ -548,7 +548,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                                             output_peaks_mask.shape[2]))
     return deflattened_params, deflattened_peaks_mask
 
-def find_image_peaks(image_stack, init_fit_filter = None, max_found_peaks = 24, max_peaks = 4,
+def find_image_peaks(image_stack, init_fit_filter = None, only_peaks_count = -1, max_peaks = 4,
                         max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
                         num_processes = 2):
@@ -603,7 +603,7 @@ def find_image_peaks(image_stack, init_fit_filter = None, max_found_peaks = 24, 
             angles = np.linspace(0, 2*np.pi, num=len(intensities), endpoint=False)
 
             peaks_mask, peaks_mus = find_peaks(angles, intensities, intensities_err, 
-                            max_found_peaks = max_found_peaks, max_peaks = max_peaks,
+                            only_peaks_count = only_peaks_count, max_peaks = max_peaks,
                             max_peak_hwhm = max_peak_hwhm, min_peak_hwhm = min_peak_hwhm, 
                             mu_range = mu_range, scale_range = scale_range)
 

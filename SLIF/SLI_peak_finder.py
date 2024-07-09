@@ -9,13 +9,42 @@ PeakFinderParams = namedtuple('PeakFinderParams', [
     'is_hidden_peak', 'max_A', 'max_peak_hwhm', 'min_peak_hwhm', 'mu_range', 'min_int', 
     'global_amplitude', 'extrema_tolerance', 
     'turning_point_tolerance', 'turning_point_tolerance_2', 'turning_point_tolerance_3',
-    'max_found_peaks', 'max_peaks'
+    'only_peaks_count', 'max_peaks'
 ])
 
 @njit(cache = True, fastmath = True)
 def _find_extremas(intensities, first_diff, second_diff, max_A, extrema_tolerance,
                     turning_point_tolerance, turning_point_tolerance_2, turning_point_tolerance_3,
                     reverse = False):
+    """
+    Finds extremas from array of intensities
+
+    Parameters:
+    - intensities: np.ndarray (n, )
+        Array of intensities.
+    - first_diff: np.ndarray (n, )
+        Differences between neighbouring intensities with wrapping at last value.
+    - second_diff: np.ndarray (n, )
+        Differences between neighbouring first_diff with wrapping at last value.
+    - max_A: float
+        Estimated maximum (border) of the underground of the intensity profile.
+    - extrema_tolerance: float
+        Tolerance to detect minima and maxima
+    - turning_point_tolerance: float
+        Tolerance to detect turning points
+
+    Returns:
+    - local_maxima: np.ndarray (m, )
+        Array that stores the indices of the measurements that are local maxima.
+    - local_minima: np.ndarray (p, )
+        Array that stores the indices of the measurements that are local minima.
+    - turning_points: np.ndarray (q, )
+        Array that stores the indices of the measurements that are turning_points.
+    - turning_points_directions: np.ndarray (n, )
+        Array that stores the information if a measurement is a turning point and
+        the direction of the turning point. 
+        -1 for left, +1 for right and 0 for no turning point.
+    """
 
     num_points = len(intensities)
 
@@ -119,6 +148,33 @@ def _find_extremas(intensities, first_diff, second_diff, max_A, extrema_toleranc
 @njit(cache = True, fastmath = True)
 def _merge_maxima(local_maxima, local_minima, intensities, angles, local_maxima_angles, 
                     max_peak_hwhm, global_amplitude):
+    """
+    Merges local maxima if no local minima is between them
+
+    Parameters:
+    - local_maxima: np.ndarray (m, )
+        Array that stores the indices of the measurements that are local maxima.
+    - local_minima: np.ndarray (p, )
+        Array that stores the indices of the measurements that are local minima.
+    - intensities: np.ndarray (n, )
+        The measured intensities of the pixel
+    - angles: np.ndarray (n, )
+        The angles at which the intensities are measured.
+    - local_maxima_angles: np.ndarray (m, )
+        Angles of the local maxima.
+    - max_peak_hwhm: float
+        Estimated maximum peak half width at half maximum.
+    - global_amplitude: float
+        The difference between the maximum and minimum intensity of the pixel.
+
+    Returns:
+    - local_maxima: np.ndarray (m, )
+        Array that stores the indices of the measurements that are local maxima.
+    - local_minima: np.ndarray (m, )
+        Array that stores the indices of the measurements that are local minima.
+    - local_maxima_angles: np.ndarray (m, )
+        Angles of the local maxima.
+    """
 
     # If two or more local maxima are between two local minima
     # merge them to the mean of them
@@ -182,6 +238,27 @@ def _merge_maxima(local_maxima, local_minima, intensities, angles, local_maxima_
 @njit(cache = True, fastmath = True)
 def _append_similar_minima(local_minima, local_maxima, turning_points, intensities, 
                             intensities_err, global_amplitude):
+    """
+    Append neighbouring intensities to local minima, if they have a similar intensity
+
+    Parameters:
+    - local_minima: np.ndarray (m, )
+        Array that stores the indices of the measurements that are local minima.
+    - local_maxima: np.ndarray (p, )
+        Array that stores the indices of the measurements that are local maxima.
+    - turning_points: np.ndarray (q, )
+        Array that stores the indices of the measurements that are turning points.
+    - intensities: np.ndarray (n, )
+        The measured intensities of the pixel.
+    - intensities_err: np.ndarray (n, )
+        The error (standard deviation) of the corresponding measured intensities of the pixel.
+    - global_amplitude: float
+        The difference between the maximum and minimum intensity of the pixel.
+
+    Returns:
+    - local_minima: np.ndarray (m, )
+        Array that stores the indices of the measurements that are local minima.
+    """
     for index_minimum in local_minima:
         # Get closest maxima regarding height
         # diff to closest maximum has to be high enough
@@ -210,6 +287,17 @@ def _append_similar_minima(local_minima, local_maxima, turning_points, intensiti
 def _handle_turning_points(turning_points, turning_points_directions,
                             local_maxima, local_minima, local_maxima_angles, angles, 
                             intensities, first_diff, min_peak_hwhm, global_amplitude, mu_range):
+    """
+    Check if the turning points are hidden peaks.
+
+    Parameters:
+    - turning_points: np.ndarray (n, )
+    - ...
+
+    Returns:
+    - turning_points: np.ndarray (n, )
+    ...
+    """
 
     is_merged = np.zeros(len(local_maxima), dtype = np.bool_)
 
@@ -527,6 +615,9 @@ def _is_real_peak(angles, intensities, peak_angles, peak_intensities, intensitie
                 intensities_right, angles_left, angles_right, global_amplitude, 
                     local_max_int, intensities_err, extrema_tolerance, index_maximum,
                     local_maxima, local_minima, turning_points, is_merged, full_peak):
+
+    #Check if a peak is real or not.
+    
     is_peak = True
     if len(intensities_left) == 0 or len(intensities_right) == 0 \
                 or (len(intensities_left) == 1 and len(intensities_right) == 1):
@@ -621,6 +712,8 @@ def _is_real_peak(angles, intensities, peak_angles, peak_intensities, intensitie
     
 @njit(cache = True, fastmath = True)
 def _adjust_borders(left_border, right_border, mu_maximum, local_minima_angles, angles, local_minima):
+    # adjust peak borders around the found maximum
+
     if len(local_minima) == 0:
         closest_left_border = left_border
         closest_right_border = right_border
@@ -653,6 +746,7 @@ def _adjust_borders(left_border, right_border, mu_maximum, local_minima_angles, 
 
 @njit(cache = True, fastmath = True)
 def _handle_extrema(angles, intensities, intensities_err, first_diff, params):
+    # Do stuff with found extrema
 
     local_maxima = params.local_maxima
     local_minima = params.local_minima
@@ -698,7 +792,7 @@ def _handle_extrema(angles, intensities, intensities_err, first_diff, params):
             local_minima_angles, is_merged, is_hidden_peak
 
 @njit(cache = True, fastmath = True)
-def equalize_difference(angles, intensities, indices, indices_reverse, extrema_tolerance):
+def _equalize_difference(angles, intensities, indices, indices_reverse, extrema_tolerance):
 
     different_indices = set_diff(indices, indices_reverse)
     different_indices_reverse = set_diff(indices_reverse, indices)
@@ -755,9 +849,9 @@ def _find_extremas_full(angles, intensities, first_diff, second_diff, params):
 
     # If difference of intensities between different indices are all below tolerance
     # append both indices (and they will be merged later)
-    local_maxima, local_maxima_reverse = equalize_difference(angles, intensities, local_maxima, 
+    local_maxima, local_maxima_reverse = _equalize_difference(angles, intensities, local_maxima, 
                                             local_maxima_reverse, extrema_tolerance)
-    local_minima, local_minima_reverse = equalize_difference(angles, intensities, local_minima, 
+    local_minima, local_minima_reverse = _equalize_difference(angles, intensities, local_minima, 
                                             local_minima_reverse, extrema_tolerance)
 
     # Pick extremas found independent from search direction
@@ -807,7 +901,7 @@ def _find_peaks_from_extrema(angles, intensities, intensities_err, params):
     min_int = params.min_int
     global_amplitude = params.global_amplitude
     extrema_tolerance = params.extrema_tolerance
-    max_found_peaks = params.max_found_peaks
+    only_peaks_count = params.only_peaks_count
     max_peaks = params.max_peaks
 
     # Array to store the indices (mask) that (mainly) relates to a peak
@@ -932,11 +1026,6 @@ def _find_peaks_from_extrema(angles, intensities, intensities_err, params):
 
         elif is_peak[n]:
             peaks_found += 1
-            if peaks_found > max_found_peaks:
-                # If more peaks found as wished return nothing
-                peaks_mask = np.zeros(len(angles))
-                peaks_mus = np.zeros(1)
-                return peaks_mask, peaks_mus
 
             # Store peak indices into peaks mask in reverse
             # so that the lowest peaks will be at the end
@@ -951,8 +1040,8 @@ def _find_peaks_from_extrema(angles, intensities, intensities_err, params):
             current_angles = current_angles[condition]
             current_intensities = current_intensities[condition]
 
-    # When no peaks found return zeros
-    if peaks_found == 0:
+    # When no peaks found or not as many as wished return zeros
+    if peaks_found == 0 or (only_peaks_count != -1 and peaks_found != only_peaks_count):
         peaks_mask = np.zeros(len(angles))
         peaks_mus = np.zeros(1)
         return peaks_mask, peaks_mus
@@ -972,9 +1061,40 @@ def _find_peaks_from_extrema(angles, intensities, intensities_err, params):
 
     return peaks_mask, peaks_mus
 
-def find_peaks(angles, intensities, intensities_err, max_found_peaks = 24, max_peaks = 4,
+def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1, max_peaks = 4,
                     max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                     mu_range = 40 * np.pi/180, scale_range = 0.4):
+    """
+    Finds peaks from given array of measured intensities of a pixel.
+
+    Parameters:
+    - angles: np.ndarray (n, )
+        Array that stores the angles at which the intensities are measured.
+    - intensities: np.ndarray (n, )
+        The measured intensities of the pixel.
+    - intensities_err: np.ndarray (n, )
+        The error (standard deviation) of the corresponding measured intensities of the pixel.
+    - only_peaks_count: int
+        Defines a filter for found peaks, so that if the count of found peaks is not equal that number,
+        the function return the same as if no peaks are found.
+    - max_peaks: int
+        Defines the maximum number of peaks that should be returned from the 
+        total found peaks (starting from highest peak).
+    - max_peak_hwhm: float
+        Estimated maximum peak half width at half maximum.
+    - min_peak_hwhm: float
+        Estimated minimum peak half width at half maximum.
+    - mu_range: float
+        Range of mu (regarding estimated maximum and minimum bounds around true mu).
+    - scale_range: float
+        Range of scale (regarding estimated maximum and minimum bounds around true scale).
+
+    Returns:
+    - peaks_mask: np.ndarray (n_peaks, n)
+        Array that stores the indices of the measurements that are local minima.
+    - peaks_mus: np.ndarray (n_peaks, )
+        Array that stores the angles of the centers (mus) of the peaks.
+    """
 
     # Ensure no overflow in (subtract) operations happen:
     intensities = intensities.astype(np.int32)
@@ -1000,7 +1120,7 @@ def find_peaks(angles, intensities, intensities_err, max_found_peaks = 24, max_p
         max_A, max_peak_hwhm, min_peak_hwhm, mu_range, 
         min_int, global_amplitude, extrema_tolerance, 
         turning_point_tolerance, turning_point_tolerance_2, turning_point_tolerance_3,
-        max_found_peaks, max_peaks
+        only_peaks_count, max_peaks
     )
 
     local_maxima, local_minima, turning_points, turning_points_directions = \

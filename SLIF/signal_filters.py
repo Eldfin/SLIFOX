@@ -34,12 +34,24 @@ def _inverse_fourier_transform(fft_result):
 
 @njit(cache=True, fastmath=True)
 def fourier_smoothing(signal, threshold, window):
-    # signal is 1d-array
-    # threshold between 0 and 1
-    # lower threshold leads to stronger smoothing
-    # window defines the transition region around the threshold
-    # increasing window leads to smoother transition between peaks/edges, smmothing occurs more gradually
-    fft_result = _fourier_transform(signal)
+    """
+    Finds the closest true pixel for a given 2d-mask and a start_pixel.
+
+    Parameters:
+    - signal: np.ndarray (n, )
+        Array of values (e.g. intensities) that should be filtered.
+    - threshold: float
+        Threshold value between 0 and 1. Lower threshold leads to stronger smoothing.
+    - window: float
+        Value between 0 and 1 that defines the transition region around the threshold.
+        Should be smaller than the threshold value. Increasing window leads to smoother transition
+        between peaks/edges, smoothing occurs more gradually.
+
+    Returns:
+    - result: np.ndarray (n, )
+        The filtered signal.
+    """
+   fft_result = _fourier_transform(signal)
     frequencies = _fftfreq(len(fft_result))
     frequencies = frequencies / frequencies.max()
 
@@ -61,26 +73,41 @@ def circular_moving_average_filter(data, window_size):
     return smoothed_arr
 
 # To-Do: Add numba for all filters
-def apply_filter(data, init_fit_filter):
-    if init_fit_filter[0] == "fourier":
-        data = fourier_smoothing(data, init_fit_filter[1], init_fit_filter[2])
-    elif init_fit_filter[0] == "gauss":
-        if len(init_fit_filter) == 3:
-            order = init_fit_filter[2]
+def apply_filter(data, filter_params):
+    """
+    Applies a filter to data.
+
+    Parameters:
+    - data: np.ndarray (n, )
+        Array of values (e.g. intensities) that should be filtered.
+    - filter_params: list (m, )
+        List that defines which filter to use. First value of list is a string with
+        "fourier", "gauss", "uniform", "median", "moving_average", or "savgol".
+        The following one to two values are the params for this filter.
+
+    Returns:
+    - result: np.ndarray (n, )
+        The filtered data.
+    """
+    if filter_params[0] == "fourier":
+        data = fourier_smoothing(data, filter_params[1], filter_params[2])
+    elif filter_params[0] == "gauss":
+        if len(filter_params) == 3:
+            order = filter_params[2]
         else:
             order = 0
-        data = gaussian_filter1d(data, init_fit_filter[1], order = order, mode="wrap")
-    elif init_fit_filter[0] == "uniform":
-        data = uniform_filter1d(data, init_fit_filter[1], mode="wrap")
-    elif init_fit_filter[0] == "median":
-        data = median_filter(data, size=init_fit_filter[1], mode="wrap")
-    elif init_fit_filter[0] == "moving_average":
-        data = circular_moving_average_filter(data, init_fit_filter[1])
-    elif init_fit_filter[0] == "savgol":
-        if len(init_fit_filter) == 3:
-            order = init_fit_filter[2]
+        data = gaussian_filter1d(data, filter_params[1], order = order, mode="wrap")
+    elif filter_params[0] == "uniform":
+        data = uniform_filter1d(data, filter_params[1], mode="wrap")
+    elif filter_params[0] == "median":
+        data = median_filter(data, size=filter_params[1], mode="wrap")
+    elif filter_params[0] == "moving_average":
+        data = circular_moving_average_filter(data, filter_params[1])
+    elif filter_params[0] == "savgol":
+        if len(filter_params) == 3:
+            order = filter_params[2]
         else:
             order = 0
-        data = savgol_filter(data, init_fit_filter[1], order, mode="wrap")
+        data = savgol_filter(data, filter_params[1], order, mode="wrap")
 
     return data
