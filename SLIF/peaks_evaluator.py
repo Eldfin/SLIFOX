@@ -97,7 +97,8 @@ def _find_closest_true_pixel(mask, start_pixel):
     # When no true pixel in the mask, return (-1, -1)
     return (-1, -1)
 
-def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution, only_mus = False):
+def calculate_peak_pairs(data, output_params, output_peaks_mask, 
+                            distribution = "wrapped_cauchy", only_mus = False):
     """
     Calculates all the peak_pairs for a whole image stack.
 
@@ -136,22 +137,25 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution, o
     for p in range(2, 5):
         for i in range(output_mus.shape[0]):
             for j in range(output_mus.shape[1]):
-                intensities = data[i][j]
+                intensities = data[i, j]
                 intensities_err = np.sqrt(intensities)
                 angles = np.linspace(0, 2*np.pi, num=len(intensities), endpoint=False)
+                peaks_mask = output_peaks_mask[i, j]
 
                 if not only_mus:
-                    params = output_params[i][j]
+                    params = output_params[i, j]
                     heights = params[0:-1:3]
                     scales = params[2::3]
                     mus = params[1::3]
+                    mus = mus[heights >= 1]
+                    num_peaks = len(mus)
                 else:
-                    mus = output_mus[i][j]
-                mus = mus[heights >= 1]
-                num_peaks = len(mus)
+                    mus = output_mus[i, j]
+                    if not np.any(peaks_mask[0] != 0):
+                        num_peaks = 0
+                
                 if num_peaks == 0: continue
 
-                peaks_mask = output_peaks_mask[i][j]
                 global_amplitude = np.max(intensities) - np.min(intensities)
                 if not only_mus:
                     offset = params[-1]
@@ -175,19 +179,19 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution, o
                     condition = (heights >= 1) & (amplitudes > 0.2 * global_amplitude) & (peaks_gof > 0.5) \
                         & (amplitudes > 0.2 * np.max(amplitudes)) & (rel_amplitudes > 0.05 * global_amplitude)
                 else:
-                    amplitudes = np.empty(len(mus)
-                    for k in range(len(mus))):
-                        amplitudes = np.max(intensities[peaks_mask])
+                    amplitudes = np.empty(len(mus))
+                    for k in range(len(mus)):
+                        amplitudes[k] = np.max(intensities[peaks_mask[k]])
                     condition = (amplitudes > 0.2 * global_amplitude) & (amplitudes > 0.2 * np.max(amplitudes))
                 mus = mus[condition]
                 sig_peak_indices = condition.nonzero()[0]
                 num_sig_peaks = len(mus)
                 if (num_sig_peaks != 1 and num_sig_peaks != p) or num_sig_peaks == 0: continue
                 if num_sig_peaks == 1:
-                    peak_pairs[i][j][0] = sig_peak_indices[0], -1
+                    peak_pairs[i, j, 0] = sig_peak_indices[0], -1
                     continue
                 elif num_sig_peaks == 2:
-                    peak_pairs[i][j][0] = sig_peak_indices
+                    peak_pairs[i, j, 0] = sig_peak_indices
                     continue
                 elif num_sig_peaks >= 3:
                     # Get closest pixel with defined direction
@@ -199,7 +203,7 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution, o
 
                         row, col = _find_closest_true_pixel(mask, (i, j))
                         if row == -1 and col == -1: break
-                        other_mus = output_mus[row][col]
+                        other_mus = output_mus[row, col]
 
                         best_direction = -1
                         best_pair = [-1, -1]
@@ -218,17 +222,17 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution, o
                                         best_pair = [sig_peak_indices[index], sig_peak_indices[index2]]
                                         best_direction = direction
                         if min_direction_distance < np.pi / 8:
-                            peak_pairs[i][j][0] = best_pair[0], best_pair[1]
+                            peak_pairs[i, j, 0] = best_pair[0], best_pair[1]
                             indices = np.array(range(num_sig_peaks))
                             remaining_indices = np.setdiff1d(indices, best_pair)
                             #if len(remaining_indices) == 1 and num_peaks == num_sig_peaks:
-                            #    peak_pairs[i][j][1] = remaining_indices[0], -1
+                            #    peak_pairs[i,j, 1] = remaining_indices[0], -1
                             if len(remaining_indices) == 2:
-                                peak_pairs[i][j][1] = sig_peak_indices[remaining_indices[0]], \
+                                peak_pairs[i, j, 1] = sig_peak_indices[remaining_indices[0]], \
                                                         sig_peak_indices[remaining_indices[1]]
                             break
                         else:
-                             mask[row][col] = False
+                             mask[row, col] = False
 
     return peak_pairs
 
@@ -259,8 +263,8 @@ def calculate_directions(peak_pairs, output_mus, directory = None):
     directions = np.full((x_range, y_range, 3), -1, dtype=np.float64)
     for x in range(x_range):
         for y in range(y_range):
-            mus = output_mus[x][y]
-            for k, pair in enumerate(peak_pairs[x][y]):
+            mus = output_mus[x, y]
+            for k, pair in enumerate(peak_pairs[x, y]):
                 if pair[0] == -1 and pair[1] == -1:
                     # No pair
                     continue
@@ -272,7 +276,7 @@ def calculate_directions(peak_pairs, output_mus, directory = None):
                     distance = angle_distance(mus[pair[0]], mus[pair[1]])
                     direction = (mus[pair[0]] + distance / 2) % (np.pi)
 
-                directions[x][y][k] = direction
+                directions[x, y, k] = direction
 
     if directory != None:
         if not os.path.exists(directory):

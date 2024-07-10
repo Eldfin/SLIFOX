@@ -42,6 +42,8 @@ def plot_peaks_gof(peaks_gof, heights, mus, scales,
         elif k == 1: color = "red"
         elif k == 2: color = "green"
         elif k == 3: color = "brown"
+        elif k == 4: color = "purple"
+        elif k == 5: color = "orange"
         if gof < 0: gof = 0
         amplitude = heights[k] * distribution_pdf(0, 0, scales[k], distribution)
         ymax = gof**gof_weight * amplitude
@@ -58,15 +60,15 @@ def plot_peaks_gof(peaks_gof, heights, mus, scales,
                 else:
                     peaks_x_f_2 = np.append(peaks_x_f_2, np.linspace(angles[l], 
                                                             angles[l+1], 50, endpoint=False))
-            elif l+1 == len(angles) and peaks_mask[k][l] and peaks_mask[k][0]:
+            elif l+1 == len(angles) and peaks_mask[k, l] and peaks_mask[k, 0]:
                 if not wrapped:
                     peaks_x_f_1 = np.append(peaks_x_f_1, np.linspace(angles[l], 
                                                             2*np.pi, 50, endpoint=False))
                 else:
                     peaks_x_f_2 = np.append(peaks_x_f_2, np.linspace(angles[l], 
                                                             2*np.pi, 50, endpoint=False))
-            elif l > 0 and l+1 < len(angles) and not peaks_mask[k][l] \
-                    and peaks_mask[k][l+1] and len(peaks_x_f_1) > 0:
+            elif l > 0 and l+1 < len(angles) and not peaks_mask[k, l] \
+                    and peaks_mask[k, l+1] and len(peaks_x_f_1) > 0:
                 wrapped = True
 
         peak_y_f_1 = heights[k] * distribution_pdf(peaks_x_f_1, mus[k], scales[k], distribution)
@@ -197,25 +199,30 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, only_mu
     for i in range(data.shape[0]):
         for j in range(data.shape[1]):
 
-            intensities = data[i][j]
+            intensities = data[i, j]
             intensities_err = np.sqrt(intensities)
+            peaks_mask = output_peaks_mask[i, j]
 
             if not only_mus:
-                params = output_params[i][j]
+                params = output_params[i, j]
                 heights = params[0:-1:3]
                 scales = params[2::3]
                 mus = params[1::3]
+                mus = mus[heights >= 1]
+                num_peaks = len(mus)
             else:
-                mus = output_params[i][j]
-            mus = mus[heights >= 1]
-            if len(mus) == 0: continue
+                mus = output_params[i, j]
+                num_peaks = len(mus)
+                if not np.any(peaks_mask[0]):
+                    num_peaks = 0
+            
+            if num_peaks == 0: continue
             if not only_mus:
                 offset = params[-1]
                 params = params[:(3 * len(mus))]
                 params = np.append(params, offset)
 
                 model_y = full_fitfunction(angles, params, distribution)
-                peaks_mask = output_peaks_mask[i][j]
                 peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
 
                 scales = scales[heights >= 1]
@@ -223,15 +230,25 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, only_mu
                 heights = heights[heights >= 1]
             
             plt.errorbar(angles*180/np.pi, intensities, yerr=intensities_err, marker = "o", 
-                        linestyle="", capsize=5, color="black")
+                            linestyle="", capsize=5, color="black")
+            if only_mus:
+                for k, mask in enumerate(peaks_mask):
+                    if k == 0: color = "blue"
+                    elif k == 1: color = "red"
+                    elif k == 2: color = "green"
+                    elif k == 3: color = "brown"
+                    elif k == 4: color = "purple"
+                    elif k == 5: color = "orange"
+                    plt.errorbar(angles[mask]*180/np.pi, intensities[mask], 
+                            yerr=intensities_err[mask], marker = "o", linestyle="", capsize=5, color=color)
             plt.xlabel("Winkel")
             plt.ylabel("Intensität")
 
-            x_f = np.linspace(0, 2*np.pi, 2000, endpoint=False)
-            y_f = full_fitfunction(x_f, params, distribution)
-            FitLine, = plt.plot(x_f*180/np.pi, y_f, marker='None', linestyle="-", color="black")
-
             if not only_mus:
+                x_f = np.linspace(0, 2*np.pi, 2000, endpoint=False)
+                y_f = full_fitfunction(x_f, params, distribution)
+                FitLine, = plt.plot(x_f*180/np.pi, y_f, marker='None', linestyle="-", color="black")
+
                 plot_peaks_gof(peaks_gof, heights, mus, scales, 
                                 distribution, peaks_mask, angles)
 
@@ -243,8 +260,8 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, only_mu
                 x_str = f"{str(i):0{max_rows}d}"
                 y_str = f"{str(j):0{max_cols}d}"
             else:
-                x_str = f"{indices[i][j][0]:0{max_rows}d}"
-                y_str = f"{indices[i][j][1]:0{max_cols}d}"
+                x_str = f"{indices[i, j, 0]:0{max_rows}d}"
+                y_str = f"{indices[i, j, 1]:0{max_cols}d}"
                 
             if not os.path.exists(directory):
                 os.makedirs(directory)

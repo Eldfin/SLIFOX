@@ -51,7 +51,7 @@ def fourier_smoothing(signal, threshold, window):
     - result: np.ndarray (n, )
         The filtered signal.
     """
-   fft_result = _fourier_transform(signal)
+    fft_result = _fourier_transform(signal)
     frequencies = _fftfreq(len(fft_result))
     frequencies = frequencies / frequencies.max()
 
