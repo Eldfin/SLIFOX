@@ -215,6 +215,7 @@ def _merge_maxima(local_maxima, local_minima, intensities, angles, local_maxima_
                     condition_between = (angles > first_maximum) | (angles < second_maximum)
                 
                 between_indices = condition_between.nonzero()[0]
+                if len(intensities[condition_between]) == 0: break
                 minimum_between = between_indices[np.argmin(intensities[condition_between])]
                 local_minima = np.append(local_minima, minimum_between)
                 continue
@@ -224,6 +225,7 @@ def _merge_maxima(local_maxima, local_minima, intensities, angles, local_maxima_
             mean_maximum_angle = mean_angle(duplicate_maxima_angles)
             mean_maxima_angles = np.append(mean_maxima_angles, mean_maximum_angle)
             mean_distances = np.abs(angle_distance(angles, mean_maximum_angle))
+            if len(mean_distances) == 0: break
             mean_maxima = np.append(mean_maxima, np.argmin(mean_distances))
             mask_maxima[duplicate_maxima_indices] = 0
 
@@ -262,6 +264,7 @@ def _append_similar_minima(local_minima, local_maxima, turning_points, intensiti
     for index_minimum in local_minima:
         # Get closest maxima regarding height
         # diff to closest maximum has to be high enough
+        if len(local_maxima) == 0: break
         closest_maximum_index = np.argmin(np.abs(intensities[index_minimum] - intensities[local_maxima]))
         closest_maximum = local_maxima[closest_maximum_index]
         for k in [-1, 1]:
@@ -801,6 +804,7 @@ def _equalize_difference(angles, intensities, indices, indices_reverse, extrema_
         if len(different_indices_reverse) == 0: break
         # Find closest reverse index
         distances = np.abs(angle_distance(angles[index], angles[different_indices_reverse]))
+        if len(distances) == 0: break
         closest_reverse_index = different_indices_reverse[np.argmin(distances)]
 
         # If difference of intensities between both indices are all below tolerance
