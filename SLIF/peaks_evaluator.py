@@ -97,7 +97,7 @@ def _find_closest_true_pixel(mask, start_pixel):
     # When no true pixel in the mask, return (-1, -1)
     return (-1, -1)
 
-def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution):
+def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution, only_mus = False):
     """
     Calculates all the peak_pairs for a whole image stack.
 
@@ -113,6 +113,8 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution):
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
+    - only_mus: bool
+        Defines if only the mus (for every pixel) are given in the output_params.
 
     Returns:
     - peak_pairs: np.ndarray (n, m, 3, 2)
@@ -122,19 +124,10 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution):
         The first two dimensions are the image dimensions.
     """
 
-    output_heights = output_params[:, :, 0:-1:3]
-    output_mus = output_params[:, :, 1::3]
-    output_scales = output_params[:, :, 2::3]
-
-    output_amplitudes = np.zeros(output_heights.shape)
-
-    for i in range(output_heights.shape[0]):
-        for j in range(output_heights.shape[1]):
-            for k in range(output_heights.shape[2]):
-                if output_heights[i][j][k] == 0:
-                    output_amplitudes[i][j][k] = 0
-                else:
-                    output_amplitudes[i][j][k] = output_heights[i][j][k] / (np.pi * output_scales[i][j][k])
+    if not only_mus:
+        output_mus = output_params[:, :, 1::3]
+    else:
+        output_mus = output_params
 
     #directions = np.full((output_mus.shape[0], output_mus.shape[1], 2), -1, dtype=np.float64)
     peak_pairs = np.full((output_mus.shape[0], output_mus.shape[1], 3, 2), -1, dtype=np.int64)
@@ -147,47 +140,54 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution):
                 intensities_err = np.sqrt(intensities)
                 angles = np.linspace(0, 2*np.pi, num=len(intensities), endpoint=False)
 
-                params = output_params[i][j]
-                heights = params[0:-1:3]
-                scales = params[2::3]
-                mus = params[1::3]
+                if not only_mus:
+                    params = output_params[i][j]
+                    heights = params[0:-1:3]
+                    scales = params[2::3]
+                    mus = params[1::3]
+                else:
+                    mus = output_mus[i][j]
                 mus = mus[heights >= 1]
                 num_peaks = len(mus)
                 if num_peaks == 0: continue
-                offset = params[-1]
-                params = params[:(3 * len(mus))]
-                params = np.append(params, offset)
 
-                model_y = full_fitfunction(angles, params, distribution)
                 peaks_mask = output_peaks_mask[i][j]
-                peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
-
-                scales = scales[heights >= 1]
-                peaks_gof = peaks_gof[heights >= 1]
-                heights = heights[heights >= 1]
-                amplitudes = np.empty(len(heights))
-                rel_amplitudes = np.empty(len(heights))
-                for k in range(len(heights)):
-                    amplitudes[k] = heights[k] * distribution_pdf(0, 0, scales[k], distribution)
-                    rel_amplitudes[k] = 2 * amplitudes[k] \
-                                - full_fitfunction(mus[k], params, distribution) + params[-1]
                 global_amplitude = np.max(intensities) - np.min(intensities)
-                # Only consider peaks with height not zero and amplitude over 15% of global amplitude
-                # and gof over 0.5
-                condition = (heights >= 1) & (amplitudes > 0.2 * global_amplitude) & (peaks_gof > 0.5) \
-                    & (amplitudes > 0.2 * np.max(amplitudes)) & (rel_amplitudes > 0.05 * global_amplitude)
+                if not only_mus:
+                    offset = params[-1]
+                    params = params[:(3 * len(mus))]
+                    params = np.append(params, offset)
+
+                    model_y = full_fitfunction(angles, params, distribution)
+                    peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
+
+                    scales = scales[heights >= 1]
+                    peaks_gof = peaks_gof[heights >= 1]
+                    heights = heights[heights >= 1]
+                    amplitudes = np.empty(len(heights))
+                    rel_amplitudes = np.empty(len(heights))
+                    for k in range(len(heights)):
+                        amplitudes[k] = heights[k] * distribution_pdf(0, 0, scales[k], distribution)
+                        rel_amplitudes[k] = 2 * amplitudes[k] \
+                                    - full_fitfunction(mus[k], params, distribution) + params[-1]
+                    # Only consider peaks with height not zero and amplitude over 15% of global amplitude
+                    # and gof over 0.5
+                    condition = (heights >= 1) & (amplitudes > 0.2 * global_amplitude) & (peaks_gof > 0.5) \
+                        & (amplitudes > 0.2 * np.max(amplitudes)) & (rel_amplitudes > 0.05 * global_amplitude)
+                else:
+                    amplitudes = np.empty(len(mus)
+                    for k in range(len(mus))):
+                        amplitudes = np.max(intensities[peaks_mask])
+                    condition = (amplitudes > 0.2 * global_amplitude) & (amplitudes > 0.2 * np.max(amplitudes))
                 mus = mus[condition]
                 sig_peak_indices = condition.nonzero()[0]
                 num_sig_peaks = len(mus)
                 if (num_sig_peaks != 1 and num_sig_peaks != p) or num_sig_peaks == 0: continue
                 if num_sig_peaks == 1:
                     peak_pairs[i][j][0] = sig_peak_indices[0], -1
-                    #directions[i][j] = mus
                     continue
                 elif num_sig_peaks == 2:
                     peak_pairs[i][j][0] = sig_peak_indices
-                    #distance = angle_distance(mus[0], mus[1])
-                    #directions[i][j][0] = (mus[0] + distance / 2) % (np.pi)
                     continue
                 elif num_sig_peaks >= 3:
                     # Get closest pixel with defined direction
@@ -218,7 +218,6 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution):
                                         best_pair = [sig_peak_indices[index], sig_peak_indices[index2]]
                                         best_direction = direction
                         if min_direction_distance < np.pi / 8:
-                            #directions[i][j][0] = best_direction
                             peak_pairs[i][j][0] = best_pair[0], best_pair[1]
                             indices = np.array(range(num_sig_peaks))
                             remaining_indices = np.setdiff1d(indices, best_pair)
@@ -227,8 +226,6 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask, distribution):
                             if len(remaining_indices) == 2:
                                 peak_pairs[i][j][1] = sig_peak_indices[remaining_indices[0]], \
                                                         sig_peak_indices[remaining_indices[1]]
-                                #distance = angle_distance[remaining_mus[0], remaining_mus[1]]
-                                #directions[i][j][1] = (remaining_mus[0] + distance / 2) % (np.pi)
                             break
                         else:
                              mask[row][col] = False

@@ -77,19 +77,15 @@ def plot_peaks_gof(peaks_gof, heights, mus, scales,
         plt.plot((x_f*180/np.pi) % 360, peak_y_f, marker='None', linestyle="--", color=color)
         plt.vlines((mus[k]*180/np.pi) % 360, 0, ymax , color = color)
 
-def plot_directions(peak_pairs, heights, mus, scales, distribution):
+def plot_directions(peak_pairs, mus, distribution):
     """
     Plots the found directions (peak pairs) in the current plot.
 
     Parameters:
     - peaks_pairs: np.ndarray (3, 2)
         The array containing the number of peaks that are paired (max 3 pairings and 2 peaks per pair).
-    - heights: np.ndarray (n_peaks, )
-        The heights of the peaks
     - mus: np.ndarray (n_peaks, )
         The mus (centers) of the peaks.
-    - scales: np.ndarray (n_peaks, )
-        The scale factors of the peaks.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
     """
@@ -108,16 +104,17 @@ def plot_directions(peak_pairs, heights, mus, scales, distribution):
             ax = plt.gca()
             limit_min, limit_max = ax.get_ylim()
             direction = mus[pair[0]] % (np.pi)
-            if direction == mus[pair[0]]:
-                ymin = heights[pair[0]] * distribution_pdf(0, 0, scales[pair[0]], distribution)
-                ymin2 = limit_min
-            else:
-                ymin = limit_min
-                ymin2 = heights[pair[0]] * distribution_pdf(0, 0, scales[pair[0]], distribution)
+            #if direction == mus[pair[0]]:
+            #    ymin = heights[pair[0]] * distribution_pdf(0, 0, scales[pair[0]], distribution)
+            #    ymin2 = limit_min
+            #else:
+            #    ymin = limit_min
+            #    ymin2 = heights[pair[0]] * distribution_pdf(0, 0, scales[pair[0]], distribution)
             direction = direction * 180/np.pi
             
-            plt.vlines(direction, ymin, limit_max, color = colors[0])
-            plt.vlines(direction + 180, ymin2, limit_max, color = colors[0])
+            #plt.vlines(direction, ymin, limit_max, color = colors[0])
+            #plt.vlines(direction + 180, ymin2, limit_max, color = colors[0])
+            plt.vlines(direction, limit_min, limit_max, color = "cyan")
         else:
             distance = angle_distance(mus[pair[0]], mus[pair[1]])
             direction = (mus[pair[0]] + distance / 2) % (np.pi)
@@ -164,7 +161,7 @@ def show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distri
     plt.show()
 
 
-def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, 
+def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, only_mus = False,
                 distribution = "wrapped_cauchy", indices = None,
                 directory = "plots"):
     """
@@ -185,6 +182,8 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs,
         a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
         is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
         The first two dimensions are the image dimensions.
+    - only_mus: bool
+        Defines if only the mus (for every pixel) are given in the output_params.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
     - indices: np.ndarray (n, m, 2)
@@ -201,23 +200,27 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs,
             intensities = data[i][j]
             intensities_err = np.sqrt(intensities)
 
-            params = output_params[i][j]
-            heights = params[0:-1:3]
-            scales = params[2::3]
-            mus = params[1::3]
+            if not only_mus:
+                params = output_params[i][j]
+                heights = params[0:-1:3]
+                scales = params[2::3]
+                mus = params[1::3]
+            else:
+                mus = output_params[i][j]
             mus = mus[heights >= 1]
             if len(mus) == 0: continue
-            offset = params[-1]
-            params = params[:(3 * len(mus))]
-            params = np.append(params, offset)
+            if not only_mus:
+                offset = params[-1]
+                params = params[:(3 * len(mus))]
+                params = np.append(params, offset)
 
-            model_y = full_fitfunction(angles, params, distribution)
-            peaks_mask = output_peaks_mask[i][j]
-            peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
+                model_y = full_fitfunction(angles, params, distribution)
+                peaks_mask = output_peaks_mask[i][j]
+                peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
 
-            scales = scales[heights >= 1]
-            peaks_gof = peaks_gof[heights >= 1]
-            heights = heights[heights >= 1]
+                scales = scales[heights >= 1]
+                peaks_gof = peaks_gof[heights >= 1]
+                heights = heights[heights >= 1]
             
             plt.errorbar(angles*180/np.pi, intensities, yerr=intensities_err, marker = "o", 
                         linestyle="", capsize=5, color="black")
@@ -228,10 +231,11 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs,
             y_f = full_fitfunction(x_f, params, distribution)
             FitLine, = plt.plot(x_f*180/np.pi, y_f, marker='None', linestyle="-", color="black")
 
-            plot_peaks_gof(peaks_gof, heights, mus, scales, 
-                            distribution, peaks_mask, angles)
+            if not only_mus:
+                plot_peaks_gof(peaks_gof, heights, mus, scales, 
+                                distribution, peaks_mask, angles)
 
-            plot_directions(peak_pairs[i, j], heights, mus, scales, distribution)
+            plot_directions(peak_pairs[i, j], mus, distribution)
 
             max_rows = len(str(data.shape[0] - 1)) 
             max_cols = len(str(data.shape[1] - 1))

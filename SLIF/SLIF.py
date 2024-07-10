@@ -690,6 +690,21 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
     return best_parameters, best_redchi, peaks_mask
 
 def _format_time(hours, minutes, seconds):
+    """
+    A function that formats time based on the input hours, minutes, and seconds.
+
+    Parameters:
+    - hours: int
+        The number of hours.
+    - minutes: int
+        The number of minutes.
+    - seconds: int
+        The number of seconds.
+
+    Returns:
+    - str
+        A formatted string representing the time in hours, minutes, and seconds.
+    """
     parts = []
     if hours > 0:
         parts.append(f"{int(hours)} hours")
@@ -736,7 +751,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
     - init_fit_filter: None or list
         List that defines which filter to apply before the first fit. 
         This filter will be applied on the intensities before doing anything and
-        will be remove after one fit is done. Then the normal fitting process starts with
+        will be removed after one fit is done. Then the normal fitting process starts with
         this result as initial guess.
         First value of the list is a string with:
         "fourier", "gauss", "uniform", "median", "moving_average", or "savgol".
@@ -771,7 +786,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
             biteopt: Derivative-Free Global Optimization Method
     - only_peaks_count: int
         Defines a filter for found peaks, so that if the count of found peaks is not equal that number,
-        the function return the same as if no peaks are found.
+        the function returns the same as if no peaks are found.
     - max_peaks: int
         Defines the maximum number of peaks that should be returned from the 
         total found peaks (starting from highest peak).
@@ -884,7 +899,7 @@ def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None,
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
                         num_processes = 2):
     """
-    Finds the peas of an image stack using only the peak finder.
+    Finds the peaks of an image stack using only the peak finder.
 
     Parameters
     ----------
