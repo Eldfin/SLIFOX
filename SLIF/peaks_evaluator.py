@@ -6,6 +6,9 @@ from .wrapped_distributions import distribution_pdf
 from collections import deque
 import os
 import imageio
+import pymp
+from tqdm import tqdm
+import multiprocessing
 
 @njit(cache = True, fastmath = True)
 def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "nrmse"):
@@ -62,6 +65,39 @@ def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "nrmse"):
 
     return peaks_gof
 
+import numpy as np
+
+@njit(cache = True, fastmath = True)
+def _find_closest_true_pixel_numba(mask, start_pixel):
+    rows, cols = mask.shape
+    visited = np.zeros_like(mask, dtype = np.bool_)
+    queue = np.empty((rows * cols, 2), dtype = np.int32)
+    queue_idx = 0
+    queue[queue_idx] = start_pixel
+    queue_idx += 1
+
+    front = 0
+    end = queue_idx
+
+    while front != end:
+        r, c = queue[front]
+        front = (front + 1) % (rows * cols)
+        
+        if mask[r, c]:
+            return (r, c)
+        
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nr, nc = r + dr, c + dc
+            
+            if 0 <= nr < rows and 0 <= nc < cols and not visited[nr, nc]:
+                visited[nr, nc] = True
+                queue[queue_idx] = (nr, nc)
+                queue_idx = (queue_idx + 1) % (rows * cols)
+                end = (end + 1) % (rows * cols)
+    
+    return (-1, -1)
+
+
 def _find_closest_true_pixel(mask, start_pixel):
     """
     Finds the closest true pixel for a given 2d-mask and a start_pixel.
@@ -97,13 +133,14 @@ def _find_closest_true_pixel(mask, start_pixel):
     # When no true pixel in the mask, return (-1, -1)
     return (-1, -1)
 
-def calculate_peak_pairs(data, output_params, output_peaks_mask, 
-                            distribution = "wrapped_cauchy", only_mus = False):
+
+def calculate_peak_pairs(image_stack, output_params, output_peaks_mask, 
+                            distribution = "wrapped_cauchy", only_mus = False, num_processes = 2):
     """
     Calculates all the peak_pairs for a whole image stack.
 
     Parameters:
-    - data: np.ndarray (n, m, p)
+    - image_stack: np.ndarray (n, m, p)
         The image stack containing the measured intensities.
         n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
     - output_params: np.ndarray (n, m, q)
@@ -116,6 +153,8 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask,
         The name of the distribution.
     - only_mus: bool
         Defines if only the mus (for every pixel) are given in the output_params.
+    - num_processes: int
+        Defines the number of processes to split the task into.
 
     Returns:
     - peak_pairs: np.ndarray (n, m, 3, 2)
@@ -125,36 +164,54 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask,
         The first two dimensions are the image dimensions.
     """
 
+    n_rows = image_stack.shape[0]
+    n_cols = image_stack.shape[1]
+    total_pixels = n_rows * n_cols
+    flattened_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))
+    flattened_params = output_params.reshape((total_pixels, output_params.shape[2]))
+    flattened_peaks_mask = output_peaks_mask.reshape((total_pixels, 
+                                            output_peaks_mask.shape[2], output_peaks_mask.shape[3]))
+
+    peak_pairs = pymp.shared.array((total_pixels, 3, 2), dtype = np.int16)
+    with pymp.Parallel(num_processes) as p:
+        for i in p.range(peak_pairs.shape[0]):
+            peak_pairs[i, :] = -1
+
+    direction_mask = pymp.shared.array((n_rows, n_cols), dtype = np.bool_)
+
     if not only_mus:
         output_mus = output_params[:, :, 1::3]
     else:
         output_mus = output_params
 
-    #directions = np.full((output_mus.shape[0], output_mus.shape[1], 2), -1, dtype=np.float64)
-    peak_pairs = np.full((output_mus.shape[0], output_mus.shape[1], 3, 2), -1, dtype=np.int64)
+    # Initialize tqdm progress bar
+    pbar = tqdm(total = total_pixels, desc = "Calculating Peak Pairs", smoothing = 0.1)
+    lock = multiprocessing.Lock()
 
     # First calculate for one and two peak pixels, then 3, then 4:
-    for p in range(2, 5):
-        for i in range(output_mus.shape[0]):
-            for j in range(output_mus.shape[1]):
-                intensities = data[i, j]
-                intensities_err = np.sqrt(intensities)
+    for peak_iteration in range(2, 5):
+        with pymp.Parallel(num_processes) as p:
+            for i in p.range(total_pixels):
+                intensities = flattened_stack[i]
                 angles = np.linspace(0, 2*np.pi, num=len(intensities), endpoint=False)
-                peaks_mask = output_peaks_mask[i, j]
+                params = flattened_params[i]
+                peaks_mask = flattened_peaks_mask[i]
 
                 if not only_mus:
-                    params = output_params[i, j]
                     heights = params[0:-1:3]
                     scales = params[2::3]
                     mus = params[1::3]
                     mus = mus[heights >= 1]
                     num_peaks = len(mus)
                 else:
-                    mus = output_mus[i, j]
+                    mus = params
                     if not np.any(peaks_mask[0] != 0):
                         num_peaks = 0
                 
-                if num_peaks == 0: continue
+                if num_peaks == 0: 
+                    with lock:
+                        pbar.update(1)
+                    continue
 
                 global_amplitude = np.max(intensities) - np.min(intensities)
                 if not only_mus:
@@ -186,29 +243,35 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask,
                 mus = mus[condition]
                 sig_peak_indices = condition.nonzero()[0]
                 num_sig_peaks = len(mus)
-                if (num_sig_peaks != 1 and num_sig_peaks != p) or num_sig_peaks == 0: continue
+                if (num_sig_peaks != 1 and num_sig_peaks != peak_iteration) or num_sig_peaks == 0: 
+                    with lock:
+                        pbar.update(1)
+                    continue
                 if num_sig_peaks == 1:
-                    peak_pairs[i, j, 0] = sig_peak_indices[0], -1
+                    peak_pairs[i, 0] = sig_peak_indices[0], -1
+                    with lock:
+                        pbar.update(1)
                     continue
                 elif num_sig_peaks == 2:
-                    peak_pairs[i, j, 0] = sig_peak_indices
+                    peak_pairs[i, 0] = sig_peak_indices
+                    direction_mask[i // n_cols, i % n_cols] = True
+                    with lock:
+                        pbar.update(1)
                     continue
                 elif num_sig_peaks >= 3:
-                    # Get closest pixel with defined direction
+                    # Get closest pixel with a defined direction (and minimum 2 peaks)
 
-                    # Create mask of pixels where at least 2 peaks are paired
-                    mask = ((peak_pairs != -1).sum(axis = 3) >= 2).any(axis = 2)
-                    #mask = (directions != -1).any(axis=2)
+                    mask = np.copy(direction_mask)
                     while True:
 
-                        row, col = _find_closest_true_pixel(mask, (i, j))
+                        row, col = _find_closest_true_pixel(mask, (i // n_cols, i % n_cols))
                         if row == -1 and col == -1: break
                         other_mus = output_mus[row, col]
 
                         best_direction = -1
                         best_pair = [-1, -1]
                         min_direction_distance = np.inf
-                        for peak_pair in peak_pairs[row][col]:
+                        for peak_pair in peak_pairs[row * n_cols + col]:
                             if peak_pair[0] == -1 or peak_pair[1] == -1: continue
                             distance = angle_distance(other_mus[peak_pair[0]], other_mus[peak_pair[1]])
                             direction = (other_mus[peak_pair[0]] + distance / 2) % (np.pi)
@@ -222,17 +285,25 @@ def calculate_peak_pairs(data, output_params, output_peaks_mask,
                                         best_pair = [sig_peak_indices[index], sig_peak_indices[index2]]
                                         best_direction = direction
                         if min_direction_distance < np.pi / 8:
-                            peak_pairs[i, j, 0] = best_pair[0], best_pair[1]
+                            peak_pairs[i, 0] = best_pair[0], best_pair[1]
+                            direction_mask[i // n_cols, i % n_cols] = True
                             indices = np.array(range(num_sig_peaks))
                             remaining_indices = np.setdiff1d(indices, best_pair)
                             #if len(remaining_indices) == 1 and num_peaks == num_sig_peaks:
-                            #    peak_pairs[i,j, 1] = remaining_indices[0], -1
+                            #    peak_pairs[i, 1] = remaining_indices[0], -1
                             if len(remaining_indices) == 2:
-                                peak_pairs[i, j, 1] = sig_peak_indices[remaining_indices[0]], \
+                                peak_pairs[i, 1] = sig_peak_indices[remaining_indices[0]], \
                                                         sig_peak_indices[remaining_indices[1]]
                             break
                         else:
                              mask[row, col] = False
+                    with lock:
+                            pbar.update(1)
+
+    peak_pairs = np.reshape(peak_pairs, (n_rows, n_cols, 3, 2))
+
+    # Close the progress bar
+    pbar.close()
 
     return peak_pairs
 
