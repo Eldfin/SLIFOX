@@ -298,7 +298,7 @@ def calculate_peak_pairs(image_stack, output_params, output_peaks_mask,
                         else:
                              mask[row, col] = False
                     with lock:
-                            pbar.update(1)
+                        pbar.update(1)
 
     peak_pairs = np.reshape(peak_pairs, (n_rows, n_cols, 3, 2))
 

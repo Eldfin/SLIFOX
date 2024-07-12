@@ -5,6 +5,7 @@ import pymp
 from numba import njit
 from fcmaes import bitecpp
 from time import time
+from tqdm import tqdm
 from .signal_filters import apply_filter
 from .wrapped_distributions import distribution_pdf
 from .utils import angle_distance, calculate_chi2
@@ -689,31 +690,6 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
 
     return best_parameters, best_redchi, peaks_mask
 
-def _format_time(hours, minutes, seconds):
-    """
-    A function that formats time based on the input hours, minutes, and seconds.
-
-    Parameters:
-    - hours: int
-        The number of hours.
-    - minutes: int
-        The number of minutes.
-    - seconds: int
-        The number of seconds.
-
-    Returns:
-    - str
-        A formatted string representing the time in hours, minutes, and seconds.
-    """
-    parts = []
-    if hours > 0:
-        parts.append(f"{int(hours)} hours")
-    if minutes > 0:
-        parts.append(f"{int(minutes)} minutes")
-    if seconds > 0:
-        parts.append(f"{int(seconds)} seconds")
-    return ", ".join(parts) if parts else "0 seconds"
-
 def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_nonlinear = True,
                     threshold = 1000,
                     n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 5,
@@ -789,50 +765,25 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
     flattened_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))
     mask = np.mean(flattened_stack, axis = 1) > threshold
     mask_pixels, = mask.nonzero()
+
+    angles = np.linspace(0, 2*np.pi, num=image_stack.shape[2], endpoint = False)
+
     num_params = 3 * max_peaks + 1
     output_params = pymp.shared.array((flattened_stack.shape[0], num_params))
-    output_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_peaks, image_stack.shape[2]), dtype=np.bool_)
-    goals = np.array([len(mask_pixels) * (i+1)/num_processes for i in range(num_processes)])
-    statuses = pymp.shared.array(num_processes)
-    start_time = pymp.shared.array((1,))
-    process_started = pymp.shared.array((1,), dtype=np.bool_)
-    elapsed_time = pymp.shared.array((1,))
-    start_time[0] = 0
-    process_started[0] = False
-    elapsed_time[0] = 0
+    output_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_peaks, image_stack.shape[2]), 
+                                            dtype = np.bool_)
+
+    # Initialize the progress bar
+    num_tasks = len(mask_pixels)
+    pbar = tqdm(total = num_tasks, desc = "Processing Pixels", smoothing = 0)
+    shared_counter = pymp.shared.array(1, dtype = int)
+    shared_counter[0] = 0
 
     with pymp.Parallel(num_processes) as p:
         for i in p.range(len(mask_pixels)):
             pixel = mask_pixels[i]
-            if p.thread_num == 0:
-                current_index = i
-            else:
-                current_index = int(i - goals[p.thread_num - 1])
-            statuses[p.thread_num] = round(100 * current_index / int(len(mask_pixels)/num_processes), 2)
-            overall_progress = np.mean(statuses)
-            current_time = time() - start_time[0]
-            if not process_started[0] and p.thread_num == 0:
-                p.print("Compiling numba functions (can take up to 5 minutes)...")
-            elif process_started[0] and current_time - elapsed_time[0] >= 5:
-                # If last printed out status is over 5 seconds ago, print current status
-                with pymp.shared.lock():
-                    if current_time - elapsed_time[0] >= 5:
-                        elapsed_time[0] = current_time
-                        estimated_total_time = elapsed_time[0] * 100 / overall_progress if overall_progress > 0 else 0
-                        remaining_time = estimated_total_time - elapsed_time[0]
-                        remaining_hours, remaining_seconds = divmod(remaining_time, 3600)
-                        remaining_minutes, remaining_seconds = divmod(remaining_seconds, 60)
-                        elapsed_hours, elapsed_seconds = divmod(elapsed_time[0], 3600)
-                        elapsed_minutes, elapsed_seconds = divmod(elapsed_seconds, 60)
-                        p.print("______________________________________")
-                        p.print(f"Overall Progress: {overall_progress:.2f}%")
-                        p.print(f"Elapsed Time: {_format_time(elapsed_hours, elapsed_minutes, elapsed_seconds)}")
-                        p.print(f"Estimated Remaining Time: {_format_time(remaining_hours,
-                                                                remaining_minutes, remaining_seconds)}")
-
-            intensities = flattened_stack[pixel][0:image_stack.shape[2]]
+            intensities = flattened_stack[pixel]
             intensities_err = np.sqrt(intensities)
-            angles = np.linspace(0, 2*np.pi, num=len(intensities), endpoint=False)
             best_parameters, best_r_chi2, peaks_mask = fit_pixel_stack(angles, intensities, 
                                     intensities_err, 
                                     distribution, n_steps_height, n_steps_mu, n_steps_scale,
@@ -842,24 +793,14 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                                     max_peaks = max_peaks,
                                     max_peak_hwhm = max_peak_hwhm, min_peak_hwhm = min_peak_hwhm, 
                                     mu_range = mu_range, scale_range = scale_range)
-            output_params[pixel][0:len(best_parameters)-1] = best_parameters[:-1]
-            output_params[pixel][-1] = best_parameters[-1]
-            output_peaks_mask[pixel][0:len(peaks_mask)] = peaks_mask
+            output_params[pixel, 0:len(best_parameters)-1] = best_parameters[:-1]
+            output_params[pixel, -1] = best_parameters[-1]
+            output_peaks_mask[pixel, 0:len(peaks_mask)] = peaks_mask
 
-            # Start the timer after the first iteration
-            if not process_started[0]:
-                with pymp.shared.lock():
-                    if not process_started[0]:  # Double-check inside the lock
-                        start_time[0] = time()
-                        process_started[0] = True
-                        p.print("Process started")
+            shared_counter[0] += 1
+            pbar.update(shared_counter[0] - pbar.n)
 
-    print("______________________________________")
-    print("Process finished")
-    elapsed_time[0] = time() - start_time[0]
-    elapsed_hours, elapsed_seconds = divmod(elapsed_time[0], 3600)
-    elapsed_minutes, elapsed_seconds = divmod(elapsed_seconds, 60)
-    print(f"Processing Time: {_format_time(elapsed_hours, elapsed_minutes, elapsed_seconds)}")
+    pbar.close()
 
     deflattened_params = output_params.reshape((image_stack.shape[0], 
                                             image_stack.shape[1], output_params.shape[1]))
@@ -867,6 +808,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                                             image_stack.shape[1], output_peaks_mask.shape[1], 
                                             output_peaks_mask.shape[2]))
     return deflattened_params, deflattened_peaks_mask
+
 
 def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None, 
                         only_peaks_count = -1, max_peaks = 4,
@@ -917,77 +859,41 @@ def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None,
         for every pixel (of n*m pixels).
     """
 
-    total_pixels = image_stack.shape[0]*image_stack.shape[1]
+    total_pixels = image_stack.shape[0] * image_stack.shape[1]
     flattened_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))
     mask = np.mean(flattened_stack, axis = 1) > threshold
     mask_pixels, = mask.nonzero()
+
+    angles = np.linspace(0, 2*np.pi, num=image_stack.shape[2], endpoint=False)
+
     output_peaks_mus = pymp.shared.array((flattened_stack.shape[0], max_peaks))
     output_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_peaks, image_stack.shape[2]), dtype=np.bool_)
-    goals = np.array([len(mask_pixels) * (i+1)/num_processes for i in range(num_processes)])
-    statuses = pymp.shared.array(num_processes)
-    start_time = pymp.shared.array((1,))
-    process_started = pymp.shared.array((1,), dtype=np.bool_)
-    elapsed_time = pymp.shared.array((1,))
-    start_time[0] = 0
-    process_started[0] = False
-    elapsed_time[0] = 0
+
+    # Initialize the progress bar
+    num_tasks = len(mask_pixels)
+    pbar = tqdm(total = num_tasks, desc = "Processing Pixels", smoothing = 0)
+    shared_counter = pymp.shared.array(1, dtype=int)
+    shared_counter[0] = 0
 
     with pymp.Parallel(num_processes) as p:
         for i in p.range(len(mask_pixels)):
             pixel = mask_pixels[i]
-            if p.thread_num == 0:
-                current_index = i
-            else:
-                current_index = int(i - goals[p.thread_num - 1])
 
-            statuses[p.thread_num] = round(100 * current_index / int(len(mask_pixels)/num_processes), 2)
-            overall_progress = np.mean(statuses)
-            current_time = time() - start_time[0]
-            if not process_started[0] and p.thread_num == 0:
-                p.print("Compiling numba functions (can take up to 5 minutes)...")
-            elif process_started[0] and current_time - elapsed_time[0] >= 5:
-                # If last printed out status is over 5 seconds ago, print current status
-                with pymp.shared.lock():
-                    if current_time - elapsed_time[0] >= 5:
-                        elapsed_time[0] = current_time
-                        estimated_total_time = elapsed_time[0] * 100 / overall_progress if overall_progress > 0 else 0
-                        remaining_time = estimated_total_time - elapsed_time[0]
-                        remaining_hours, remaining_seconds = divmod(remaining_time, 3600)
-                        remaining_minutes, remaining_seconds = divmod(remaining_seconds, 60)
-                        elapsed_hours, elapsed_seconds = divmod(elapsed_time[0], 3600)
-                        elapsed_minutes, elapsed_seconds = divmod(elapsed_seconds, 60)
-                        p.print("______________________________________")
-                        p.print(f"Overall Progress: {overall_progress:.2f}%")
-                        p.print(f"Elapsed Time: {_format_time(elapsed_hours, elapsed_minutes, elapsed_seconds)}")
-                        p.print(f"Estimated Remaining Time: {_format_time(remaining_hours,
-                                                                remaining_minutes, remaining_seconds)}")
-
-            intensities = flattened_stack[pixel][0:image_stack.shape[2]]
+            intensities = flattened_stack[pixel]
             intensities_err = np.sqrt(intensities)
-            angles = np.linspace(0, 2*np.pi, num=len(intensities), endpoint=False)
 
             peaks_mask, peaks_mus = find_peaks(angles, intensities, intensities_err, 
                             only_peaks_count = only_peaks_count, max_peaks = max_peaks,
                             max_peak_hwhm = max_peak_hwhm, min_peak_hwhm = min_peak_hwhm, 
                             mu_range = mu_range, scale_range = scale_range)
 
-            output_peaks_mask[pixel][0:len(peaks_mask)] = peaks_mask
-            output_peaks_mus[pixel][0:len(peaks_mus)] = peaks_mus
+            output_peaks_mask[pixel, 0:len(peaks_mask)] = peaks_mask
+            output_peaks_mus[pixel, 0:len(peaks_mus)] = peaks_mus
 
-            # Start the timer after the first iteration
-            if not process_started[0]:
-                with pymp.shared.lock():
-                    if not process_started[0]:  # Double-check inside the lock
-                        start_time[0] = time()
-                        process_started[0] = True
-                        p.print("Process started")
+            shared_counter[0] += 1
+            pbar.update(shared_counter[0] - pbar.n)
 
-    print("______________________________________")
-    print("Process finished")
-    elapsed_time[0] = time() - start_time[0]
-    elapsed_hours, elapsed_seconds = divmod(elapsed_time[0], 3600)
-    elapsed_minutes, elapsed_seconds = divmod(elapsed_seconds, 60)
-    print(f"Processing Time: {_format_time(elapsed_hours, elapsed_minutes, elapsed_seconds)}")
+    pbar.close()
 
     deflattened_peaks_mask = output_peaks_mask.reshape((image_stack.shape[0], 
                                             image_stack.shape[1], output_peaks_mask.shape[1], 

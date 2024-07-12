@@ -147,7 +147,7 @@ def _find_extremas(intensities, first_diff, second_diff, max_A, extrema_toleranc
 
 @njit(cache = True, fastmath = True)
 def _merge_maxima(local_maxima, local_minima, intensities, angles, local_maxima_angles, 
-                    max_peak_hwhm, global_amplitude):
+                    min_peak_hwhm, max_peak_hwhm, global_amplitude):
     """
     Merges local maxima if no local minima is between them
 
@@ -178,7 +178,7 @@ def _merge_maxima(local_maxima, local_minima, intensities, angles, local_maxima_
 
     # If two or more local maxima are between two local minima
     # merge them to the mean of them
-    if len(local_maxima) > 0:
+    if len(local_maxima) >= 2:
         insert_indices = np.searchsorted(local_minima, local_maxima)
         # insertion index after end equals insertion at start (because of circular data)
         insert_indices = np.where(insert_indices == len(local_minima), 0, insert_indices)
@@ -186,6 +186,8 @@ def _merge_maxima(local_maxima, local_minima, intensities, angles, local_maxima_
         unique_insert_indices, counts = numba_unique(insert_indices)
 
         duplicate_insert_indices = unique_insert_indices[counts > 1]
+        if len(duplicate_insert_indices) == 0:
+            return local_maxima, local_maxima_angles, local_minima
         mask_maxima = np.ones(len(local_maxima), dtype = np.bool_)
         mean_maxima = np.empty(0, dtype = np.int64)
         mean_maxima_angles = np.empty(0)
@@ -200,32 +202,32 @@ def _merge_maxima(local_maxima, local_minima, intensities, angles, local_maxima_
             # but append a local minimum at the lowest intensity between them
             max_distance = 0
             for j in range(len(duplicate_maxima_angles)):
-                for k in range(i + 1, len(duplicate_maxima_angles)):
-                    dist = np.abs(angle_distance(duplicate_maxima_angles[i], duplicate_maxima_angles[j]))
-                    if dist > max_distance:
+                for k in range(j + 1, len(duplicate_maxima_angles)):
+                    dist = angle_distance(duplicate_maxima_angles[j], duplicate_maxima_angles[k])
+                    if np.abs(dist) > max_distance:
                         max_distance = dist
-                        first_maximum = duplicate_maxima_angles[i]
-                        second_maximum = duplicate_maxima_angles[j]
+                        first_maximum = duplicate_maxima_angles[j]
+                        second_maximum = duplicate_maxima_angles[k]
 
             max_difference = np.max(intensities[duplicate_maxima]) - np.min(intensities[duplicate_maxima])
-            if max_distance > max_peak_hwhm or max_difference > 0.1 * global_amplitude:
-                if first_maximum < second_maximum:
+            if np.abs(max_distance) > max_peak_hwhm or (max_difference > 0.1 * global_amplitude
+                and np.abs(max_distance) > min_peak_hwhm):
+                if max_distance > 0:
                     condition_between = (angles > first_maximum) & (angles < second_maximum)
                 else:
                     condition_between = (angles > first_maximum) | (angles < second_maximum)
                 
                 between_indices = condition_between.nonzero()[0]
-                if len(intensities[condition_between]) == 0: break
-                minimum_between = between_indices[np.argmin(intensities[condition_between])]
-                local_minima = np.append(local_minima, minimum_between)
-                continue
+                if len(between_indices) > 0:
+                    minimum_between = between_indices[np.argmin(intensities[condition_between])]
+                    local_minima = np.append(local_minima, minimum_between)
+                    continue
 
             #duplicate_maxima += len(angles)
             #mean_maximum = np.int64(np.rint(np.mean(duplicate_maxima)) - len(angles))
             mean_maximum_angle = mean_angle(duplicate_maxima_angles)
             mean_maxima_angles = np.append(mean_maxima_angles, mean_maximum_angle)
             mean_distances = np.abs(angle_distance(angles, mean_maximum_angle))
-            if len(mean_distances) == 0: break
             mean_maxima = np.append(mean_maxima, np.argmin(mean_distances))
             mask_maxima[duplicate_maxima_indices] = 0
 
@@ -264,7 +266,7 @@ def _append_similar_minima(local_minima, local_maxima, turning_points, intensiti
     for index_minimum in local_minima:
         # Get closest maxima regarding height
         # diff to closest maximum has to be high enough
-        if len(local_maxima) == 0: break
+        #if len(local_maxima) == 0: break
         closest_maximum_index = np.argmin(np.abs(intensities[index_minimum] - intensities[local_maxima]))
         closest_maximum = local_maxima[closest_maximum_index]
         for k in [-1, 1]:
@@ -766,7 +768,8 @@ def _handle_extrema(angles, intensities, intensities_err, first_diff, params):
     local_maxima_angles = angles[local_maxima]
 
     local_maxima, local_maxima_angles, local_minima = _merge_maxima(local_maxima, local_minima, 
-                intensities, angles, local_maxima_angles, max_peak_hwhm, global_amplitude)
+                intensities, angles, local_maxima_angles, min_peak_hwhm, max_peak_hwhm,
+                global_amplitude)
 
     # Append all neighbours of minima to minima when they have similar height
     # and lower than neighbouring maxima
@@ -806,7 +809,6 @@ def _equalize_difference(angles, intensities, indices, indices_reverse, extrema_
         if len(different_indices_reverse) == 0: break
         # Find closest reverse index
         distances = np.abs(angle_distance(angles[index], angles[different_indices_reverse]))
-        if len(distances) == 0: break
         closest_reverse_index = different_indices_reverse[np.argmin(distances)]
 
         # If difference of intensities between both indices are all below tolerance
@@ -1131,6 +1133,12 @@ def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1, max_
 
     local_maxima, local_minima, turning_points, turning_points_directions = \
                     _find_extremas_full(angles, intensities, first_diff, second_diff, params)
+
+    # if no maxima found return zeros
+    if len(local_maxima) == 0:
+        peaks_mask = np.zeros((1, len(angles)), dtype = np.bool_)
+        peaks_mus = np.zeros(1)
+        return peaks_mask, peaks_mus
 
     params = params._replace(
         local_maxima = local_maxima,

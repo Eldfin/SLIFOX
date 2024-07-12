@@ -5,7 +5,7 @@ import os
 
 # Settings
 dataset_path = "pyramid/07"
-data_path = "/home/jyxus/workspace/Bachelor-Arbeit/SLI_Data.h5"
+data_path = "SLI_Data.h5"
 output_directory = "output"
 output_filename = "output.h5"
 area = None # [x_left, x_right, y_top, y_bot]
@@ -20,7 +20,7 @@ data, indices = pick_data(data_path, dataset_path, area = area, randoms = random
 #    group.create_dataset("data", data=data)
 #    group.create_dataset("indices", data=indices)
 
-# Fit the picked data
+# Find the peaks from the picked data
 output_mus, output_peaks_mask = find_image_peaks(data, threshold = 1000, init_fit_filter = None, 
                         only_peaks_count = -1, max_peaks = 4, num_processes = 2)
 
