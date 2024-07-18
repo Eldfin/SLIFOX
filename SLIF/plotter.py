@@ -163,7 +163,7 @@ def show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distri
     plt.show()
 
 
-def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, only_mus = False,
+def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs = None, only_mus = False,
                 distribution = "wrapped_cauchy", indices = None,
                 directory = "plots"):
     """
@@ -252,7 +252,8 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, only_mu
                 plot_peaks_gof(peaks_gof, heights, mus, scales, 
                                 distribution, peaks_mask, angles)
 
-            plot_directions(peak_pairs[i, j], mus, distribution)
+            if isinstance(peak_pairs, np.ndarray):
+                plot_directions(peak_pairs[i, j], mus, distribution)
 
             max_rows = len(str(data.shape[0] - 1)) 
             max_cols = len(str(data.shape[1] - 1))

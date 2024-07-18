@@ -130,9 +130,9 @@ def mean_angle(angles):
     
     return mean_angle
 
-def pick_data(filepath, dataset_path, area = None, randoms = 0):
+def pick_data(filepath, dataset_path, area = None, randoms = 0, indices = None):
     """
-    Picks data from a HDF5 file. The data should be 3 dimensional (image stack).
+    Picks data from a HDF5 file.
 
     Parameters:
     - filepath: string
@@ -144,9 +144,11 @@ def pick_data(filepath, dataset_path, area = None, randoms = 0):
         Where x_left and x_right are the x_borders and y_top and y_bot are the y_borders.
     - randoms: int
         The number of randoms to pick from the data. 0 equals picking the full data.
+    - indices: np.ndarray (n, m, 2)
+        Array storing the both indices in the last dimension, which are used to pick from the data.
 
     Returns:
-    - data: np.ndarray (n, m, p)
+    - data: np.ndarray (n, m) or (n, m, p)
         Returns the chosen data.
     - indices: np.ndarray (n, m, 2)
         Stores the picked indices from the data. 
@@ -161,31 +163,38 @@ def pick_data(filepath, dataset_path, area = None, randoms = 0):
         if area == None:
             x_indices, y_indices = np.indices((data_shape[0], data_shape[1]))
 
-        else:
+        elif not isinstance(indices, np.ndarray):
             x_indices, y_indices = np.indices((area[1] - area[0], area[3] - area[2]))
             x_indices += area[0]
             y_indices += area[2]
 
-        if randoms > 0:
+        if randoms > 0 and not isinstance(indices, np.ndarray):
             x_indices = x_indices.flatten()
             y_indices = y_indices.flatten()
-            random_indices = np.random.choice(len(x_indices), randoms, replace=False)
+            random_indices = np.random.choice(len(x_indices), randoms, replace = False)
             x_indices = x_indices[random_indices]
             y_indices = y_indices[random_indices]
 
-            data = np.empty((randoms, 1, data_shape[2]), dtype=h5f[dataset_path].dtype)
-            indices = np.empty((randoms, 1, 2), dtype=int)
+            data = np.empty((randoms, 1) + (data_shape[2:]), dtype = h5f[dataset_path].dtype)
+            indices = np.empty((randoms, 1, 2), dtype = int)
             for i in range(randoms):
-                data[i, 0] = h5f[dataset_path][x_indices[i], y_indices[i], :]
+                data[i, 0, ...] = h5f[dataset_path][x_indices[i], y_indices[i], ...]
                 indices[i, 0, 0] = x_indices[i]
                 indices[i, 0, 1] = y_indices[i]
 
         else:
-            if area == None:
+            if isinstance(indices, np.ndarray):
+                flat_indices = indices.reshape(-1, indices.shape[-1])
+                num_pixels = len(flat_indices)
+                data = np.empty((num_pixels, 1) + (data_shape[2:]), dtype = h5f[dataset_path].dtype)
+                for i in range(num_pixels):
+                    data[i, 0, ...] = h5f[dataset_path][flat_indices[i, 0], flat_indices[i, 1], ...]
+                return data, indices
+            elif area == None:
                 data = h5f[dataset_path][:]
             else:
-                data = h5f[dataset_path][area[0]:area[1], area[2]:area[3], :]
+                data = h5f[dataset_path][area[0]:area[1], area[2]:area[3], ...]
 
-            indices = np.stack((x_indices, y_indices), axis=-1, dtype=np.int64)
+            indices = np.stack((x_indices, y_indices), axis = -1, dtype = np.int64)
 
     return data, indices

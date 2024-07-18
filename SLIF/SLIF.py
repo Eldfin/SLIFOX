@@ -183,7 +183,7 @@ def create_bounds(angles, intensities, intensities_err, distribution,
     max_A = min_int + 0.05 * global_amplitude
 
     # if no peaks found return zeros
-    if (len(peaks_mask) == 1 and np.all(peaks_mask[0] == 0)) or len(peaks_mus) == 0:
+    if not np.any(peaks_mask) or len(peaks_mus) == 0:
         bounds_min = np.zeros(4)
         bounds_max = np.zeros(4)
         return bounds_min, bounds_max
@@ -547,13 +547,13 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
                     max_peak_hwhm = max_peak_hwhm, min_peak_hwhm = min_peak_hwhm, 
                     mu_range = mu_range, scale_range = scale_range)
 
+    # if no peaks found return params of zeros, np.nan as chi2, zeros as peaks_mask
+    if not np.any(peaks_mask):
+        return np.zeros(4), np.nan, np.zeros((1, len(angles)), dtype = np.bool_)
+
     bounds_min, bounds_max = create_bounds(angles, intensities, intensities_err, distribution,
                     peaks_mask, peaks_mus, mu_range, scale_range,
                     min_peak_hwhm, max_peak_hwhm, global_amplitude, min_int)
-
-    # if no peaks found return params of zeros, np.nan as chi2, zeros as peaks_mask
-    if np.all(bounds_max == 0):
-        return np.zeros(4), np.nan, np.zeros((1, len(angles)), dtype = np.bool_)
 
     if method == "biteopt":
         if not fit_height_nonlinear:
