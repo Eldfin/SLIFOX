@@ -4,15 +4,15 @@ import os
 
 # Settings
 dataset_path = "pyramid/00"
-distribution = "wrapped_cauchy"
-data_path = "SLI_Data.h5"
-output_directory = ""
+data_file_path = "/home/user/workspace/SLI_Data.h5"
+output_directory = "output"
 output_filename = "output.h5"
 area = None  # [x_left, x_right, y_top, y_bot]
 randoms = 0 # number of random pixels to pick from data (0 equals full data)
+distribution = "wrapped_cauchy"
 
 # Pick the SLI measurement data
-data, indices = pick_data(data_path, dataset_path, area = area, randoms = randoms)
+data, indices = pick_data(data_file_path, dataset_path, area = area, randoms = randoms)
 
 # Optional: Write the picked data array to a HDF5 file
 #with h5py.File("input.h5", "w") as h5f:
@@ -23,8 +23,8 @@ data, indices = pick_data(data_path, dataset_path, area = area, randoms = random
 # Fit the picked data
 output_params, output_peaks_mask = fit_image_stack(data, fit_height_nonlinear = True, 
                                 threshold = 1000, distribution = distribution,
-                                n_steps_fit = 10, n_steps_height = 10, n_steps_mu = 10, 
-                                n_steps_scale = 10, refit_steps = 1, init_fit_filter = None, 
+                                n_steps_fit = 5, n_steps_height = 10, n_steps_mu = 10, 
+                                n_steps_scale = 10, refit_steps = 0, init_fit_filter = None, 
                                 method="leastsq", num_processes = 2)
 
 # Write the output to a HDF5 file

@@ -4,17 +4,17 @@ from SLIF import fit_pixel_stack, show_pixel
 from SLIF.signal_filters import apply_filter
 
 # Settings:
-filename = "SLI_Data.h5"
+data_file_path = "/home/user/workspace/SLI_Data.h5"
 dataset_path = "pyramid/02"
-pixel = [1250, 734]
+pixel = [6311, 3300]
 distribution = "wrapped_cauchy"
 #pre_filter = ["gauss", 2]
 
 
 # Pick the pixel data
-with h5py.File(filename, "r") as h5f:
+with h5py.File(data_file_path, "r") as h5f:
 
-    intensities = h5f[dataset_path][pixel[0]][pixel[1]]
+    intensities = h5f[dataset_path][pixel[0], pixel[1]]
     intensities_err = np.sqrt(intensities)
 
     # Apply filter
