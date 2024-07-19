@@ -145,8 +145,8 @@ def calculate_peak_pairs(image_stack, output_params, output_peaks_mask,
         n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
     - output_params: np.ndarray (n, m, q)
         The output of fitting the image stack, which stores the parameters of the full fitfunction.
-        q = 3 * n_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-    - output_peaks_mask: np.ndarray (n, m, n_peaks, p)
+        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
+    - output_peaks_mask: np.ndarray (n, m, max_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
@@ -157,13 +157,14 @@ def calculate_peak_pairs(image_stack, output_params, output_peaks_mask,
         Defines the number of processes to split the task into.
 
     Returns:
-    - peak_pairs: np.ndarray (n, m, 3, 2)
+    - peak_pairs: np.ndarray (n, m, max_peaks // 2, 2)
         The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
         a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
         is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
         The first two dimensions are the image dimensions.
     """
 
+    max_peaks = output_peaks_mask.shape[2]
     n_rows = image_stack.shape[0]
     n_cols = image_stack.shape[1]
     total_pixels = n_rows * n_cols
@@ -172,7 +173,7 @@ def calculate_peak_pairs(image_stack, output_params, output_peaks_mask,
     flattened_peaks_mask = output_peaks_mask.reshape((total_pixels, 
                                             output_peaks_mask.shape[2], output_peaks_mask.shape[3]))
 
-    peak_pairs = pymp.shared.array((total_pixels, 3, 2), dtype = np.int16)
+    peak_pairs = pymp.shared.array((total_pixels, int(max_peaks // 2), 2), dtype = np.int16)
     with pymp.Parallel(num_processes) as p:
         for i in p.range(peak_pairs.shape[0]):
             peak_pairs[i, :] = -1
@@ -181,16 +182,17 @@ def calculate_peak_pairs(image_stack, output_params, output_peaks_mask,
 
     if not only_mus:
         output_mus = output_params[:, :, 1::3]
+
     else:
         output_mus = output_params
 
     # Initialize the progress bar
-    pbar = tqdm(total = total_pixels, desc = "Calculating Peak pairs", smoothing = 0, leave = True)
+    pbar = tqdm(total = total_pixels * (max_peaks - 1), desc = "Calculating Peak pairs", smoothing = 0)
     shared_counter = pymp.shared.array(1, dtype = int)
     shared_counter[0] = 0
 
-    # First calculate for one and two peak pixels, then 3, then 4:
-    for peak_iteration in range(2, 5):
+    # First calculate for one and two peak pixels, then 3, then 4, ...
+    for peak_iteration in range(2, max_peaks + 1):
         with pymp.Parallel(num_processes) as p:
             for i in p.range(total_pixels):
                 intensities = flattened_stack[i]
@@ -206,7 +208,8 @@ def calculate_peak_pairs(image_stack, output_params, output_peaks_mask,
                     num_peaks = len(mus)
                 else:
                     mus = params
-                    if not np.any(peaks_mask[0] != 0):
+                    num_peaks = 1
+                    if not np.any(peaks_mask):
                         num_peaks = 0
                 
                 # Update progress bar
@@ -239,8 +242,10 @@ def calculate_peak_pairs(image_stack, output_params, output_peaks_mask,
                     condition = (heights >= 1) & (amplitudes > 0.2 * global_amplitude) & (peaks_gof > 0.5) \
                         & (amplitudes > 0.2 * np.max(amplitudes)) & (rel_amplitudes > 0.05 * global_amplitude)
                 else:
-                    amplitudes = np.empty(len(mus))
+                    amplitudes = np.zeros(len(mus))
                     for k in range(len(mus)):
+                        if not np.any(peaks_mask[k]):
+                            continue
                         amplitudes[k] = np.max(intensities[peaks_mask[k]])
                     condition = (amplitudes > 0.2 * global_amplitude) & (amplitudes > 0.2 * np.max(amplitudes))
                 mus = mus[condition]
@@ -259,6 +264,7 @@ def calculate_peak_pairs(image_stack, output_params, output_peaks_mask,
                     # Get closest pixel with a defined direction (and minimum 2 peaks)
 
                     mask = np.copy(direction_mask)
+                    peaks_used = np.zeros(len(condition), dtype = np.bool_)
                     while True:
 
                         row, col = _find_closest_true_pixel(mask, (i // n_cols, i % n_cols))
@@ -273,7 +279,9 @@ def calculate_peak_pairs(image_stack, output_params, output_peaks_mask,
                             distance = angle_distance(other_mus[peak_pair[0]], other_mus[peak_pair[1]])
                             direction = (other_mus[peak_pair[0]] + distance / 2) % (np.pi)
                             for index in range(num_sig_peaks):
+                                if peaks_used[index]: continue
                                 for index2 in range(index + 1, num_sig_peaks):
+                                    if peaks_used[index2]: continue
                                     distance = angle_distance(mus[index], mus[index2])
                                     test_direction = (mus[index] + distance / 2) % (np.pi)
                                     direction_distance = np.abs(angle_distance(test_direction, direction))
@@ -282,20 +290,23 @@ def calculate_peak_pairs(image_stack, output_params, output_peaks_mask,
                                         best_pair = [sig_peak_indices[index], sig_peak_indices[index2]]
                                         best_direction = direction
                         if min_direction_distance < np.pi / 8:
-                            peak_pairs[i, 0] = best_pair[0], best_pair[1]
+                            num_paired = int(len(peaks_used.nonzero()[0]) // 2)
+                            peak_pairs[i, num_paired] = best_pair[0], best_pair[1]
+                            peaks_used[best_pair[0]] = True
+                            peaks_used[best_pair[1]] = True
                             direction_mask[i // n_cols, i % n_cols] = True
                             indices = np.array(range(num_sig_peaks))
-                            remaining_indices = np.setdiff1d(indices, best_pair)
-                            #if len(remaining_indices) == 1 and num_peaks == num_sig_peaks:
-                            #    peak_pairs[i, 1] = remaining_indices[0], -1
+                            remaining_indices = np.setdiff1d(indices, peaks_used.nonzero()[0])
                             if len(remaining_indices) == 2:
-                                peak_pairs[i, 1] = sig_peak_indices[remaining_indices[0]], \
+                                peak_pairs[i, num_paired + 1] = sig_peak_indices[remaining_indices[0]], \
                                                         sig_peak_indices[remaining_indices[1]]
-                            break
+                                break
+                            elif len(remaining_indices) <= 1:
+                                break
                         else:
                              mask[row, col] = False
 
-    peak_pairs = np.reshape(peak_pairs, (n_rows, n_cols, 3, 2))
+    peak_pairs = np.reshape(peak_pairs, (n_rows, n_cols, peak_pairs.shape[1], 2))
 
     return peak_pairs
 
@@ -304,26 +315,27 @@ def calculate_directions(peak_pairs, output_mus, directory = None):
     Calculates the directions from given peak_pairs.
 
     Parameters:
-    - peak_pairs: np.ndarray (n, m, 3, 2)
+    - peak_pairs: np.ndarray (n, m, max_peaks, 2)
         The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
         a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
         is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
         The first two dimensions are the image dimensions.
-    - output_mus: np.ndarray (n, m, n_peaks)
-        The mus (centers) of the found (n_peaks) peaks for everyone of the (n * m) pixels.
+    - output_mus: np.ndarray (n, m, max_peaks)
+        The mus (centers) of the found (max_peaks) peaks for everyone of the (n * m) pixels.
     - directory: string
         The directory path defining where direction images should be writen to.
         If None, no images will be writen.
 
     Returns:
-    - directions: (n, m, 3)
+    - directions: (n, m, max_peaks // 2)
         The calculated directions for everyoe of the (n * m) pixels.
         Max 3 directions (for 6 peaks).
     """
 
     x_range = peak_pairs.shape[0]
     y_range = peak_pairs.shape[1]
-    directions = np.full((x_range, y_range, 3), -1, dtype=np.float64)
+    max_directions = peak_pairs.shape[2]
+    directions = np.full((x_range, y_range, max_directions), -1, dtype=np.float64)
     for x in range(x_range):
         for y in range(y_range):
             mus = output_mus[x, y]
@@ -345,7 +357,7 @@ def calculate_directions(peak_pairs, output_mus, directory = None):
         if not os.path.exists(directory):
                 os.makedirs(directory)
 
-        for dir_n in range(directions.shape[-1]):
+        for dir_n in range(max_directions):
             imageio.imwrite(f'{directory}/dir_{dir_n + 1}.tiff', np.swapaxes(directions[:, :, dir_n], 0, 1))
 
     return directions

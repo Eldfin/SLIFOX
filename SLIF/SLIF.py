@@ -850,7 +850,7 @@ def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None,
 
     Returns
     -------
-    - deflattened_params: np.ndarray (n, m, q)
+    - deflattened_peaks_mus: np.ndarray (n, m, max_peaks)
         Array which stores the best found parameters for every pixel (of n*m pixels).
     - deflattened_peaks_mask: np.ndarray (n, m, max_peaks, p)
         Array that stores the indices of the measurements that corresponds (mainly) to a peak,

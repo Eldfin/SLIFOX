@@ -4,3 +4,4 @@ from .utils import pick_data, angle_distance
 from .plotter import plot_data_pixels, show_pixel
 from .PLI_comparison import get_distance_deviations
 from .inclination import calculate_image_inclinations
+from .fom_generator import write_fom

@@ -39,9 +39,9 @@ with h5py.File(output_file_path, "w") as h5f:
 
 # Optional: Pick SLIF output data (if already fitted)
 #output_params, _ = pick_data(output_file_path, 
-#                                dataset_path + "/params", area = None, randoms = 0)
+#                                dataset_path + "/params", area = area, randoms = randoms)
 #output_peaks_mask, _ = pick_data(output_file_path, 
-#                               dataset_path + "/peaks_mask", area = None, randoms = 0)
+#                               dataset_path + "/peaks_mask", area = area, randoms = randoms)
     
 # Calculate the peak pairs (directions)
 peak_pairs = calculate_peak_pairs(data, output_params, output_peaks_mask, distribution)
