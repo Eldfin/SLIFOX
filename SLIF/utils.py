@@ -169,18 +169,15 @@ def pick_data(filepath, dataset_path, area = None, randoms = 0, indices = None):
             y_indices += area[2]
 
         if randoms > 0 and not isinstance(indices, np.ndarray):
-            x_indices = x_indices.flatten()
-            y_indices = y_indices.flatten()
-            random_indices = np.random.choice(len(x_indices), randoms, replace = False)
-            x_indices = x_indices[random_indices]
-            y_indices = y_indices[random_indices]
+            random_x_indices = np.random.choice(x_indices[:, 0], randoms)
+            random_y_indices = np.random.choice(y_indices[0, :], randoms)
 
             data = np.empty((randoms, 1) + (data_shape[2:]), dtype = h5f[dataset_path].dtype)
             indices = np.empty((randoms, 1, 2), dtype = int)
             for i in range(randoms):
-                data[i, 0, ...] = h5f[dataset_path][x_indices[i], y_indices[i], ...]
-                indices[i, 0, 0] = x_indices[i]
-                indices[i, 0, 1] = y_indices[i]
+                data[i, 0, ...] = h5f[dataset_path][random_x_indices[i], random_y_indices[i], ...]
+                indices[i, 0, 0] = random_x_indices[i]
+                indices[i, 0, 1] = random_y_indices[i]
 
         else:
             if isinstance(indices, np.ndarray):

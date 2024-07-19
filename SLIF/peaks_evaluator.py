@@ -184,9 +184,10 @@ def calculate_peak_pairs(image_stack, output_params, output_peaks_mask,
     else:
         output_mus = output_params
 
-    # Initialize tqdm progress bar
-    pbar = tqdm(total = total_pixels, desc = "Calculating Peak Pairs", smoothing = 0.1)
-    lock = multiprocessing.Lock()
+    # Initialize the progress bar
+    pbar = tqdm(total = total_pixels, desc = "Calculating Peak pairs", smoothing = 0, leave = True)
+    shared_counter = pymp.shared.array(1, dtype = int)
+    shared_counter[0] = 0
 
     # First calculate for one and two peak pixels, then 3, then 4:
     for peak_iteration in range(2, 5):
@@ -208,9 +209,11 @@ def calculate_peak_pairs(image_stack, output_params, output_peaks_mask,
                     if not np.any(peaks_mask[0] != 0):
                         num_peaks = 0
                 
+                # Update progress bar
+                shared_counter[0] += 1
+                pbar.update(shared_counter[0] - pbar.n)
+
                 if num_peaks == 0: 
-                    with lock:
-                        pbar.update(1)
                     continue
 
                 global_amplitude = np.max(intensities) - np.min(intensities)
@@ -244,19 +247,13 @@ def calculate_peak_pairs(image_stack, output_params, output_peaks_mask,
                 sig_peak_indices = condition.nonzero()[0]
                 num_sig_peaks = len(mus)
                 if (num_sig_peaks != 1 and num_sig_peaks != peak_iteration) or num_sig_peaks == 0: 
-                    with lock:
-                        pbar.update(1)
                     continue
                 if num_sig_peaks == 1:
                     peak_pairs[i, 0] = sig_peak_indices[0], -1
-                    with lock:
-                        pbar.update(1)
                     continue
                 elif num_sig_peaks == 2:
                     peak_pairs[i, 0] = sig_peak_indices
                     direction_mask[i // n_cols, i % n_cols] = True
-                    with lock:
-                        pbar.update(1)
                     continue
                 elif num_sig_peaks >= 3:
                     # Get closest pixel with a defined direction (and minimum 2 peaks)
@@ -297,13 +294,8 @@ def calculate_peak_pairs(image_stack, output_params, output_peaks_mask,
                             break
                         else:
                              mask[row, col] = False
-                    with lock:
-                        pbar.update(1)
 
     peak_pairs = np.reshape(peak_pairs, (n_rows, n_cols, 3, 2))
-
-    # Close the progress bar
-    pbar.close()
 
     return peak_pairs
 

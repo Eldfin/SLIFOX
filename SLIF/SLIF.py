@@ -800,8 +800,6 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
             shared_counter[0] += 1
             pbar.update(shared_counter[0] - pbar.n)
 
-    pbar.close()
-
     deflattened_params = output_params.reshape((image_stack.shape[0], 
                                             image_stack.shape[1], output_params.shape[1]))
     deflattened_peaks_mask = output_peaks_mask.reshape((image_stack.shape[0], 

@@ -79,7 +79,7 @@ def plot_peaks_gof(peaks_gof, heights, mus, scales,
         plt.plot((x_f*180/np.pi) % 360, peak_y_f, marker='None', linestyle="--", color=color)
         plt.vlines((mus[k]*180/np.pi) % 360, 0, ymax , color = color)
 
-def plot_directions(peak_pairs, mus, distribution):
+def plot_directions(peak_pairs, mus, distribution, heights = None, scales = None):
     """
     Plots the found directions (peak pairs) in the current plot.
 
@@ -106,17 +106,19 @@ def plot_directions(peak_pairs, mus, distribution):
             ax = plt.gca()
             limit_min, limit_max = ax.get_ylim()
             direction = mus[pair[0]] % (np.pi)
-            #if direction == mus[pair[0]]:
-            #    ymin = heights[pair[0]] * distribution_pdf(0, 0, scales[pair[0]], distribution)
-            #    ymin2 = limit_min
-            #else:
-            #    ymin = limit_min
-            #    ymin2 = heights[pair[0]] * distribution_pdf(0, 0, scales[pair[0]], distribution)
+            if isinstance(heights, np.ndarray) and isinstance(scales , np.ndarray):
+                if direction == mus[pair[0]]:
+                    ymin = heights[pair[0]] * distribution_pdf(0, 0, scales[pair[0]], distribution)
+                    ymin2 = limit_min
+                else:
+                    ymin = limit_min
+                    ymin2 = heights[pair[0]] * distribution_pdf(0, 0, scales[pair[0]], distribution)
+            else:
+                ymin, ymin2 = limit_min, limit_min
             direction = direction * 180/np.pi
             
-            #plt.vlines(direction, ymin, limit_max, color = colors[0])
-            #plt.vlines(direction + 180, ymin2, limit_max, color = colors[0])
-            plt.vlines(direction, limit_min, limit_max, color = "cyan")
+            plt.vlines(direction, ymin, limit_max, color = colors[0])
+            plt.vlines(direction + 180, ymin2, limit_max, color = colors[0])
         else:
             distance = angle_distance(mus[pair[0]], mus[pair[1]])
             direction = (mus[pair[0]] + distance / 2) % (np.pi)
@@ -253,13 +255,17 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs = None, 
                                 distribution, peaks_mask, angles)
 
             if isinstance(peak_pairs, np.ndarray):
-                plot_directions(peak_pairs[i, j], mus, distribution)
+                if not only_mus:
+                    plot_directions(peak_pairs[i, j], mus, distribution, 
+                                        heights = heights, scales = scales)
+                else:
+                    plot_directions(peak_pairs[i, j], mus, distribution)
 
             max_rows = len(str(data.shape[0] - 1)) 
             max_cols = len(str(data.shape[1] - 1))
             if indices is None:
-                x_str = f"{str(i):0{max_rows}d}"
-                y_str = f"{str(j):0{max_cols}d}"
+                x_str = f"{i:0{max_rows}d}"
+                y_str = f"{j:0{max_cols}d}"
             else:
                 x_str = f"{indices[i, j, 0]:0{max_rows}d}"
                 y_str = f"{indices[i, j, 1]:0{max_cols}d}"
