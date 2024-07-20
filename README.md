@@ -53,7 +53,7 @@ pip install .
 
 ### Functions
 
-#### `fit_pixel_stack`
+#### Function: `fit_pixel_stack`
 ##### Description
 Fits the data of one pixel.
 
@@ -114,7 +114,7 @@ Fits the data of one pixel.
 - `peaks_mask`: np.ndarray (n_peaks, n)
     Array that stores the indices of the measurements that corresponds (mainly) to a peak.
 
-#### `fit_image_stack`
+#### Function: `fit_image_stack`
 ##### Description
 Fits the data of a full image stack.
 
@@ -176,7 +176,7 @@ Fits the data of a full image stack.
     Array that stores the indices of the measurements that corresponds (mainly) to a peak.
 
 
-#### `find_image_peaks`
+#### Function: `find_image_peaks`
 ##### Description
 Finds the peaks of an image stack using only the peak finder (no fitting).
 
@@ -219,7 +219,7 @@ Finds the peaks of an image stack using only the peak finder (no fitting).
     for every pixel (of n*m pixels).
 
 
-#### `plot_data_pixels`
+#### Function: `plot_data_pixels`
 ##### Description
 Plots all the intensity profiles of the pixels of given data.
 
@@ -250,7 +250,7 @@ Plots all the intensity profiles of the pixels of given data.
 ##### Returns
 - `None`
 
-#### `calculate_peak_pairs`
+#### Function: `calculate_peak_pairs`
 ##### Description
 Calculates all the peak_pairs for a whole image stack..
 
@@ -279,7 +279,7 @@ Calculates all the peak_pairs for a whole image stack..
     The first two dimensions are the image dimensions.
 
 
-#### `calculate_directions`
+#### Function: `calculate_directions`
 ##### Description
 Calculates the directions from given peak_pairs.
 
