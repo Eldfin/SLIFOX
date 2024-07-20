@@ -44,12 +44,12 @@ with h5py.File(output_file_path, "w") as h5f:
 #                               dataset_path + "/peaks_mask", area = area, randoms = randoms)
     
 # Calculate the peak pairs (directions)
-peak_pairs = calculate_peak_pairs(data, image_params, image_peaks_mask, distribution)
+image_peak_pairs = calculate_peak_pairs(data, image_params, image_peaks_mask, distribution)
 
 # Optional: Plot the picked data
-plot_data_pixels(data, image_params, image_peaks_mask, peak_pairs, 
+plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs, 
                         distribution = distribution, indices = indices, directory = "plots")
 
 # Calculate the nerve fiber directions and save direction map in directory
 image_mus = image_params[:, :, 1::3]
-directions = calculate_directions(peak_pairs, image_mus, directory = "direction_maps")
+directions = calculate_directions(image_peak_pairs, image_mus, directory = "direction_maps")
