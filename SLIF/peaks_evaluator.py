@@ -395,6 +395,8 @@ def pixel_significances(peak_pairs, params, peaks_mask, intensities, angles, wei
     global_amplitude = np.max(intensities) - np.min(intensities)
     model_y = full_fitfunction(angles, params, distribution)
     peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
+    heights = params[0:-1:3]
+    scales = params[2::3]
     num_directions = peak_pairs.shape[0]
     significances = np.zeros(num_directions)
 
@@ -404,7 +406,7 @@ def pixel_significances(peak_pairs, params, peaks_mask, intensities, angles, wei
             continue
         amplitudes = np.empty(2)
         for k in range(2):
-            amplitudes[peak_pair[k]] = heights[peak_pair[k]]  \
+            amplitudes[k] = heights[peak_pair[k]]  \
                                     * distribution_pdf(0, 0, scales[peak_pair[k]], distribution)
         amplitude_significance = np.mean(amplitudes / global_amplitude)
         gof_significance = np.mean(peaks_gof[peak_pair])
