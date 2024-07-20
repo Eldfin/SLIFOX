@@ -21,7 +21,7 @@ data, indices = pick_data(data_file_path, dataset_path, area = area, randoms = r
 #    group.create_dataset("indices", data=indices)
 
 # Fit the picked data
-output_params, output_peaks_mask = fit_image_stack(data, fit_height_nonlinear = True, 
+image_params, image_peaks_mask = fit_image_stack(data, fit_height_nonlinear = True, 
                                 threshold = 1000, distribution = distribution,
                                 n_steps_fit = 5, n_steps_height = 10, n_steps_mu = 10, 
                                 n_steps_scale = 10, refit_steps = 0, init_fit_filter = None, 
@@ -33,23 +33,23 @@ if not os.path.exists(directory):
     os.makedirs(directory)
 with h5py.File(output_file_path, "w") as h5f:
     group = h5f.create_group(dataset_path)
-    group.create_dataset("params", data=output_params)
-    group.create_dataset("peaks_mask", data=output_peaks_mask)
+    group.create_dataset("params", data=image_params)
+    group.create_dataset("peaks_mask", data=image_peaks_mask)
     group.create_dataset("indices", data=indices)
 
 # Optional: Pick SLIF output data (if already fitted)
-#output_params, _ = pick_data(output_file_path, 
+#image_params, _ = pick_data(output_file_path, 
 #                                dataset_path + "/params", area = area, randoms = randoms)
-#output_peaks_mask, _ = pick_data(output_file_path, 
+#image_peaks_mask, _ = pick_data(output_file_path, 
 #                               dataset_path + "/peaks_mask", area = area, randoms = randoms)
     
 # Calculate the peak pairs (directions)
-peak_pairs = calculate_peak_pairs(data, output_params, output_peaks_mask, distribution)
+peak_pairs = calculate_peak_pairs(data, image_params, image_peaks_mask, distribution)
 
 # Optional: Plot the picked data
-plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, 
+plot_data_pixels(data, image_params, image_peaks_mask, peak_pairs, 
                         distribution = distribution, indices = indices, directory = "plots")
 
 # Calculate the nerve fiber directions and save direction map in directory
-output_mus = output_params[:, :, 1::3]
-directions = calculate_directions(peak_pairs, output_mus, directory = "direction_maps")
+image_mus = image_params[:, :, 1::3]
+directions = calculate_directions(peak_pairs, image_mus, directory = "direction_maps")

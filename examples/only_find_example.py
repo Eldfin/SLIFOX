@@ -21,7 +21,7 @@ data, indices = pick_data(data_file_path, dataset_path, area = area, randoms = r
 #    group.create_dataset("indices", data=indices)
 
 # Find the peaks from the picked data
-output_mus, output_peaks_mask = find_image_peaks(data, threshold = 1000, init_fit_filter = None, 
+image_mus, image_peaks_mask = find_image_peaks(data, threshold = 1000, init_fit_filter = None, 
                         only_peaks_count = -1, max_peaks = 4, num_processes = 2)
 
 
@@ -31,22 +31,22 @@ if not os.path.exists(directory):
     os.makedirs(directory)
 with h5py.File(output_file_path, "w") as h5f:
     group = h5f.create_group(dataset_path)
-    group.create_dataset("mus", data=output_mus)
-    group.create_dataset("peaks_mask", data=output_peaks_mask)
+    group.create_dataset("mus", data=image_mus)
+    group.create_dataset("peaks_mask", data=image_peaks_mask)
     group.create_dataset("indices", data=indices)
 
 # Optional: Pick SLIF output data (if already fitted)
-#output_mus, _ = pick_data(output_file_path, 
+#image_mus, _ = pick_data(output_file_path, 
 #                                dataset_path + "/mus", area = None, randoms = 0)
-#output_peaks_mask, _ = pick_data(output_file_path, 
+#image_peaks_mask, _ = pick_data(output_file_path, 
 #                               dataset_path + "/peaks_mask", area = None, randoms = 0)
     
 # Calculate the peak pairs (directions)
-peak_pairs = calculate_peak_pairs(data, output_mus, output_peaks_mask, only_mus = True)
+peak_pairs = calculate_peak_pairs(data, image_mus, image_peaks_mask, only_mus = True)
 
 # Optional: Plot the picked data
-#plot_data_pixels(data, output_mus, output_peaks_mask, peak_pairs, indices = indices, 
+#plot_data_pixels(data, image_mus, image_peaks_mask, peak_pairs, indices = indices, 
 #                        directory = "plots", only_mus = True)
 
 # Calculate the nerve fiber directions and save direction map in directory
-#directions = calculate_directions(peak_pairs, output_mus, directory = "direction_maps")
+#directions = calculate_directions(peak_pairs, image_mus, directory = "direction_maps")

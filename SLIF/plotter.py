@@ -165,7 +165,7 @@ def show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distri
     plt.show()
 
 
-def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs = None, only_mus = False,
+def plot_data_pixels(data, image_params, image_peaks_mask, peak_pairs = None, only_mus = False,
                 distribution = "wrapped_cauchy", indices = None,
                 directory = "plots"):
     """
@@ -175,10 +175,10 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs = None, 
     - data: np.ndarray (n, m, p)
         The image stack containing the measured intensities.
         n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
-    - output_params: np.ndarray (n, m, q)
+    - image_params: np.ndarray (n, m, q)
         The output of fitting the image stack, which stores the parameters of the full fitfunction.
         q = 3 * n_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-    - output_peaks_mask: np.ndarray (n, m, n_peaks, p)
+    - image_peaks_mask: np.ndarray (n, m, n_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
     - peak_pairs: np.ndarray (n, m, 3, 2)
@@ -187,7 +187,7 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs = None, 
         is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
         The first two dimensions are the image dimensions.
     - only_mus: bool
-        Defines if only the mus (for every pixel) are given in the output_params.
+        Defines if only the mus (for every pixel) are given in the image_params.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
     - indices: np.ndarray (n, m, 2)
@@ -203,17 +203,17 @@ def plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs = None, 
 
             intensities = data[i, j]
             intensities_err = np.sqrt(intensities)
-            peaks_mask = output_peaks_mask[i, j]
+            peaks_mask = image_peaks_mask[i, j]
 
             if not only_mus:
-                params = output_params[i, j]
+                params = image_params[i, j]
                 heights = params[0:-1:3]
                 scales = params[2::3]
                 mus = params[1::3]
                 mus = mus[heights >= 1]
                 num_peaks = len(mus)
             else:
-                mus = output_params[i, j]
+                mus = image_params[i, j]
                 num_peaks = len(mus)
                 if not np.any(peaks_mask[0]):
                     num_peaks = 0

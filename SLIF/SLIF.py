@@ -476,7 +476,7 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
         The following one to two values are the params for this filter (scipy docs).
     - method: string
         Defines which fitting method to use. Can be anything from the methods in lmfit.minimize
-        and additionally "biteopt" (Derivative-Free Global Optimization Method).
+        and additionally "biteopt".
     - only_peaks_count: int
         Defines a filter for found peaks, so that if the count of found peaks is not equal that number,
         the function return the same as if no peaks are found.
@@ -675,7 +675,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
                         num_processes = 2):
     """
-    Fits the data of a full image stack.
+    Fits the data (of a full image stack).
 
     Parameters
     ----------
@@ -729,9 +729,9 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
 
     Returns
     -------
-    - params: np.ndarray (n, m, q)
+    - image_params: np.ndarray (n, m, q)
         Array which stores the best found parameters for every pixel (of n*m pixels).
-    - peaks_mask: np.ndarray (n, m, max_peaks, p)
+    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
         Array that stores the indices of the measurements that corresponds (mainly) to a peak,
         for every pixel (of n*m pixels).
     """
@@ -744,8 +744,8 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
     angles = np.linspace(0, 2*np.pi, num=image_stack.shape[2], endpoint = False)
 
     num_params = 3 * max_peaks + 1
-    output_params = pymp.shared.array((flattened_stack.shape[0], num_params))
-    output_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_peaks, image_stack.shape[2]), 
+    image_params = pymp.shared.array((flattened_stack.shape[0], num_params))
+    image_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_peaks, image_stack.shape[2]), 
                                             dtype = np.bool_)
 
     # Initialize the progress bar
@@ -768,18 +768,18 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                                     max_peaks = max_peaks,
                                     max_peak_hwhm = max_peak_hwhm, min_peak_hwhm = min_peak_hwhm, 
                                     mu_range = mu_range, scale_range = scale_range)
-            output_params[pixel, 0:len(best_parameters)-1] = best_parameters[:-1]
-            output_params[pixel, -1] = best_parameters[-1]
-            output_peaks_mask[pixel, 0:len(peaks_mask)] = peaks_mask
+            image_params[pixel, 0:len(best_parameters)-1] = best_parameters[:-1]
+            image_params[pixel, -1] = best_parameters[-1]
+            image_peaks_mask[pixel, 0:len(peaks_mask)] = peaks_mask
 
             shared_counter[0] += 1
             pbar.update(shared_counter[0] - pbar.n)
 
-    deflattened_params = output_params.reshape((image_stack.shape[0], 
-                                            image_stack.shape[1], output_params.shape[1]))
-    deflattened_peaks_mask = output_peaks_mask.reshape((image_stack.shape[0], 
-                                            image_stack.shape[1], output_peaks_mask.shape[1], 
-                                            output_peaks_mask.shape[2]))
+    deflattened_params = image_params.reshape((image_stack.shape[0], 
+                                            image_stack.shape[1], image_params.shape[1]))
+    deflattened_peaks_mask = image_peaks_mask.reshape((image_stack.shape[0], 
+                                            image_stack.shape[1], image_peaks_mask.shape[1], 
+                                            image_peaks_mask.shape[2]))
     return deflattened_params, deflattened_peaks_mask
 
 
@@ -789,7 +789,7 @@ def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None,
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
                         num_processes = 2):
     """
-    Finds the peaks of an image stack using only the peak finder (no fitting).
+    Finds the peaks of an image stack using only the peak finder.
 
     Parameters
     ----------
@@ -825,9 +825,9 @@ def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None,
 
     Returns
     -------
-    - peaks_mus: np.ndarray (n, m, max_peaks)
+    - image_peaks_mus: np.ndarray (n, m, max_peaks)
         Array which stores the best found parameters for every pixel (of n*m pixels).
-    - peaks_mask: np.ndarray (n, m, max_peaks, p)
+    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
         Array that stores the indices of the measurements that corresponds (mainly) to a peak,
         for every pixel (of n*m pixels).
     """
@@ -839,8 +839,8 @@ def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None,
 
     angles = np.linspace(0, 2*np.pi, num=image_stack.shape[2], endpoint=False)
 
-    output_peaks_mus = pymp.shared.array((flattened_stack.shape[0], max_peaks))
-    output_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_peaks, image_stack.shape[2]), dtype=np.bool_)
+    image_peaks_mus = pymp.shared.array((flattened_stack.shape[0], max_peaks))
+    image_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_peaks, image_stack.shape[2]), dtype=np.bool_)
 
     # Initialize the progress bar
     num_tasks = len(mask_pixels)
@@ -860,18 +860,18 @@ def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None,
                             max_peak_hwhm = max_peak_hwhm, min_peak_hwhm = min_peak_hwhm, 
                             mu_range = mu_range, scale_range = scale_range)
 
-            output_peaks_mask[pixel, 0:len(peaks_mask)] = peaks_mask
-            output_peaks_mus[pixel, 0:len(peaks_mus)] = peaks_mus
+            image_peaks_mask[pixel, 0:len(peaks_mask)] = peaks_mask
+            image_peaks_mus[pixel, 0:len(peaks_mus)] = peaks_mus
 
             shared_counter[0] += 1
             pbar.update(shared_counter[0] - pbar.n)
 
     pbar.close()
 
-    deflattened_peaks_mask = output_peaks_mask.reshape((image_stack.shape[0], 
-                                            image_stack.shape[1], output_peaks_mask.shape[1], 
-                                            output_peaks_mask.shape[2]))
-    deflattened_peaks_mus = output_peaks_mus.reshape((image_stack.shape[0], 
-                                            image_stack.shape[1], output_peaks_mus.shape[1]))
+    deflattened_peaks_mask = image_peaks_mask.reshape((image_stack.shape[0], 
+                                            image_stack.shape[1], image_peaks_mask.shape[1], 
+                                            image_peaks_mask.shape[2]))
+    deflattened_peaks_mus = image_peaks_mus.reshape((image_stack.shape[0], 
+                                            image_stack.shape[1], image_peaks_mus.shape[1]))
 
     return deflattened_peaks_mus, deflattened_peaks_mask

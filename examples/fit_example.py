@@ -21,7 +21,7 @@ data, indices = pick_data(data_file_path, dataset_path, area = area, randoms = r
 #    group.create_dataset("indices", data=indices)
 
 # Fit the picked data
-output_params, output_peaks_mask = fit_image_stack(data, fit_height_nonlinear = True, 
+image_params, image_peaks_mask = fit_image_stack(data, fit_height_nonlinear = True, 
                                 threshold = 1000, distribution = distribution,
                                 n_steps_fit = 5, n_steps_height = 10, n_steps_mu = 10, 
                                 n_steps_scale = 10, refit_steps = 0, init_fit_filter = None, 
@@ -33,6 +33,6 @@ if output_directory != "" and not os.path.exists(output_directory):
 
 with h5py.File(output_directory + output_filename, "w") as h5f:
     group = h5f.create_group(dataset_path)
-    group.create_dataset("params", data=output_params)
-    group.create_dataset("peaks_mask", data=output_peaks_mask)
+    group.create_dataset("params", data=image_params)
+    group.create_dataset("peaks_mask", data=image_peaks_mask)
     group.create_dataset("indices", data=indices)
