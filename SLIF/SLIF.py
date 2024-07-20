@@ -476,32 +476,7 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
         The following one to two values are the params for this filter (scipy docs).
     - method: string
         Defines which fitting method to use. Can be anything from the methods in lmfit.minimize
-        and additionally "biteopt".
-        Full list: 
-            leastsq: Levenberg-Marquardt (default)
-            least_squares: Least-Squares minimization, using Trust Region Reflective method
-            differential_evolution: differential evolution
-            brute: brute force method
-            basinhopping: basinhopping
-            ampgo: Adaptive Memory Programming for Global Optimization
-            nelder: Nelder-Mead
-            lbfgsb: L-BFGS-B
-            powell: Powell
-            cg: Conjugate-Gradient
-            newton: Newton-CG
-            cobyla: Cobyla
-            bfgs: BFGS
-            tnc: Truncated Newton
-            trust-ncg: Newton-CG trust-region
-            trust-exact: nearly exact trust-region
-            trust-krylov: Newton GLTR trust-region
-            trust-constr: trust-region for constrained optimization
-            dogleg: Dog-leg trust-region
-            slsqp: Sequential Linear Squares Programming
-            emcee: Maximum likelihood via Monte-Carlo Markov Chain
-            shgo: Simplicial Homology Global Optimization
-            dual_annealing: Dual Annealing optimization
-            biteopt: Derivative-Free Global Optimization Method
+        and additionally "biteopt" (Derivative-Free Global Optimization Method).
     - only_peaks_count: int
         Defines a filter for found peaks, so that if the count of found peaks is not equal that number,
         the function return the same as if no peaks are found.
@@ -700,7 +675,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
                         num_processes = 2):
     """
-    Fits the data (of a full image stack).
+    Fits the data of a full image stack.
 
     Parameters
     ----------
@@ -754,9 +729,9 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
 
     Returns
     -------
-    - deflattened_params: np.ndarray (n, m, q)
+    - params: np.ndarray (n, m, q)
         Array which stores the best found parameters for every pixel (of n*m pixels).
-    - deflattened_peaks_mask: np.ndarray (n, m, max_peaks, p)
+    - peaks_mask: np.ndarray (n, m, max_peaks, p)
         Array that stores the indices of the measurements that corresponds (mainly) to a peak,
         for every pixel (of n*m pixels).
     """
@@ -814,7 +789,7 @@ def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None,
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
                         num_processes = 2):
     """
-    Finds the peaks of an image stack using only the peak finder.
+    Finds the peaks of an image stack using only the peak finder (no fitting).
 
     Parameters
     ----------
@@ -850,9 +825,9 @@ def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None,
 
     Returns
     -------
-    - deflattened_peaks_mus: np.ndarray (n, m, max_peaks)
+    - peaks_mus: np.ndarray (n, m, max_peaks)
         Array which stores the best found parameters for every pixel (of n*m pixels).
-    - deflattened_peaks_mask: np.ndarray (n, m, max_peaks, p)
+    - peaks_mask: np.ndarray (n, m, max_peaks, p)
         Array that stores the indices of the measurements that corresponds (mainly) to a peak,
         for every pixel (of n*m pixels).
     """
