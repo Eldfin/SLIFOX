@@ -168,13 +168,11 @@ Fits the data of a full image stack.
     Number that defines in how many sub-processes the fitting process should be split into.
       
 ##### Returns
-- `best_parameters`: np.ndarray (m, )
-        Array which stores the best found parameters.
-- `best_redchi`: float
-    Calculated Chi2 of the model with the found parameters and given data.
-- `peaks_mask`: np.ndarray (n_peaks, n)
-    Array that stores the indices of the measurements that corresponds (mainly) to a peak.
-
+- image_params: np.ndarray (n, m, q)
+    Array which stores the best found parameters for every pixel (of n*m pixels).
+- image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+    Array that stores the indices of the measurements that corresponds (mainly) to a peak,
+    for every pixel (of n*m pixels).
 
 #### Function: `find_image_peaks`
 ##### Description
@@ -212,9 +210,9 @@ Finds the peaks of an image stack using only the peak finder (no fitting).
     Number that defines in how many sub-processes the fitting process should be split into.
       
 ##### Returns
-- `peaks_mus`: np.ndarray (n, m, max_peaks)
+- `image_peaks_mus`: np.ndarray (n, m, max_peaks)
         Array which stores the best found parameters for every pixel (of n*m pixels).
-- `peaks_mask`: np.ndarray (n, m, max_peaks, p)
+- `image_peaks_mask`: np.ndarray (n, m, max_peaks, p)
     Array that stores the indices of the measurements that corresponds (mainly) to a peak,
     for every pixel (of n*m pixels).
 
@@ -227,19 +225,19 @@ Plots all the intensity profiles of the pixels of given data.
 - `data`: np.ndarray (n, m, p)
     The image stack containing the measured intensities.
     n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
-- `output_params`: np.ndarray (n, m, q)
+- `image_params`: np.ndarray (n, m, q)
     The output of fitting the image stack, which stores the parameters of the full fitfunction.
     q = 3 * n_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-- `output_peaks_mask`: np.ndarray (n, m, n_peaks, p)
+- `image_peaks_mask`: np.ndarray (n, m, n_peaks, p)
     The mask defining which of the p-measurements corresponds to one of the peaks.
     The first two dimensions are the image dimensions.
-- `peak_pairs`: np.ndarray (n, m, 3, 2)
+- `image_peak_pairs`: np.ndarray (n, m, 3, 2)
     The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
     a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
     is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
     The first two dimensions are the image dimensions.
 - `only_mus`: bool
-    Defines if only the mus (for every pixel) are given in the output_params.
+    Defines if only the mus (for every pixel) are given in the image_params.
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
     The name of the distribution.
 - `indices`: np.ndarray (n, m, 2)
@@ -258,21 +256,21 @@ Calculates all the peak_pairs for a whole image stack..
 - `image_stack`: np.ndarray (n, m, p)
     The image stack containing the measured intensities.
     n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
-- `output_params`: np.ndarray (n, m, q)
+- `image_params`: np.ndarray (n, m, q)
     The output of fitting the image stack, which stores the parameters of the full fitfunction.
     q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-- `output_peaks_mask`: np.ndarray (n, m, max_peaks, p)
+- `image_peaks_mask`: np.ndarray (n, m, max_peaks, p)
     The mask defining which of the p-measurements corresponds to one of the peaks.
     The first two dimensions are the image dimensions.
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
     The name of the distribution.
 - `only_mus`: bool
-    Defines if only the mus (for every pixel) are given in the output_params.
+    Defines if only the mus (for every pixel) are given in the image_params.
 - `num_processes`: int
     Defines the number of processes to split the task into.
         
 ##### Returns
-- `peak_pairs`: np.ndarray (n, m, max_peaks // 2, 2)
+- `image_peak_pairs`: np.ndarray (n, m, max_peaks // 2, 2)
     The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
     a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
     is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
@@ -284,12 +282,12 @@ Calculates all the peak_pairs for a whole image stack..
 Calculates the directions from given peak_pairs.
 
 ##### Parameters
-- `peak_pairs`: np.ndarray (n, m, max_peaks, 2)
+- `image_peak_pairs`: np.ndarray (n, m, max_peaks, 2)
     The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
     a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
     is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
     The first two dimensions are the image dimensions.
-- `output_mus`: np.ndarray (n, m, max_peaks)
+- `image_mus`: np.ndarray (n, m, max_peaks)
     The mus (centers) of the found (max_peaks) peaks for everyone of the (n * m) pixels.
 - `directory`: string
     The directory path defining where direction images should be writen to.
@@ -371,7 +369,7 @@ data, indices = pick_data(data_file_path, dataset_path, area = area, randoms = r
 #    group.create_dataset("indices", data=indices)
 
 # Fit the picked data
-output_params, output_peaks_mask = fit_image_stack(data, fit_height_nonlinear = True, 
+image_params, image_peaks_mask = fit_image_stack(data, fit_height_nonlinear = True, 
                                 threshold = 1000, distribution = distribution,
                                 n_steps_fit = 5, n_steps_height = 10, n_steps_mu = 10, 
                                 n_steps_scale = 10, refit_steps = 0, init_fit_filter = None, 
@@ -383,8 +381,8 @@ if output_directory != "" and not os.path.exists(output_directory):
 
 with h5py.File(output_directory + output_filename, "w") as h5f:
     group = h5f.create_group(dataset_path)
-    group.create_dataset("params", data=output_params)
-    group.create_dataset("peaks_mask", data=output_peaks_mask)
+    group.create_dataset("params", data=image_params)
+    group.create_dataset("peaks_mask", data=image_peaks_mask)
     group.create_dataset("indices", data=indices)
 ```
 
@@ -413,7 +411,7 @@ data, indices = pick_data(data_file_path, dataset_path, area = area, randoms = r
 #    group.create_dataset("indices", data=indices)
 
 # Find the peaks from the picked data
-output_mus, output_peaks_mask = find_image_peaks(data, threshold = 1000, init_fit_filter = None, 
+image_mus, image_peaks_mask = find_image_peaks(data, threshold = 1000, init_fit_filter = None, 
                         only_peaks_count = -1, max_peaks = 4, num_processes = 2)
 
 
@@ -423,25 +421,25 @@ if not os.path.exists(directory):
     os.makedirs(directory)
 with h5py.File(output_file_path, "w") as h5f:
     group = h5f.create_group(dataset_path)
-    group.create_dataset("mus", data=output_mus)
-    group.create_dataset("peaks_mask", data=output_peaks_mask)
+    group.create_dataset("mus", data=image_mus)
+    group.create_dataset("peaks_mask", data=image_peaks_mask)
     group.create_dataset("indices", data=indices)
 
 # Optional: Pick SLIF output data (if already fitted)
-#output_mus, _ = pick_data(output_file_path, 
+#image_mus, _ = pick_data(image_file_path, 
 #                                dataset_path + "/mus", area = None, randoms = 0)
-#output_peaks_mask, _ = pick_data(output_file_path, 
+#image_peaks_mask, _ = pick_data(output_file_path, 
 #                               dataset_path + "/peaks_mask", area = None, randoms = 0)
     
 # Calculate the peak pairs (directions)
-peak_pairs = calculate_peak_pairs(data, output_mus, output_peaks_mask, only_mus = True)
+image_peak_pairs = calculate_peak_pairs(data, image_mus, image_peaks_mask, only_mus = True)
 
 # Optional: Plot the picked data
-#plot_data_pixels(data, output_mus, output_peaks_mask, peak_pairs, indices = indices, 
+#plot_data_pixels(data, image_mus, image_peaks_mask, image_peak_pairs, indices = indices, 
 #                        directory = "plots", only_mus = True)
 
 # Calculate the nerve fiber directions and save direction map in directory
-#directions = calculate_directions(peak_pairs, output_mus, directory = "direction_maps")
+#directions = calculate_directions(image_peak_pairs, image_mus, directory = "direction_maps")
 ```
 
 #### Fit data and calculate directions
@@ -469,7 +467,7 @@ data, indices = pick_data(data_file_path, dataset_path, area = area, randoms = r
 #    group.create_dataset("indices", data=indices)
 
 # Fit the picked data
-output_params, output_peaks_mask = fit_image_stack(data, fit_height_nonlinear = True, 
+image_params, image_peaks_mask = fit_image_stack(data, fit_height_nonlinear = True, 
                                 threshold = 1000, distribution = distribution,
                                 n_steps_fit = 5, n_steps_height = 10, n_steps_mu = 10, 
                                 n_steps_scale = 10, refit_steps = 0, init_fit_filter = None, 
@@ -481,26 +479,26 @@ if not os.path.exists(directory):
     os.makedirs(directory)
 with h5py.File(output_file_path, "w") as h5f:
     group = h5f.create_group(dataset_path)
-    group.create_dataset("params", data=output_params)
-    group.create_dataset("peaks_mask", data=output_peaks_mask)
+    group.create_dataset("params", data=image_params)
+    group.create_dataset("peaks_mask", data=image_peaks_mask)
     group.create_dataset("indices", data=indices)
 
 # Optional: Pick SLIF output data (if already fitted)
-#output_params, _ = pick_data(output_file_path, 
+#image_params, _ = pick_data(output_file_path, 
 #                                dataset_path + "/params", area = area, randoms = randoms)
-#output_peaks_mask, _ = pick_data(output_file_path, 
+#image_peaks_mask, _ = pick_data(output_file_path, 
 #                               dataset_path + "/peaks_mask", area = area, randoms = randoms)
     
 # Calculate the peak pairs (directions)
-peak_pairs = calculate_peak_pairs(data, output_params, output_peaks_mask, distribution)
+image_peak_pairs = calculate_peak_pairs(data, image_params, image_peaks_mask, distribution)
 
 # Optional: Plot the picked data
-plot_data_pixels(data, output_params, output_peaks_mask, peak_pairs, 
+plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs, 
                         distribution = distribution, indices = indices, directory = "plots")
 
 # Calculate the nerve fiber directions and save direction map in directory
-output_mus = output_params[:, :, 1::3]
-directions = calculate_directions(peak_pairs, output_mus, directory = "direction_maps")
+image_mus = image_params[:, :, 1::3]
+directions = calculate_directions(image_peak_pairs, image_mus, directory = "direction_maps")
 ```
 
 
