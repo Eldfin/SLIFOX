@@ -414,7 +414,7 @@ def pixel_significances(peak_pairs, params, peaks_mask, intensities, angles, wei
 
 def image_significances(image_stack, image_peak_pairs, image_params, image_peaks_mask, 
                                 directory = None, distribution = "wrapped_cauchy",
-                                weights = [1, 1], directory = None):
+                                weights = [1, 1]):
     """
     Calculates the significances of all found directions from given image_peak_pairs.
 
@@ -433,13 +433,13 @@ def image_significances(image_stack, image_peak_pairs, image_params, image_peaks
     - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
+    - directory: string
+        The directory path defining where the significance image should be writen to.
+        If None, no image will be writen.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
     - weights: array (2, )
         The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
-    - directory: string
-        The directory path defining where the significance image should be writen to.
-        If None, no image will be writen.
 
     Returns:
     - significances: (n, m, max_peaks // 2)
