@@ -165,7 +165,7 @@ def show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distri
     plt.show()
 
 
-def plot_data_pixels(data, image_params, image_peaks_mask, peak_pairs = None, only_mus = False,
+def plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs = None, only_mus = False,
                 distribution = "wrapped_cauchy", indices = None,
                 directory = "plots"):
     """
@@ -181,7 +181,7 @@ def plot_data_pixels(data, image_params, image_peaks_mask, peak_pairs = None, on
     - image_peaks_mask: np.ndarray (n, m, n_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
-    - peak_pairs: np.ndarray (n, m, 3, 2)
+    - image_peak_pairs: np.ndarray (n, m, 3, 2)
         The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
         a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
         is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
@@ -254,12 +254,12 @@ def plot_data_pixels(data, image_params, image_peaks_mask, peak_pairs = None, on
                 plot_peaks_gof(peaks_gof, heights, mus, scales, 
                                 distribution, peaks_mask, angles)
 
-            if isinstance(peak_pairs, np.ndarray):
+            if isinstance(image_peak_pairs, np.ndarray):
                 if not only_mus:
-                    plot_directions(peak_pairs[i, j], mus, distribution, 
+                    plot_directions(image_peak_pairs[i, j], mus, distribution, 
                                         heights = heights, scales = scales)
                 else:
-                    plot_directions(peak_pairs[i, j], mus, distribution)
+                    plot_directions(image_peak_pairs[i, j], mus, distribution)
 
             max_rows = len(str(data.shape[0] - 1)) 
             max_cols = len(str(data.shape[1] - 1))
