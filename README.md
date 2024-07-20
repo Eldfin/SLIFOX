@@ -5,8 +5,10 @@ Finds the peaks in Scattered Light Imaging measurement data, fits a given distri
 ## Table of Contents
 
 - [Installation](#installation)
-- [Usage](#usage)
 - [Features](#features)
+- [Usage](#usage)
+- [Functions](#functions)
+- [Examples](#examples)
 
 ## Installation
 
