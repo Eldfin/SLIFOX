@@ -751,8 +751,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
     # Initialize the progress bar
     num_tasks = len(mask_pixels)
     pbar = tqdm(total = num_tasks, desc = "Processing Pixels", smoothing = 0)
-    shared_counter = pymp.shared.array(1, dtype = int)
-    shared_counter[0] = 0
+    shared_counter = pymp.shared.array((num_processes, ), dtype = int)
 
     with pymp.Parallel(num_processes) as p:
         for i in p.range(len(mask_pixels)):
@@ -772,8 +771,11 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
             image_params[pixel, -1] = best_parameters[-1]
             image_peaks_mask[pixel, 0:len(peaks_mask)] = peaks_mask
 
-            shared_counter[0] += 1
-            pbar.update(shared_counter[0] - pbar.n)
+            shared_counter[p.thread_num] += 1
+            status = np.sum(shared_counter)
+            pbar.update(status - pbar.n)
+            if status == num_tasks:
+                pbar.close()
 
     deflattened_params = image_params.reshape((image_stack.shape[0], 
                                             image_stack.shape[1], image_params.shape[1]))
@@ -845,8 +847,7 @@ def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None,
     # Initialize the progress bar
     num_tasks = len(mask_pixels)
     pbar = tqdm(total = num_tasks, desc = "Processing Pixels", smoothing = 0)
-    shared_counter = pymp.shared.array(1, dtype=int)
-    shared_counter[0] = 0
+    shared_counter = pymp.shared.array((num_processes, ), dtype=int)
 
     with pymp.Parallel(num_processes) as p:
         for i in p.range(len(mask_pixels)):
@@ -863,10 +864,11 @@ def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None,
             image_peaks_mask[pixel, 0:len(peaks_mask)] = peaks_mask
             image_peaks_mus[pixel, 0:len(peaks_mus)] = peaks_mus
 
-            shared_counter[0] += 1
-            pbar.update(shared_counter[0] - pbar.n)
-
-    pbar.close()
+            shared_counter[p.thread_num] += 1
+            status = np.sum(shared_counter)
+            pbar.update(status - pbar.n)
+            if status == num_tasks:
+                pbar.close()
 
     deflattened_peaks_mask = image_peaks_mask.reshape((image_stack.shape[0], 
                                             image_stack.shape[1], image_peaks_mask.shape[1], 

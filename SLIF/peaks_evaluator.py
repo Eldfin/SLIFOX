@@ -187,9 +187,9 @@ def calculate_peak_pairs(image_stack, image_params, image_peaks_mask,
         image_mus = image_params
 
     # Initialize the progress bar
-    pbar = tqdm(total = total_pixels * (max_peaks - 1), desc = "Calculating Peak pairs", smoothing = 0)
-    shared_counter = pymp.shared.array(1, dtype = int)
-    shared_counter[0] = 0
+    num_tasks = total_pixels * (max_peaks - 1)
+    pbar = tqdm(total = num_tasks, desc = "Calculating Peak pairs", smoothing = 0)
+    shared_counter = pymp.shared.array((num_processes, ), dtype = int)
 
     # First calculate for one and two peak pixels, then 3, then 4, ...
     for peak_iteration in range(2, max_peaks + 1):
@@ -213,8 +213,11 @@ def calculate_peak_pairs(image_stack, image_params, image_peaks_mask,
                         num_peaks = 0
                 
                 # Update progress bar
-                shared_counter[0] += 1
-                pbar.update(shared_counter[0] - pbar.n)
+                shared_counter[p.thread_num] += 1
+                status = np.sum(shared_counter)
+                pbar.update(status - pbar.n)
+                if status == num_tasks:
+                    pbar.close()
 
                 if num_peaks == 0: 
                     continue
