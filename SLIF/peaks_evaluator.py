@@ -234,7 +234,7 @@ def calculate_peak_pairs(image_stack, image_params, image_peaks_mask,
                     # Get closest pixel with a defined direction (and minimum 2 peaks)
 
                     mask = np.copy(direction_mask)
-                    peaks_used = np.zeros(len(condition), dtype = np.bool_)
+                    peaks_used = np.zeros(num_sig_peaks, dtype = np.bool_)
                     while True:
 
                         row, col = _find_closest_true_pixel(mask, (i // n_cols, i % n_cols))
@@ -257,11 +257,11 @@ def calculate_peak_pairs(image_stack, image_params, image_peaks_mask,
                                     direction_distance = np.abs(angle_distance(test_direction, direction))
                                     if direction_distance < min_direction_distance:
                                         min_direction_distance = direction_distance
-                                        best_pair = [sig_peak_indices[index], sig_peak_indices[index2]]
+                                        best_pair = [index, index2]
                                         best_direction = direction
                         if min_direction_distance < np.pi / 8:
                             num_paired = int(len(peaks_used.nonzero()[0]) // 2)
-                            image_peak_pairs[i, num_paired] = best_pair[0], best_pair[1]
+                            image_peak_pairs[i, num_paired] = sig_peak_indices[best_pair]
                             peaks_used[best_pair[0]] = True
                             peaks_used[best_pair[1]] = True
                             direction_mask[i // n_cols, i % n_cols] = True
