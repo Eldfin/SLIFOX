@@ -749,7 +749,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                                             dtype = np.bool_)
 
     # Initialize the progress bar
-    num_tasks = len(mask_pixels)
+    num_tasks = len(mask_pixels) - 1
     pbar = tqdm(total = num_tasks, desc = "Processing Pixels", smoothing = 0)
     shared_counter = pymp.shared.array((num_processes, ), dtype = int)
 
@@ -774,8 +774,6 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
             shared_counter[p.thread_num] += 1
             status = np.sum(shared_counter)
             pbar.update(status - pbar.n)
-            if status == num_tasks:
-                pbar.close()
 
     deflattened_params = image_params.reshape((image_stack.shape[0], 
                                             image_stack.shape[1], image_params.shape[1]))
@@ -867,8 +865,6 @@ def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None,
             shared_counter[p.thread_num] += 1
             status = np.sum(shared_counter)
             pbar.update(status - pbar.n)
-            if status == num_tasks:
-                pbar.close()
 
     deflattened_peaks_mask = image_peaks_mask.reshape((image_stack.shape[0], 
                                             image_stack.shape[1], image_peaks_mask.shape[1], 

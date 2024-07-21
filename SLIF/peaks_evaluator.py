@@ -67,37 +67,6 @@ def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "nrmse"):
 
 import numpy as np
 
-@njit(cache = True, fastmath = True)
-def _find_closest_true_pixel_numba(mask, start_pixel):
-    rows, cols = mask.shape
-    visited = np.zeros_like(mask, dtype = np.bool_)
-    queue = np.empty((rows * cols, 2), dtype = np.int32)
-    queue_idx = 0
-    queue[queue_idx] = start_pixel
-    queue_idx += 1
-
-    front = 0
-    end = queue_idx
-
-    while front != end:
-        r, c = queue[front]
-        front = (front + 1) % (rows * cols)
-        
-        if mask[r, c]:
-            return (r, c)
-        
-        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            nr, nc = r + dr, c + dc
-            
-            if 0 <= nr < rows and 0 <= nc < cols and not visited[nr, nc]:
-                visited[nr, nc] = True
-                queue[queue_idx] = (nr, nc)
-                queue_idx = (queue_idx + 1) % (rows * cols)
-                end = (end + 1) % (rows * cols)
-    
-    return (-1, -1)
-
-
 def _find_closest_true_pixel(mask, start_pixel):
     """
     Finds the closest true pixel for a given 2d-mask and a start_pixel.
@@ -216,8 +185,6 @@ def calculate_peak_pairs(image_stack, image_params, image_peaks_mask,
                 shared_counter[p.thread_num] += 1
                 status = np.sum(shared_counter)
                 pbar.update(status - pbar.n)
-                if status == num_tasks:
-                    pbar.close()
 
                 if num_peaks == 0: 
                     continue
