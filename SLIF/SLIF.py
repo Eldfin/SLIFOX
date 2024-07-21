@@ -749,7 +749,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                                             dtype = np.bool_)
 
     # Initialize the progress bar
-    num_tasks = len(mask_pixels) - 1
+    num_tasks = len(mask_pixels)
     pbar = tqdm(total = num_tasks, desc = "Processing Pixels", smoothing = 0)
     shared_counter = pymp.shared.array((num_processes, ), dtype = int)
 
