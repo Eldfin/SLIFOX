@@ -69,7 +69,7 @@ def _find_extremas(intensities, first_diff, second_diff, max_A, extrema_toleranc
             left_condition = False
             right_condition = False
             for k in [-1, 1]:
-                for j in range(1, 5):
+                for j in range(1, 6):
                     index = (i + k * j) % num_points
                     if intensities[i] - intensities[index] >= extrema_tolerance:
                         if k == -1: left_condition = True
@@ -87,7 +87,7 @@ def _find_extremas(intensities, first_diff, second_diff, max_A, extrema_toleranc
             left_condition = False
             right_condition = False
             for k in [-1, 1]:
-                for j in range(1, 5):
+                for j in range(1, 6):
                     index = (i + k * j) % num_points
                     if intensities[i] - intensities[index] <= -extrema_tolerance:
                         if k == -1: left_condition = True
