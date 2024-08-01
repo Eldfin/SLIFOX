@@ -280,6 +280,67 @@ def calculate_peak_pairs(image_stack, image_params, image_peaks_mask,
 
     return image_peak_pairs
 
+def peak_pairs_to_directions(peak_pairs, mus):
+    """
+    Calculates the directions from given peak_pairs of a pixel.
+
+    Parameters:
+    - peak_pairs: np.ndarray (m // 2, 2)
+        Array ontaining both peak numbers of a pair (e.g. [1, 3], 
+        which means peak 1 and peak 3 is paired). A pair with -1 defines a unpaired peak.
+        The first dimension (m equals number of peaks)
+        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+    - mus: np.ndarray (m, )
+        The center positions of the peaks.
+
+    Returns:
+    - directions: np.ndarray (m // 2, )
+        The calculated directions for every peak pair.
+    """
+    directions = np.empty(peak_pairs.shape[0])
+    for k, pair in enumerate(peak_pairs):
+        if pair[0] == -1 and pair[1] == -1:
+            # No pair
+            continue
+        elif pair[0] == -1 or pair[1] == -1:
+            # One peak direction
+            direction = mus[pair[pair != -1][0]] % (np.pi)
+        else:
+            # Two peak direction
+            distance = angle_distance(mus[pair[0]], mus[pair[1]])
+            direction = (mus[pair[0]] + distance / 2) % (np.pi)
+
+        directions[k] = direction
+
+    return directions
+
+def peak_pairs_to_inclinations(peak_pairs, mus):
+    """
+    Placeholder function until a prober way to get the inclinations from a SLI measurement is found.
+    Calculates the inclinations from given peak_pairs of a pixel.
+
+    Parameters:
+    - peak_pairs: np.ndarray (m // 2, 2)
+        Array ontaining both peak numbers of a pair (e.g. [1, 3], 
+        which means peak 1 and peak 3 is paired). A pair with -1 defines a unpaired peak.
+        The first dimension (m equals number of peaks)
+        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+    - mus: np.ndarray (m, )
+        The center positions of the peaks.
+
+    Returns:
+    - inclinations: np.ndarray (m // 2, )
+        The calculated inclinations for every peak pair.
+    """
+    num_pairs = peak_pairs.shape[0]
+    inclinations = np.empty(num_pairs)
+    for i in range(num_pairs):
+        current_mus = mus[peak_pairs[i]]
+        distance_deviation = np.pi - np.abs(angle_distance(current_mus[0], current_mus[1]))
+        inclinations[i] = distance_deviation
+
+    return inclinations
+
 def calculate_directions(image_peak_pairs, image_mus, directory = None):
     """
     Calculates the directions from given image_peak_pairs.
@@ -308,20 +369,8 @@ def calculate_directions(image_peak_pairs, image_mus, directory = None):
     directions = np.full((x_range, y_range, max_directions), -1, dtype=np.float64)
     for x in range(x_range):
         for y in range(y_range):
-            mus = image_mus[x, y]
-            for k, pair in enumerate(image_peak_pairs[x, y]):
-                if pair[0] == -1 and pair[1] == -1:
-                    # No pair
-                    continue
-                elif pair[0] == -1 or pair[1] == -1:
-                    # One peak direction
-                    direction = mus[pair[pair != -1][0]] % (np.pi)
-                else:
-                    # Two peak direction
-                    distance = angle_distance(mus[pair[0]], mus[pair[1]])
-                    direction = (mus[pair[0]] + distance / 2) % (np.pi)
-
-                directions[x, y, k] = direction
+            
+            directions[x, y] = peak_pairs_to_directions(image_peak_pairs[x, y], image_mus[x, y])
 
     if directory != None:
         if not os.path.exists(directory):

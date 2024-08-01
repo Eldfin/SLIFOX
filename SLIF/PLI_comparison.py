@@ -2,7 +2,26 @@ import numpy as np
 from numba import njit
 import matplotlib as plt
 from .utils import angle_distance
+from .peaks_evaluator import calculate_peaks_gof, peak_pairs_to_directions, peak_pairs_to_inclinations
 from .SLIF import fit_image_stack, full_fitfunction, find_image_peaks
+from itertools import combinations
+
+def calculate_inclination(thickness, birefringence, wavelength, retardation):
+    inclination = np.arccos(np.sqrt(np.arcsin(retardation) * wavelength 
+                                / (2 * np.pi * thickness * birefringence)))
+
+    return inclination
+
+def calculate_retardation(thickness, birefringence, wavelength, inclination):
+    retardation = np.abs(np.sin(2 * np.pi * thickness * birefringence * np.cos(inclination)**2 
+                                    / wavelength))
+
+    return retardation
+
+def calculate_thicknesses(t_rel, birefringence, wavelength, relative_thicknesses):
+    thicknesses = t_rel * wavelength / (4 * birefringence * (1 + relative_thicknesses))
+
+    return thicknesses
 
 def add_birefringence(
     dir_1,
@@ -117,3 +136,133 @@ def get_distance_deviations(image_stack, fit_SLI = False, num_pixels = 0,
     distance_deviations = np.pi - np.abs(angle_distance(mus[:, 0], mus[:, 1]))
 
     return distance_deviations, full_pixel_mask
+
+def SLI_to_PLI(peak_pairs, mus, heights, SLI_inclination = False):
+    """
+    Converts the results from a SLI measurement (peak pairs, mus, heights) to a virtual PLI measurement.
+    "What whould be measured in a PLI measurement for the found nerve fibers in the SLI measurement?"
+
+    Parameters:
+    - peak_pairs: float
+        The PLI direction value of the pixel.
+    - mus: np.ndarray (m, )
+        The center positions of the peaks.
+    - heights: np.ndarray (m, )
+        The height values of the peaks.
+    - SLI_inclination: boolean
+        Use the found inclination in the SLI measurement to produce a virtual PLI retardation?
+        Default is False, because SLI inclination could not be determined reliable to the point of writing.
+
+    Returns:
+    - new_dir: float
+        Virtual direction value of the PLI measurement.
+    - new_ret: float
+        Virtual retardation value of the PLI measurement.
+        Does not store usable information when not using SLI inclination (SLI_inclination = False).
+
+    """
+
+    directions = peak_pairs_to_directions(peak_pairs, mus)
+    relative_height = np.max(heights[peak_pairs[0]]) / np.max(heights[peak_pairs[1]])
+
+    if SLI_inclination:
+        inclinations = peak_pairs_to_inclinations(peak_pairs, mus)
+        relative_thicknesses = np.array(relative_height, 1 / relative_height)
+        thicknesses = calculate_thicknesses(t_rel, birefringence, wavelength, relative_thicknesses)
+        retardations = calculate_retardation(thicknesses, birefringence, wavelength, inclinations)
+    else:
+        retardations = np.array(relative_height, 1 / relative_height)
+
+    new_dir, new_ret = add_birefringence(directions[0], retardations[0], didirections[1], retardations[1])
+
+    return new_dir, new_ret
+
+def sort_peak_pairs_by_PLI(PLI_direction, mus, heights):
+    """
+    Sort all possible peak pairs from lowest to highest difference to the PLI direction measurement.
+
+    Parameters:
+    - PLI_direction: float
+        The PLI direction value of the pixel.
+    - mus: np.ndarray (m, )
+        The center positions of the peaks.
+    - heights: np.ndarray (m, )
+        The height values of the peaks.
+
+    Returns:
+    - sorted_peak_pairs: (n, m, 2)
+        The possible combinations of pairs sorted from lowest to highest difference to the PLI direction.
+        The size of dimensions is: 
+            n = math.factorial(num_peaks) // ((2 ** (num_peaks // 2)) * math.factorial(num_peaks // 2))
+                so n = 3 for num_peaks = 4 and n = 15 for num_peaks = 6.
+                Odd numbers of num_peaks have the same dimension size as num_peaks + 1.
+            m = np.ceil(num_peaks / 2)
+
+    """
+
+    peak_pairs_combinations = get_possible_pairs(len(mus))
+    best_dir_diff, best_ret_diff = np.inf, np.inf
+    best_pair_index = -1
+    num_pairs = peak_pairs_combinations.shape[0]
+    SLI_directions = np.empty(num_pairs)
+    for i in range(num_pairs):
+        peak_pairs = peak_pairs_combinations[i]
+
+        SLI_directions[i], _ = SLI_to_PLI(peak_pairs, mus, heights)
+
+    direction_diffs = np.abs(PLI_direction - SLI_directions)
+    sorting_indices = np.argsort(direction_diffs)
+    sorted_peak_pairs = peak_pairs_combinations[sorting_indices]
+
+    return sorted_peak_pairs
+
+
+def get_possible_pairs(num_peaks):
+    """
+    Calculates all possible combinations of pairs of numbers from 0 to num_peaks.
+
+    Parameters:
+    - num_peaks: int
+        The maximum number (index) of the indices to use as elements for pair combinations.
+
+    Returns:
+    - pair_combinations: (n, m, 2)
+        The possible combinations of pairs.
+        The size of dimensions is: 
+            n = math.factorial(num_peaks) // ((2 ** (num_peaks // 2)) * math.factorial(num_peaks // 2))
+                so n = 3 for num_peaks = 4 and n = 15 for num_peaks = 6.
+                Odd numbers of num_peaks have the same dimension size as num_peaks + 1.
+            m = np.ceil(num_peaks / 2)
+
+    """
+    indices = list(range(num_peaks))
+    all_index_pairs = []
+
+    if num_peaks % 2 == 0:
+        index_combinations = list(combinations(indices, 2))
+
+        def is_non_overlapping(pair_set):
+            flat_list = [index for pair in pair_set for index in pair]
+            return len(flat_list) == len(set(flat_list))
+
+        for pair_set in combinations(index_combinations, num_peaks // 2):
+            if is_non_overlapping(pair_set):
+                all_index_pairs.append(pair_set)
+
+    else:
+        # Odd case: include an unmatched index with -1
+        for unmatched in indices:
+            remaining_indices = [i for i in indices if i != unmatched]
+            index_combinations = list(combinations(remaining_indices, 2))
+            
+            def is_non_overlapping(pair_set):
+                flat_list = list(chain.from_iterable(pair_set))
+                return len(flat_list) == len(set(flat_list))
+
+            for pair_set in combinations(index_combinations, (num_peaks - 1) // 2):
+                if is_non_overlapping(pair_set):
+                    all_index_pairs.append(pair_set + ((unmatched, -1),))
+
+    pair_combinations = np.array(all_index_pairs)
+    return pair_combinations
+
