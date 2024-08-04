@@ -142,9 +142,11 @@ def calculate_peak_pairs(image_stack, image_params, image_peaks_mask,
     flattened_peaks_mask = image_peaks_mask.reshape((total_pixels, 
                                             image_peaks_mask.shape[2], image_peaks_mask.shape[3]))
 
-    image_peak_pairs = pymp.shared.array((total_pixels, int(max_peaks // 2), 2), dtype = np.int16)
+    image_peak_pairs = pymp.shared.array((total_pixels, 
+                                            np.ceil(max_peaks / 2).astype(int), 
+                                            2), dtype = np.int16)
     with pymp.Parallel(num_processes) as p:
-        for i in p.range(image_peak_pairs.shape[0]):
+        for i in p.range(total_pixels):
             image_peak_pairs[i, :] = -1
 
     direction_mask = pymp.shared.array((n_rows, n_cols), dtype = np.bool_)
@@ -276,10 +278,11 @@ def calculate_peak_pairs(image_stack, image_params, image_peaks_mask,
                         else:
                              mask[row, col] = False
 
-    image_peak_pairs = np.reshape(image_peak_pairs, (n_rows, n_cols, image_peak_pairs.shape[1], 2))
+    image_peak_pairs = image_peak_pairs.reshape((n_rows, n_cols, image_peak_pairs.shape[1], 2))
 
     return image_peak_pairs
 
+@njit(cache = True, fastmath = True)
 def peak_pairs_to_directions(peak_pairs, mus):
     """
     Calculates the directions from given peak_pairs of a pixel.
@@ -301,7 +304,7 @@ def peak_pairs_to_directions(peak_pairs, mus):
     for k, pair in enumerate(peak_pairs):
         if pair[0] == -1 and pair[1] == -1:
             # No pair
-            continue
+            direction = -1
         elif pair[0] == -1 or pair[1] == -1:
             # One peak direction
             direction = mus[pair[pair != -1][0]] % (np.pi)
@@ -314,6 +317,7 @@ def peak_pairs_to_directions(peak_pairs, mus):
 
     return directions
 
+@njit(cache = True, fastmath = True)
 def peak_pairs_to_inclinations(peak_pairs, mus):
     """
     Placeholder function until a prober way to get the inclinations from a SLI measurement is found.
@@ -377,12 +381,14 @@ def calculate_directions(image_peak_pairs, image_mus, directory = None):
                 os.makedirs(directory)
 
         for dir_n in range(max_directions):
-            imageio.imwrite(f'{directory}/dir_{dir_n + 1}.tiff', 
-                                np.swapaxes(directions[:, :, dir_n], 0, 1))
+            write_direction = np.swapaxes(directions[:, :, dir_n], 0, 1)
+            write_direction[write_direction != -1] = write_direction[write_direction != -1] * 180 / np.pi
+            imageio.imwrite(f'{directory}/dir_{dir_n + 1}.tiff', write_direction)
 
     return directions
 
-def pixel_significances(peak_pairs, params, peaks_mask, intensities, angles, weights = [1, 1],
+@njit(cache = True, fastmath = True)
+def direction_significances(peak_pairs, params, peaks_mask, intensities, angles, weights = [1, 1],
                             distribution = "wrapped_cauchy"):
     """
     Calculates the significances of the directions for one (fitted) pixel.
@@ -423,17 +429,24 @@ def pixel_significances(peak_pairs, params, peaks_mask, intensities, angles, wei
         peak_pair = peak_pairs[i]
         if peak_pair[0] == -1 and peak_pair[1] == -1: 
             continue
-        amplitudes = np.empty(2)
-        for k in range(2):
-            amplitudes[k] = heights[peak_pair[k]]  \
-                                    * distribution_pdf(0, 0, scales[peak_pair[k]], distribution)
-        amplitude_significance = np.mean(amplitudes / global_amplitude)
-        gof_significance = np.mean(peaks_gof[peak_pair])
+        elif peak_pair[0] == -1 or peak_pair[1] == -1:
+            peak_index = peak_pair[peak_pair != -1][0]
+            amplitude = heights[peak_index] * distribution_pdf(0, 0, scales[peak_index], distribution)
+            amplitude_significance = amplitude / global_amplitude
+            gof_significance = peaks_gof[peak_index]
+        else:
+            amplitudes = np.empty(2)
+            for k in range(2):
+                amplitudes[k] = heights[peak_pair[k]]  \
+                                        * distribution_pdf(0, 0, scales[peak_pair[k]], distribution)
+            amplitude_significance = np.mean(amplitudes / global_amplitude)
+            gof_significance = np.mean(peaks_gof[peak_pair])
+
         significances[i] = (amplitude_significance * weights[0] + gof_significance * weights[1]) / 2
 
     return significances
 
-def image_significances(image_stack, image_peak_pairs, image_params, image_peaks_mask, 
+def image_direction_significances(image_stack, image_peak_pairs, image_params, image_peaks_mask, 
                                 directory = None, distribution = "wrapped_cauchy",
                                 weights = [1, 1]):
     """

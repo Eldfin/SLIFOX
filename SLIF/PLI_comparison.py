@@ -1,28 +1,35 @@
 import numpy as np
 from numba import njit
 import matplotlib as plt
+import pymp
 from .utils import angle_distance
-from .peaks_evaluator import calculate_peaks_gof, peak_pairs_to_directions, peak_pairs_to_inclinations
+from .peaks_evaluator import calculate_peaks_gof, peak_pairs_to_directions, \
+                            peak_pairs_to_inclinations, direction_significances
 from .SLIF import fit_image_stack, full_fitfunction, find_image_peaks
-from itertools import combinations
+from itertools import combinations, chain
+from tqdm import tqdm
 
+@njit(cache = True, fastmath = True)
 def calculate_inclination(thickness, birefringence, wavelength, retardation):
     inclination = np.arccos(np.sqrt(np.arcsin(retardation) * wavelength 
                                 / (2 * np.pi * thickness * birefringence)))
 
     return inclination
 
+@njit(cache = True, fastmath = True)
 def calculate_retardation(thickness, birefringence, wavelength, inclination):
     retardation = np.abs(np.sin(2 * np.pi * thickness * birefringence * np.cos(inclination)**2 
                                     / wavelength))
 
     return retardation
 
+@njit(cache = True, fastmath = True)
 def calculate_thicknesses(t_rel, birefringence, wavelength, relative_thicknesses):
     thicknesses = t_rel * wavelength / (4 * birefringence * (1 + relative_thicknesses))
 
     return thicknesses
 
+@njit(cache = True, fastmath = True)
 def add_birefringence(
     dir_1,
     ret_1,
@@ -137,14 +144,18 @@ def get_distance_deviations(image_stack, fit_SLI = False, num_pixels = 0,
 
     return distance_deviations, full_pixel_mask
 
+@njit(cache = True, fastmath = True)
 def SLI_to_PLI(peak_pairs, mus, heights, SLI_inclination = False):
     """
     Converts the results from a SLI measurement (peak pairs, mus, heights) to a virtual PLI measurement.
     "What whould be measured in a PLI measurement for the found nerve fibers in the SLI measurement?"
 
     Parameters:
-    - peak_pairs: float
-        The PLI direction value of the pixel.
+    - peak_pairs: np.ndarray (m // 2, 2)
+        Array ontaining both peak numbers of a pair (e.g. [1, 3], 
+        which means peak 1 and peak 3 is paired). A pair with -1 defines a unpaired peak.
+        The first dimension (m equals number of peaks)
+        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
     - mus: np.ndarray (m, )
         The center positions of the peaks.
     - heights: np.ndarray (m, )
@@ -163,21 +174,46 @@ def SLI_to_PLI(peak_pairs, mus, heights, SLI_inclination = False):
     """
 
     directions = peak_pairs_to_directions(peak_pairs, mus)
-    relative_height = np.max(heights[peak_pairs[0]]) / np.max(heights[peak_pairs[1]])
-
-    if SLI_inclination:
-        inclinations = peak_pairs_to_inclinations(peak_pairs, mus)
-        relative_thicknesses = np.array(relative_height, 1 / relative_height)
-        thicknesses = calculate_thicknesses(t_rel, birefringence, wavelength, relative_thicknesses)
-        retardations = calculate_retardation(thicknesses, birefringence, wavelength, inclinations)
+    num_directions = len(directions)
+    
+    if num_directions == 0:
+        return -1, 0
+    elif num_directions == 1:
+        # For one directions return the direction
+        return directions[0], 0
     else:
-        retardations = np.array(relative_height, 1 / relative_height)
-
-    new_dir, new_ret = add_birefringence(directions[0], retardations[0], didirections[1], retardations[1])
+        first_height = np.max(heights[peak_pairs[0]])
+        second_height = np.max(heights[peak_pairs[1]])
+        relative_height =  min(first_height, second_height) / max(first_height, second_height)
+    
+        if SLI_inclination:
+            #dummy t_rel, birefringence, wavelenght
+            t_rel, birefringence, wavelength = 1, 1, 1
+            inclinations = peak_pairs_to_inclinations(peak_pairs, mus)
+            relative_thicknesses = np.array([relative_height, 1 / relative_height])
+            thicknesses = calculate_thicknesses(t_rel, birefringence, wavelength, relative_thicknesses)
+            retardations = calculate_retardation(thicknesses, birefringence, wavelength, inclinations)
+        else:
+            retardations = np.array([relative_height, 1 - relative_height])
+        
+        new_dir, new_ret = add_birefringence(directions[0], retardations[0], 
+                                                directions[1], retardations[1])
+        if num_directions == 3:
+            # For three directions:
+            # To-Do: better handling than again add_birefringence
+            first_height = np.max(heights[peak_pairs[0]]) + np.max(heights[peak_pairs[1]])
+            second_height = np.max(heights[peak_pairs[2]])
+            relative_height =  min(first_height, second_height) / max(first_height, second_height)
+            retardations = np.array([relative_height, 1 - relative_height])
+            new_dir, new_ret = add_birefringence(new_dir, retardations[0], 
+                                                    directions[2], retardations[1])
 
     return new_dir, new_ret
 
-def sort_peak_pairs_by_PLI(PLI_direction, mus, heights):
+@njit(cache = True, fastmath = True)
+def peak_pairs_by_PLI(PLI_direction, mus, heights, params, peaks_mask, intensities, angles,
+                        significance_weights = [1, 1], distribution = "wrapped_cauchy",
+                        significance_threshold = 0.8):
     """
     Sort all possible peak pairs from lowest to highest difference to the PLI direction measurement.
 
@@ -199,8 +235,16 @@ def sort_peak_pairs_by_PLI(PLI_direction, mus, heights):
             m = np.ceil(num_peaks / 2)
 
     """
+    # Only use peaks not zero (significant)
+    sig_peak_indices = (heights > 1).nonzero()[0]
+    mus = mus[sig_peak_indices]
+    heights = heights[sig_peak_indices]
 
-    peak_pairs_combinations = get_possible_pairs(len(mus))
+    num_peaks = len(mus)
+    if num_peaks == 0:
+        return np.array([[[-1, -1]]])
+
+    peak_pairs_combinations = possible_pairs(num_peaks)
     best_dir_diff, best_ret_diff = np.inf, np.inf
     best_pair_index = -1
     num_pairs = peak_pairs_combinations.shape[0]
@@ -208,13 +252,177 @@ def sort_peak_pairs_by_PLI(PLI_direction, mus, heights):
     for i in range(num_pairs):
         peak_pairs = peak_pairs_combinations[i]
 
-        SLI_directions[i], _ = SLI_to_PLI(peak_pairs, mus, heights)
+        significances = direction_significances(peak_pairs, params, peaks_mask, intensities, angles, 
+                                weights = significance_weights, distribution = distribution)
+
+        if np.mean(significances) < significance_threshold:
+            # If mean direction significance is below threshold store it as negative direction
+            # -2.1 pi - 1 for difference handling later
+            SLI_directions[i] = -2.1 * np.pi - 1 + np.mean(significances)
+        else:
+            SLI_directions[i], _ = SLI_to_PLI(peak_pairs, mus, heights)
+
+    if np.all(SLI_directions < 0):
+        # If every possible pair has a bad significance
+        # return same as if no peak pair
+        return np.full(peak_pairs_combinations.shape, -1)
+
+    # Convert SLI direction from radians to angles, because PLI direction is in angles
+    SLI_directions = SLI_directions * 180 / np.pi
 
     direction_diffs = np.abs(PLI_direction - SLI_directions)
     sorting_indices = np.argsort(direction_diffs)
     sorted_peak_pairs = peak_pairs_combinations[sorting_indices]
 
+    # Convert the significant indices back to total indices
+    for i in range(sorted_peak_pairs.shape[0]):
+        for j in range(sorted_peak_pairs.shape[1]):
+            for k in range(sorted_peak_pairs.shape[2]):
+                if sorted_peak_pairs[i, j, k] != -1:
+                    sorted_peak_pairs[i, j, k] = sig_peak_indices[sorted_peak_pairs[i, j, k]]
+
     return sorted_peak_pairs
+
+def image_peak_pairs_by_PLI(PLI_directions, image_mus, image_heights, 
+                            SLI_data, image_params, image_peaks_mask,
+                            num_processes = 2, significance_weights = [1, 1],
+                            significance_threshold = 0.8, distribution = "wrapped_cauchy"):
+    """
+    Get the sorted peak pairs of a whole image by using PLI.
+
+    Parameters:
+    - PLI_directions: np.ndarray (i, j)
+        The PLI directions value of the pixels.
+    - image_mus: np.ndarray (i, j, m )
+        The center positions of the peaks for every pixel.
+    - heights: np.ndarray (i, j, m )
+        The height values of the peaks for every pixel.
+
+    Returns:
+    - image_peak_pairs: (i, j, n, m, 2)
+        The possible combinations of pairs sorted from lowest to highest difference to the PLI direction.
+        The size of dimensions is:
+            i, j = image dimensions 
+            n = math.factorial(num_peaks) // ((2 ** (num_peaks // 2)) * math.factorial(num_peaks // 2))
+                so n = 3 for num_peaks = 4 and n = 15 for num_peaks = 6.
+                Odd numbers of num_peaks have the same dimension size as num_peaks + 1.
+            m = np.ceil(num_peaks / 2)
+
+    """
+
+    max_peaks = image_mus.shape[2]
+    n_rows = PLI_directions.shape[0]
+    n_cols = PLI_directions.shape[1]
+    total_pixels = n_rows * n_cols
+    image_mus = image_mus.reshape((total_pixels, image_mus.shape[2]))
+    image_heights = image_heights.reshape((total_pixels, image_heights.shape[2]))
+    PLI_directions = PLI_directions.reshape(total_pixels)
+    SLI_data = SLI_data.reshape((total_pixels, SLI_data.shape[2]))
+    image_params = image_params.reshape((total_pixels, image_params.shape[2]))
+    image_peaks_mask = image_peaks_mask.reshape((total_pixels, image_peaks_mask.shape[2],
+                                                    image_peaks_mask.shape[3]))
+    angles = np.linspace(0, 2*np.pi, num = SLI_data.shape[1], endpoint = False)
+
+    max_combs = 3
+    if max_peaks == 6:
+        max_combs = 15
+    image_peak_pairs = pymp.shared.array((total_pixels, 
+                                            max_combs, 
+                                            np.ceil(max_peaks / 2).astype(int), 
+                                            2), dtype = np.int16)
+
+    with pymp.Parallel(num_processes) as p:
+        for i in p.range(total_pixels):
+            image_peak_pairs[i, :, :] = -1
+
+    # Initialize the progress bar
+    num_tasks = total_pixels
+    pbar = tqdm(total = num_tasks, desc = "Calculating Peak pairs", smoothing = 0)
+    shared_counter = pymp.shared.array((num_processes, ), dtype = int)
+
+    with pymp.Parallel(num_processes) as p:
+        for i in p.range(image_peak_pairs.shape[0]):
+            image_peak_pairs[i, :] = -1
+
+    with pymp.Parallel(num_processes) as p:
+        for i in p.range(total_pixels):
+            intensities = SLI_data[i]
+            image_peak_pairs[i] = peak_pairs_by_PLI(PLI_directions[i], image_mus[i], image_heights[i],
+                        image_params[i], image_peaks_mask[i], intensities, angles,
+                        significance_weights = significance_weights, distribution = distribution,
+                        significance_threshold = significance_threshold)
+
+            # Update progress bar
+            shared_counter[p.thread_num] += 1
+            status = np.sum(shared_counter)
+            pbar.update(status - pbar.n)
+
+    image_peak_pairs = image_peak_pairs.reshape((n_rows, n_cols, 
+                                                image_peak_pairs.shape[1], 
+                                                image_peak_pairs.shape[2],
+                                                image_peak_pairs.shape[3]))
+
+    return image_peak_pairs
+
+@njit(cache = True, fastmath = True)
+def possible_pairs(num_peaks):
+    # Function returning pre calculated value of the get_possible_pairs function
+    if num_peaks == 1:
+        possible_pairs = np.array([[[0, -1]]])
+    elif num_peaks == 2:
+        possible_pairs = np.array([[[0, 1]]])
+    elif num_peaks == 3:
+        possible_pairs = np.array([
+            [[1, 2], [0, -1]],
+            [[0, 2], [1, -1]],
+            [[0, 1], [2, -1]]
+            ])
+    elif num_peaks == 4:
+        possible_pairs = np.array([
+            [[1, 2], [0, 3]],
+            [[0, 2], [1, 3]],
+            [[0, 1], [2, 3]]
+            ])
+    elif num_peaks == 5:
+        possible_pairs = np.array([
+            [[1, 2], [3, 4], [0, -1]],
+            [[1, 3], [2, 4], [0, -1]],
+            [[1, 4], [2, 3], [0, -1]],
+            [[0, 2], [3, 4], [1, -1]],
+            [[0, 3], [2, 4], [1, -1]],
+            [[0, 4], [2, 3], [1, -1]],
+            [[0, 1], [3, 4], [2, -1]],
+            [[0, 3], [1, 4], [2, -1]],
+            [[0, 4], [1, 3], [2, -1]],
+            [[0, 1], [2, 4], [3, -1]],
+            [[0, 2], [1, 4], [3, -1]],
+            [[0, 4], [1, 2], [3, -1]],
+            [[0, 1], [2, 3], [4, -1]],
+            [[0, 2], [1, 3], [4, -1]],
+            [[0, 3], [1, 2], [4, -1]]
+            ])
+    elif num_peaks == 6:
+        possible_pairs = np.array([
+            [[1, 2], [3, 4], [0, 5]],
+            [[1, 3], [2, 4], [0, 5]],
+            [[1, 4], [2, 3], [0, 5]],
+            [[0, 2], [3, 4], [1, 5]],
+            [[0, 3], [2, 4], [1, 5]],
+            [[0, 4], [2, 3], [1, 5]],
+            [[0, 1], [3, 4], [2, 5]],
+            [[0, 3], [1, 4], [2, 5]],
+            [[0, 4], [1, 3], [2, 5]],
+            [[0, 1], [2, 4], [3, 5]],
+            [[0, 2], [1, 4], [3, 5]],
+            [[0, 4], [1, 2], [3, 5]],
+            [[0, 1], [2, 3], [4, 5]],
+            [[0, 2], [1, 3], [4, 5]],
+            [[0, 3], [1, 2], [4, 5]]
+            ])
+    else:
+        possible_pairs = np.array([[[-1, -1]]])
+
+    return possible_pairs
 
 
 def get_possible_pairs(num_peaks):

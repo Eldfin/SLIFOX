@@ -1,6 +1,7 @@
 import h5py
 import matplotlib.pyplot as plt
 from SLIF import fit_image_stack, calculate_peak_pairs, calculate_directions, pick_data, plot_data_pixels
+from SLIF.filters import apply_filter
 import os
 
 # Settings
@@ -10,9 +11,13 @@ output_file_path = "output/output.h5"
 area = None  # [x_left, x_right, y_top, y_bot]
 randoms = 0 # number of random pixels to pick from data (0 equals full data)
 distribution = "wrapped_cauchy"
+#pre_filter = ["gauss", 1]
 
 # Pick the SLI measurement data
 data, indices = pick_data(data_file_path, dataset_path, area = area, randoms = randoms)
+
+# Optional: Filter the data before processing
+#data = apply_filter(data, pre_filter)
 
 # Optional: Write the picked data array to a HDF5 file
 #with h5py.File("input.h5", "w") as h5f:

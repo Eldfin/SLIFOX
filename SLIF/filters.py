@@ -78,7 +78,7 @@ def apply_filter(data, filter_params):
     Applies a filter to data.
 
     Parameters:
-    - data: np.ndarray (n, )
+    - data: np.ndarray (n, ) or (p, q, n)
         Array of values (e.g. intensities) that should be filtered.
     - filter_params: list (m, )
         List that defines which filter to use. First value of list is a string with
@@ -86,28 +86,25 @@ def apply_filter(data, filter_params):
         The following one to two values are the params for this filter.
 
     Returns:
-    - result: np.ndarray (n, )
+    - result: np.ndarray (n, ) or (p, q, n)
         The filtered data.
     """
-    if filter_params[0] == "fourier":
-        data = fourier_smoothing(data, filter_params[1], filter_params[2])
-    elif filter_params[0] == "gauss":
-        if len(filter_params) == 3:
-            order = filter_params[2]
-        else:
-            order = 0
-        data = gaussian_filter1d(data, filter_params[1], order = order, mode="wrap")
-    elif filter_params[0] == "uniform":
-        data = uniform_filter1d(data, filter_params[1], mode="wrap")
-    elif filter_params[0] == "median":
-        data = median_filter(data, size=filter_params[1], mode="wrap")
-    elif filter_params[0] == "moving_average":
-        data = circular_moving_average_filter(data, filter_params[1])
-    elif filter_params[0] == "savgol":
-        if len(filter_params) == 3:
-            order = filter_params[2]
-        else:
-            order = 0
-        data = savgol_filter(data, filter_params[1], order, mode="wrap")
 
-    return data
+    def apply_filter_1d(data_1d):
+        if filter_params[0] == "fourier":
+            return fourier_smoothing(data_1d, filter_params[1], filter_params[2])
+        elif filter_params[0] == "gauss":
+            order = filter_params[2] if len(filter_params) == 3 else 0
+            return gaussian_filter1d(data_1d, filter_params[1], order=order, mode="wrap")
+        elif filter_params[0] == "uniform":
+            return uniform_filter1d(data_1d, filter_params[1], mode="wrap")
+        elif filter_params[0] == "median":
+            return median_filter(data_1d, size=filter_params[1], mode="wrap")
+        elif filter_params[0] == "moving_average":
+            return circular_moving_average_filter(data_1d, filter_params[1])
+        elif filter_params[0] == "savgol":
+            order = filter_params[2] if len(filter_params) == 3 else 0
+            return savgol_filter(data_1d, filter_params[1], order, mode="wrap")
+        return data_1d
+
+    return np.apply_along_axis(apply_filter_1d, axis=-1, arr=data)
