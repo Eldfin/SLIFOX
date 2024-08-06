@@ -9,6 +9,7 @@ import imageio
 import pymp
 from tqdm import tqdm
 import multiprocessing
+from scipy.ndimage import distance_transform_edt
 
 @njit(cache = True, fastmath = True)
 def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "nrmse"):
@@ -65,47 +66,268 @@ def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "nrmse"):
 
     return peaks_gof
 
-import numpy as np
 
-def _find_closest_true_pixel(mask, start_pixel):
+def _find_closest_true_pixel(mask, start_pixel, radius):
     """
-    Finds the closest true pixel for a given 2d-mask and a start_pixel.
+    Finds the closest true pixel for a given 2d-mask and a start_pixel within a given radius.
 
     Parameters:
     - mask: np.ndarray (n, m)
         The boolean mask defining which pixels are False or True.
     - start_pixel: tuple
         The x- and y-coordinates of the start_pixel.
+    - radius: int
+        The radius within which to search for the closest true pixel.
 
     Returns:
     - closest_true_pixel: tuple
-        The x- and y-coordinates of the closest true pixel.
+        The x- and y-coordinates of the closest true pixel, or (-1, -1) if no true pixel is found.
     """
-
     rows, cols = mask.shape
+    sr, sc = start_pixel
+
     visited = np.zeros_like(mask, dtype=bool)
-    queue = deque([start_pixel])
+    queue = deque([(sr, sc)])
+    visited[sr, sc] = True
 
     while queue:
         r, c = queue.popleft()
-        
+
         if mask[r, c]:
             return (r, c)
-        
+
         for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nr, nc = r + dr, c + dc
-            
+
             if 0 <= nr < rows and 0 <= nc < cols and not visited[nr, nc]:
-                visited[nr, nc] = True
-                queue.append((nr, nc))
-    
-    # When no true pixel in the mask, return (-1, -1)
+                if abs(nr - sr) <= radius and abs(nc - sc) <= radius:
+                    visited[nr, nc] = True
+                    queue.append((nr, nc))
+
+    # When no true pixel in the mask within the radius, return (-1, -1)
     return (-1, -1)
 
+def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, 
+                            distribution = "wrapped_cauchy", only_mus = False, num_processes = 2,
+                            significance_threshold = 0.8, significance_weights = [1, 1],
+                            num_attempts = 10000,
+                            angle_threshold = 30 * np.pi / 180, search_radius = 100):
+    """
+    ----Old Docstring, update!----
+    Calculates all the peak_pairs for a whole image stack.
+
+    Parameters:
+    - image_stack: np.ndarray (n, m, p)
+        The image stack containing the measured intensities.
+        n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
+    - image_params: np.ndarray (n, m, q)
+        The output of fitting the image stack, which stores the parameters of the full fitfunction.
+        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
+    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+        The mask defining which of the p-measurements corresponds to one of the peaks.
+        The first two dimensions are the image dimensions.
+    - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
+        The name of the distribution.
+    - only_mus: bool
+        Defines if only the mus (for every pixel) are given in the image_params.
+    - num_processes: int
+        Defines the number of processes to split the task into.
+
+    Returns:
+    - image_peak_pairs: np.ndarray (n, m, max_peaks // 2, 2)
+        The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
+        a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
+        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+        The first two dimensions are the image dimensions.
+    """
+    max_peaks = image_peaks_mask.shape[2]
+    n_rows = image_stack.shape[0]
+    n_cols = image_stack.shape[1]
+    total_pixels = n_rows * n_cols
+    angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)
+    max_combs = 3
+    if max_peaks >= 5:
+        max_combs = 15
+    image_peak_pairs = pymp.shared.array((total_pixels,
+                                            max_combs, 
+                                            np.ceil(max_peaks / 2).astype(int), 
+                                            2), dtype = np.int16)
+
+    with pymp.Parallel(num_processes) as p:
+        for i in p.range(total_pixels):
+            image_peak_pairs[i, :, :, :] = -1
+
+    image_peak_pairs = image_peak_pairs.reshape(n_rows, n_cols,
+                                                image_peak_pairs.shape[1],
+                                                image_peak_pairs.shape[2],
+                                                image_peak_pairs.shape[3])
+
+    # Get the number of peaks for every pixel
+    image_num_peaks = np.sum(np.any(image_peaks_mask, axis=-1), axis = -1)
+    direction_found_mask = pymp.shared.array((n_rows, n_cols), dtype = np.bool_)
+
+    # iterate from 2 to max_peaks and 1, 0 at last
+    iteration_list = np.append(np.arange(2, max_peaks + 1), [1, 0])
+    for i in iteration_list:
+        mask = (image_num_peaks == i)
+        peak_pairs_combinations = possible_pairs(i)
+        num_combs = peak_pairs_combinations.shape[0]
+        indices = mask.nonzero()
+        num_pixels_iteration = np.count_nonzero(mask)
+        # Initialize the progress bar
+        if i != 2:
+            pbar.close()
+        pbar = tqdm(total = num_pixels_iteration, 
+                    desc = f'Calculating Peak pairs for {i} Peaks',
+                    smoothing = 0)
+        shared_counter = pymp.shared.array((num_processes, ), dtype = int)
+
+        with pymp.Parallel(num_processes) as p:
+            for j in p.range(num_pixels_iteration):
+                x, y = indices[0][j], indices[1][j]
+
+                # Update progress bar
+                shared_counter[p.thread_num] += 1
+                status = np.sum(shared_counter)
+                pbar.update(status - pbar.n)
+
+                if i == 0:
+                    #image_peak_pairs[x, y] = np.array([[[-1, -1]]])
+                    continue
+                elif i <= 2:
+                    image_peak_pairs[x, y, 
+                                    :peak_pairs_combinations.shape[0],
+                                    :peak_pairs_combinations.shape[1]] = peak_pairs_combinations[0]
+                    direction_found_mask[x, y] = True
+                    continue
+
+                params = image_params[x, y]
+                peaks_mask = image_peaks_mask[x, y]
+                intensities = image_stack[x, y]
+
+                check_pixels = np.copy(direction_found_mask)
+                for attempt in range(num_attempts):
+                    neighbour_x, neighbour_y = _find_closest_true_pixel(check_pixels, (x, y), search_radius)
+                    if neighbour_x == -1 and neighbour_y == -1:
+                        # When no true pixel within radius: return no pairs
+                        #image_peak_pairs[x, y] = np.array([[[-1, -1]]])
+                        break
+
+                    neighbour_peak_pairs = image_peak_pairs[neighbour_x, neighbour_y, 0]
+                    neighbour_mus = image_params[neighbour_x, neighbour_y, 1::3]
+                    neighbour_directions = peak_pairs_to_directions(neighbour_peak_pairs, neighbour_mus)
+
+                    direction_diffs = np.full(num_combs, -1, dtype = np.float64)
+                    for k in range(num_combs):
+                        peak_pairs = peak_pairs_combinations[k]
+                        significances = direction_significances(peak_pairs, params, peaks_mask, intensities, angles, 
+                                    weights = significance_weights, distribution = distribution)
+
+                        if np.all(significances <= significance_threshold): 
+                            continue
+                        mus = params[1::3]
+                        directions = peak_pairs_to_directions(peak_pairs, mus)
+
+                        # Filter directions with low significance out
+                        directions = directions[significances > significance_threshold]
+
+                        # Insert minimum difference to neighbour directions into array for sorting later
+                        direction_diffs[k] = np.min(np.abs(neighbour_directions[:, np.newaxis] - directions))
+                        
+                    if np.all(direction_diffs == -1):
+                        # When no significant directions for every combination return no pair
+                        #image_peak_pairs[x, y] = np.array([[[-1, -1]]])
+                        break
+
+                    # Remove peak pair combinations with no significant direction
+                    sig_peak_pairs_combinations = peak_pairs_combinations[direction_diffs != -1]
+                    direction_diffs = direction_diffs[direction_diffs != -1]
+
+                    if np.min(direction_diffs) < angle_threshold:
+                        # If minimum difference to neighbou direction is smaller than given threshold
+                        # Sort possible peak pairs by difference to neighbour directions
+                        # and accept the result
+                        sorted_peak_pairs = sig_peak_pairs_combinations[np.argsort(direction_diffs)]
+                        image_peak_pairs[x, y, 
+                                    :sorted_peak_pairs.shape[0],
+                                    :sorted_peak_pairs.shape[1]] = sorted_peak_pairs
+                        direction_found_mask[x, y] = True
+                        break
+                    else:
+                        check_pixels[neighbour_x, neighbour_y] = False
+                        if attempt == num_attempts - 1 or not np.any(check_pixels):
+                            # When no neighbouring pixel within num_attempts had
+                            # a direction difference below the threshold
+                            # return no peak pairs
+                            image_peak_pairs[x, y] = np.array([[[-1, -1]]])
+
+    return image_peak_pairs
+
+
+@njit(cache = True, fastmath = True)
+def possible_pairs(num_peaks):
+    # Function returning pre calculated value of the get_possible_pairs function
+    if num_peaks == 1:
+        possible_pairs = np.array([[[0, -1]]])
+    elif num_peaks == 2:
+        possible_pairs = np.array([[[0, 1]]])
+    elif num_peaks == 3:
+        possible_pairs = np.array([
+            [[1, 2], [0, -1]],
+            [[0, 2], [1, -1]],
+            [[0, 1], [2, -1]]
+            ])
+    elif num_peaks == 4:
+        possible_pairs = np.array([
+            [[1, 2], [0, 3]],
+            [[0, 2], [1, 3]],
+            [[0, 1], [2, 3]]
+            ])
+    elif num_peaks == 5:
+        possible_pairs = np.array([
+            [[1, 2], [3, 4], [0, -1]],
+            [[1, 3], [2, 4], [0, -1]],
+            [[1, 4], [2, 3], [0, -1]],
+            [[0, 2], [3, 4], [1, -1]],
+            [[0, 3], [2, 4], [1, -1]],
+            [[0, 4], [2, 3], [1, -1]],
+            [[0, 1], [3, 4], [2, -1]],
+            [[0, 3], [1, 4], [2, -1]],
+            [[0, 4], [1, 3], [2, -1]],
+            [[0, 1], [2, 4], [3, -1]],
+            [[0, 2], [1, 4], [3, -1]],
+            [[0, 4], [1, 2], [3, -1]],
+            [[0, 1], [2, 3], [4, -1]],
+            [[0, 2], [1, 3], [4, -1]],
+            [[0, 3], [1, 2], [4, -1]]
+            ])
+    elif num_peaks == 6:
+        possible_pairs = np.array([
+            [[1, 2], [3, 4], [0, 5]],
+            [[1, 3], [2, 4], [0, 5]],
+            [[1, 4], [2, 3], [0, 5]],
+            [[0, 2], [3, 4], [1, 5]],
+            [[0, 3], [2, 4], [1, 5]],
+            [[0, 4], [2, 3], [1, 5]],
+            [[0, 1], [3, 4], [2, 5]],
+            [[0, 3], [1, 4], [2, 5]],
+            [[0, 4], [1, 3], [2, 5]],
+            [[0, 1], [2, 4], [3, 5]],
+            [[0, 2], [1, 4], [3, 5]],
+            [[0, 4], [1, 2], [3, 5]],
+            [[0, 1], [2, 3], [4, 5]],
+            [[0, 2], [1, 3], [4, 5]],
+            [[0, 3], [1, 2], [4, 5]]
+            ])
+    else:
+        possible_pairs = np.array([[[-1, -1]]])
+
+    return possible_pairs
 
 def calculate_peak_pairs(image_stack, image_params, image_peaks_mask, 
                             distribution = "wrapped_cauchy", only_mus = False, num_processes = 2):
     """
+    Old function, better use "get_image_peak_pairs".
     Calculates all the peak_pairs for a whole image stack.
 
     Parameters:

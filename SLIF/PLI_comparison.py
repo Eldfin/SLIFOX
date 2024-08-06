@@ -247,9 +247,9 @@ def peak_pairs_by_PLI(PLI_direction, mus, heights, params, peaks_mask, intensiti
     peak_pairs_combinations = possible_pairs(num_peaks)
     best_dir_diff, best_ret_diff = np.inf, np.inf
     best_pair_index = -1
-    num_pairs = peak_pairs_combinations.shape[0]
-    SLI_directions = np.empty(num_pairs)
-    for i in range(num_pairs):
+    num_combs = peak_pairs_combinations.shape[0]
+    SLI_directions = np.empty(num_combs)
+    for i in range(num_combs):
         peak_pairs = peak_pairs_combinations[i]
 
         significances = direction_significances(peak_pairs, params, peaks_mask, intensities, angles, 
@@ -264,8 +264,8 @@ def peak_pairs_by_PLI(PLI_direction, mus, heights, params, peaks_mask, intensiti
 
     if np.all(SLI_directions < 0):
         # If every possible pair has a bad significance
-        # return same as if no peak pair
-        return np.full(peak_pairs_combinations.shape, -1)
+        # return same as if no peaks
+        return np.array([[[-1, -1]]])
 
     # Convert SLI direction from radians to angles, because PLI direction is in angles
     SLI_directions = SLI_directions * 180 / np.pi
@@ -324,7 +324,7 @@ def image_peak_pairs_by_PLI(PLI_directions, image_mus, image_heights,
     angles = np.linspace(0, 2*np.pi, num = SLI_data.shape[1], endpoint = False)
 
     max_combs = 3
-    if max_peaks == 6:
+    if max_peaks >= 5:
         max_combs = 15
     image_peak_pairs = pymp.shared.array((total_pixels, 
                                             max_combs, 
@@ -341,16 +341,15 @@ def image_peak_pairs_by_PLI(PLI_directions, image_mus, image_heights,
     shared_counter = pymp.shared.array((num_processes, ), dtype = int)
 
     with pymp.Parallel(num_processes) as p:
-        for i in p.range(image_peak_pairs.shape[0]):
-            image_peak_pairs[i, :] = -1
-
-    with pymp.Parallel(num_processes) as p:
         for i in p.range(total_pixels):
             intensities = SLI_data[i]
-            image_peak_pairs[i] = peak_pairs_by_PLI(PLI_directions[i], image_mus[i], image_heights[i],
+            sorted_peak_pairs = peak_pairs_by_PLI(PLI_directions[i], image_mus[i], image_heights[i],
                         image_params[i], image_peaks_mask[i], intensities, angles,
                         significance_weights = significance_weights, distribution = distribution,
                         significance_threshold = significance_threshold)
+
+            image_peak_pairs[i, :sorted_peak_pairs.shape[0], 
+                                :sorted_peak_pairs.shape[1]] = sorted_peak_pairs
 
             # Update progress bar
             shared_counter[p.thread_num] += 1
