@@ -149,11 +149,17 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask,
         The radius within which to search for the closest pixel with a defined direction.
 
     Returns:
-    - image_peak_pairs: np.ndarray (n, m, max_peaks // 2, 2)
-        The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
-        a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
-        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+    - image_peak_pairs: np.ndarray (n, m, p, np.ceil(max_peaks / 2), 2)
+        The peak pairs for every pixel, where the fifth dimension contains both peak numbers of
+        a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the fourth dimension
+        is the number of the peak pair (dimension has length np.ceil(num_peaks / 2)).
+        The third dimension contains the different possible combinations of peak pairs,
+        which has the length:
+        p = math.factorial(num_peaks) // ((2 ** (num_peaks // 2)) * math.factorial(num_peaks // 2))
+                so n = 3 for num_peaks = 4 and n = 15 for num_peaks = 6.
+                Odd numbers of num_peaks have the same dimension size as num_peaks + 1.
         The first two dimensions are the image dimensions.
+        
     """
     max_peaks = image_peaks_mask.shape[2]
     n_rows = image_stack.shape[0]
@@ -353,7 +359,7 @@ def calculate_directions(image_peak_pairs, image_mus, directory = None, only_pea
     Calculates the directions from given image_peak_pairs.
 
     Parameters:
-    - image_peak_pairs: np.ndarray (n, m, max_peaks // 2, 2)
+    - image_peak_pairs: np.ndarray (n, m, np.ceil(max_peaks / 2), 2)
         The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
         a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
         is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
@@ -368,7 +374,7 @@ def calculate_directions(image_peak_pairs, image_mus, directory = None, only_pea
         this number of peaks.
 
     Returns:
-    - directions: (n, m, max_peaks // 2)
+    - directions: (n, m, np.ceil(max_peaks / 2))
         The calculated directions for everyoe of the (n * m) pixels.
         Max 3 directions (for 6 peaks).
     """
@@ -531,7 +537,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
     Calculates the significances of the directions for one (fitted) pixel.
 
     Parameters:
-    - peak_pairs: np.ndarray (m // 2, 2)
+    - peak_pairs: np.ndarray (np.ceil(m / 2), 2)
         Array ontaining both peak numbers of a pair (e.g. [1, 3], 
         which means peak 1 and peak 3 is paired). The first dimension (m equals number of peaks)
         is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
@@ -553,7 +559,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
         Defines if only the mus are given in the params.
 
     Returns:
-    - significances: np.ndarray (m // 2, )
+    - significances: np.ndarray (np.ceil(m / 2), )
         The calculated significance for every direction (peak-pair) ranging from 0 to 1.
     """
     global_amplitude = np.max(intensities) - np.min(intensities)
@@ -605,13 +611,13 @@ def image_direction_significances(image_stack, image_peak_pairs, image_params, i
                                 directory = None, distribution = "wrapped_cauchy",
                                 weights = [1, 1]):
     """
-    Calculates the significances of all found directions from given image_peak_pairs.
+    Calculates the significances of all found directions from given "image_peak_pairs".
 
     Parameters:
     - image_stack: np.ndarray (n, m, p)
         The image stack containing the measured intensities.
         n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
-    - image_peak_pairs: np.ndarray (n, m, max_peaks // 2, 2)
+    - image_peak_pairs: np.ndarray (n, m, np.ceil(max_peaks / 2), 2)
         The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
         a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
         is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
@@ -631,7 +637,7 @@ def image_direction_significances(image_stack, image_peak_pairs, image_params, i
         The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
 
     Returns:
-    - significances: (n, m, max_peaks // 2)
+    - significances: (n, m, np.ceil(max_peaks / 2))
         The calculated significances (ranging from 0 to 1) for everyoe of the (n * m) pixels.
         Max 3 significances (shape like directions).
     """

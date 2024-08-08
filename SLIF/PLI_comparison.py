@@ -153,7 +153,7 @@ def SLI_to_PLI(peak_pairs, mus, heights, SLI_inclination = False):
     "What whould be measured in a PLI measurement for the found nerve fibers in the SLI measurement?"
 
     Parameters:
-    - peak_pairs: np.ndarray (m // 2, 2)
+    - peak_pairs: np.ndarray (np.ceil(m / 2), 2)
         Array ontaining both peak numbers of a pair (e.g. [1, 3], 
         which means peak 1 and peak 3 is paired). A pair with -1 defines a unpaired peak.
         The first dimension (m equals number of peaks)

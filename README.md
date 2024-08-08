@@ -248,41 +248,62 @@ Plots all the intensity profiles of the pixels of given data.
 ##### Returns
 - `None`
 
-#### Function: `calculate_peak_pairs`
+#### Function: `get_image_peak_pairs`
 ##### Description
-Calculates all the peak_pairs for a whole image stack..
+Finds all the peak_pairs for a whole image stack and sorts them by comparing with neighbour pixels. 
+Only supports up to 4 peaks for now. For more peaks a similar search for remaining peaks is necessary.
 
 ##### Parameters
-- `image_stack`: np.ndarray (n, m, p)  
-    The image stack containing the measured intensities.  
-    n and m are the lengths of the image dimensions, p is the number of measurements per pixel.  
-- `image_params`: np.ndarray (n, m, q)  
-    The output of fitting the image stack, which stores the parameters of the full fitfunction.  
-    q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).  
-- `image_peaks_mask`: np.ndarray (n, m, max_peaks, p)  
-    The mask defining which of the p-measurements corresponds to one of the peaks.  
-    The first two dimensions are the image dimensions.  
-- `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")  
-    The name of the distribution.  
-- `only_mus`: bool  
-    Defines if only the mus (for every pixel) are given in the image_params.  
-- `num_processes`: int  
-    Defines the number of processes to split the task into.  
+
+- `image_stack`: np.ndarray (n, m, p)
+    The image stack containing the measured intensities.
+    n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
+- `image_params`: np.ndarray (n, m, q)
+    The output of fitting the image stack, which stores the parameters of the full fitfunction.
+    q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
+    Can also store only mus, when only_mus = True.
+- `image_peaks_mask`: np.ndarray (n, m, max_peaks, p)
+    The mask defining which of the p-measurements corresponds to one of the peaks.
+    The first two dimensions are the image dimensions.
+- `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
+    The name of the distribution.
+- `only_mus`: bool
+    Defines if only the mus (for every pixel) are given in the image_params.
+- `num_processes`: int
+    Defines the number of processes to split the task into.
+- `significance_threshold`: float
+    Value between 0 and 1. Peak Pairs with peaks that have a (mean) significance
+    lower than this threshold are not considered for possible pairs.
+    See also "direction_significance" function for more info.
+- `significance_weights`: list (2, )
+    The weights for the amplitude and for the goodnes-of-fit, when calculating the significance.
+    See also "direction_significance" function for more info.
+- `angle_threshold`: float
+    Threshold defining when a neighbouring pixel direction is considered as same nerve fiber.
+- `num_attempts`: int
+    Number defining how many times it should be attempted to find a neighbouring pixel within
+    the given "angle_threshold".
+- `search_radius`: int
+    The radius within which to search for the closest pixel with a defined direction.
 
 ##### Returns
-- `image_peak_pairs`: np.ndarray (n, m, max_peaks // 2, 2)  
-    The peak pairs for every pixel, where the fourth dimension contains both peak numbers of  
-    a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension  
-    is the number of the peak pair (up to 3 peak-pairs for 6 peaks).  
-    The first two dimensions are the image dimensions.  
-
+- `image_peak_pairs`: np.ndarray (n, m, p, np.ceil(max_peaks / 2), 2)
+        The peak pairs for every pixel, where the fifth dimension contains both peak numbers of
+        a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the fourth dimension
+        is the number of the peak pair (dimension has length np.ceil(num_peaks / 2)).
+        The third dimension contains the different possible combinations of peak pairs,
+        which has the length:
+        p = math.factorial(num_peaks) // ((2 ** (num_peaks // 2)) * math.factorial(num_peaks // 2))
+                so n = 3 for num_peaks = 4 and n = 15 for num_peaks = 6.
+                Odd numbers of num_peaks have the same dimension size as num_peaks + 1.
+        The first two dimensions are the image dimensions.
 
 #### Function: `calculate_directions`
 ##### Description
 Calculates the directions from given peak_pairs.
 
 ##### Parameters
-- `image_peak_pairs`: np.ndarray (n, m, max_peaks, 2)  
+- `image_peak_pairs`: np.ndarray (n, m, np.ceil(max_peaks / 2), 2)  
     The peak pairs for every pixel, where the fourth dimension contains both peak numbers of  
     a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension  
     is the number of the peak pair (up to 3 peak-pairs for 6 peaks).  
@@ -294,9 +315,90 @@ Calculates the directions from given peak_pairs.
     If None, no images will be writen.  
 
 ##### Returns
-- `directions`: (n, m, max_peaks // 2)  
+- `directions`: (n, m, np.ceil(max_peaks / 2))  
     The calculated directions for everyoe of the (n * m) pixels.  
     Max 3 directions (for 6 peaks).  
+
+#### Function: `get_image_peak_pairs`
+##### Description
+Finds all the peak_pairs for a whole image stack and sorts them by comparing with neighbour pixels. 
+Only supports up to 4 peaks for now. For more peaks a similar search for remaining peaks is necessary.
+
+##### Parameters
+- `image_stack`: np.ndarray (n, m, p)
+    The image stack containing the measured intensities.
+    n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
+- `image_params`: np.ndarray (n, m, q)
+    The output of fitting the image stack, which stores the parameters of the full fitfunction.
+    q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
+    Can also store only mus, when only_mus = True.
+- `image_peaks_mask`: np.ndarray (n, m, max_peaks, p)
+    The mask defining which of the p-measurements corresponds to one of the peaks.
+    The first two dimensions are the image dimensions.
+- `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
+    The name of the distribution.
+- `only_mus`: bool
+    Defines if only the mus (for every pixel) are given in the image_params.
+- `num_processes`: int
+    Defines the number of processes to split the task into.
+- `significance_threshold`: float
+    Value between 0 and 1. Peak Pairs with peaks that have a (mean) significance
+    lower than this threshold are not considered for possible pairs.
+    See also "direction_significance" function for more info.
+- `significance_weights`: list (2, )
+    The weights for the amplitude and for the goodnes-of-fit, when calculating the significance.
+    See also "direction_significance" function for more info.
+- `angle_threshold`: float
+    Threshold defining when a neighbouring pixel direction is considered as same nerve fiber.
+- `num_attempts`: int
+    Number defining how many times it should be attempted to find a neighbouring pixel within
+    the given "angle_threshold".
+- `search_radius`: int
+    The radius within which to search for the closest pixel with a defined direction.
+
+##### Returns
+- `image_peak_pairs`: np.ndarray (n, m, p, np.ceil(max_peaks / 2), 2)
+    The peak pairs for every pixel, where the fifth dimension contains both peak numbers of
+    a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the fourth dimension
+    is the number of the peak pair (dimension has length np.ceil(num_peaks / 2)).
+    The third dimension contains the different possible combinations of peak pairs,
+    which has the length:
+    p = math.factorial(num_peaks) // ((2 ** (num_peaks // 2)) * math.factorial(num_peaks // 2))
+            so n = 3 for num_peaks = 4 and n = 15 for num_peaks = 6.
+            Odd numbers of num_peaks have the same dimension size as num_peaks + 1.
+    The first two dimensions are the image dimensions.
+
+#### Function: `image_direction_significances`
+##### Description
+Calculates the significances of all found directions from given "image_peak_pairs".
+
+##### Parameters
+- `image_stack`: np.ndarray (n, m, p)
+    The image stack containing the measured intensities.
+    n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
+- `image_peak_pairs`: np.ndarray (n, m, np.ceil(max_peaks / 2), 2)
+    The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
+    a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
+    is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+    The first two dimensions are the image dimensions.
+- `image_params`: np.ndarray (n, m, q)
+    The output of fitting the image stack, which stores the parameters of the full fitfunction.
+    q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
+- `image_peaks_mask`: np.ndarray (n, m, max_peaks, p)
+    The mask defining which of the p-measurements corresponds to one of the peaks.
+    The first two dimensions are the image dimensions.
+- `directory`: string
+    The directory path defining where the significance image should be writen to.
+    If None, no image will be writen.
+- `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
+    The name of the distribution.
+- `weights`: list (2, )
+    The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
+
+##### Returns
+- `significances`: (n, m, np.ceil(max_peaks / 2))
+        The calculated significances (ranging from 0 to 1) for everyoe of the (n * m) pixels.
+        Max 3 significances (shape like directions). 
 
 ### Examples
 
@@ -305,11 +407,11 @@ Calculates the directions from given peak_pairs.
 import numpy as np
 import h5py
 from SLIF import fit_pixel_stack, show_pixel
-from SLIF.signal_filters import apply_filter
+from SLIF.filters import apply_filter
 
 # Settings:
 data_file_path = "/home/user/workspace/SLI_Data.h5"
-dataset_path = "pyramid/02"
+dataset_path = "pyramid/00"
 pixel = [6311, 3300]
 distribution = "wrapped_cauchy"
 #pre_filter = ["gauss", 2]
@@ -390,7 +492,7 @@ with h5py.File(output_directory + output_filename, "w") as h5f:
 ```python
 import h5py
 import matplotlib.pyplot as plt
-from SLIF import find_image_peaks, calculate_peak_pairs, calculate_directions, pick_data, plot_data_pixels
+from SLIF import find_image_peaks, get_image_peak_pairs, calculate_directions, pick_data, plot_data_pixels
 import os
 
 # Settings
@@ -424,29 +526,14 @@ with h5py.File(output_file_path, "w") as h5f:
     group.create_dataset("mus", data=image_mus)
     group.create_dataset("peaks_mask", data=image_peaks_mask)
     group.create_dataset("indices", data=indices)
-
-# Optional: Pick SLIF output data (if already fitted)
-#image_mus, _ = pick_data(image_file_path, 
-#                                dataset_path + "/mus", area = None, randoms = 0)
-#image_peaks_mask, _ = pick_data(output_file_path, 
-#                               dataset_path + "/peaks_mask", area = None, randoms = 0)
-    
-# Calculate the peak pairs (directions)
-image_peak_pairs = calculate_peak_pairs(data, image_mus, image_peaks_mask, only_mus = True)
-
-# Optional: Plot the picked data
-#plot_data_pixels(data, image_mus, image_peaks_mask, image_peak_pairs, indices = indices, 
-#                        directory = "plots", only_mus = True)
-
-# Calculate the nerve fiber directions and save direction map in directory
-#directions = calculate_directions(image_peak_pairs, image_mus, directory = "direction_maps")
 ```
 
 #### Fit data and calculate directions
 ```python
 import h5py
 import matplotlib.pyplot as plt
-from SLIF import fit_image_stack, calculate_peak_pairs, calculate_directions, pick_data, plot_data_pixels
+from SLIF import fit_image_stack, get_image_peak_pairs, calculate_directions, pick_data, plot_data_pixels
+from SLIF.filters import apply_filter
 import os
 
 # Settings
@@ -456,9 +543,13 @@ output_file_path = "output/output.h5"
 area = None  # [x_left, x_right, y_top, y_bot]
 randoms = 0 # number of random pixels to pick from data (0 equals full data)
 distribution = "wrapped_cauchy"
+#pre_filter = ["gauss", 1]
 
 # Pick the SLI measurement data
 data, indices = pick_data(data_file_path, dataset_path, area = area, randoms = randoms)
+
+# Optional: Filter the data before processing
+#data = apply_filter(data, pre_filter)
 
 # Optional: Write the picked data array to a HDF5 file
 #with h5py.File("input.h5", "w") as h5f:
@@ -485,20 +576,31 @@ with h5py.File(output_file_path, "w") as h5f:
 
 # Optional: Pick SLIF output data (if already fitted)
 #image_params, _ = pick_data(output_file_path, 
-#                                dataset_path + "/params", area = area, randoms = randoms)
+#                                dataset_path + "/params")
 #image_peaks_mask, _ = pick_data(output_file_path, 
-#                               dataset_path + "/peaks_mask", area = area, randoms = randoms)
+#                               dataset_path + "/peaks_mask")
     
-# Calculate the peak pairs (directions)
-image_peak_pairs = calculate_peak_pairs(data, image_params, image_peaks_mask, distribution)
+# Find the peak pairs (directions)
+image_peak_pairs = get_image_peak_pairs(data, image_params, image_peaks_mask, 
+                            distribution = distribution, only_mus = False, num_processes = 2,
+                            significance_threshold = 0.9, significance_weights = [1, 1],
+                            angle_threshold = 30 * np.pi / 180, num_attempts = 100000, 
+                            search_radius = 100)
 
-# Optional: Plot the picked data
-plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs, 
-                        distribution = distribution, indices = indices, directory = "plots")
+# Use best pairs of all possible pairs
+best_image_peak_pairs = image_peak_pairs[:, :, 0, :, :]
+
+# Optional: Plot the picked data (only recommended for small image areas)
+#plot_data_pixels(data, image_params, image_peaks_mask, best_image_peak_pairs, 
+#                        distribution = distribution, indices = indices, directory = "plots")
 
 # Calculate the nerve fiber directions and save direction map in directory
 image_mus = image_params[:, :, 1::3]
-directions = calculate_directions(image_peak_pairs, image_mus, directory = "direction_maps")
+directions = calculate_directions(best_image_peak_pairs, image_mus, directory = "direction_maps")
+
+# Create the fiber orientation map (fom) using the two direction files (for max 4 peaks)
+direction_files = ["direction_maps/dir_1.tiff", "direction_maps/dir_2.tiff"]
+write_fom(direction_files, "direction_maps")
 ```
 
 
