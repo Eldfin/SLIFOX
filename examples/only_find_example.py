@@ -1,6 +1,6 @@
 import h5py
 import matplotlib.pyplot as plt
-from SLIF import find_image_peaks, calculate_peak_pairs, calculate_directions, pick_data, plot_data_pixels
+from SLIF import find_image_peaks, get_image_peak_pairs, calculate_directions, pick_data, plot_data_pixels
 import os
 
 # Settings
@@ -36,17 +36,22 @@ with h5py.File(output_file_path, "w") as h5f:
     group.create_dataset("indices", data=indices)
 
 # Optional: Pick SLIF output data (if already fitted)
-#image_mus, _ = pick_data(output_file_path, 
-#                                dataset_path + "/mus", area = None, randoms = 0)
-#image_peaks_mask, _ = pick_data(output_file_path, 
-#                               dataset_path + "/peaks_mask", area = None, randoms = 0)
+#image_mus, _ = pick_data(output_file_path, dataset_path + "/mus")
+#image_peaks_mask, _ = pick_data(output_file_path, dataset_path + "/peaks_mask")
     
-# Calculate the peak pairs (directions)
-image_peak_pairs = calculate_peak_pairs(data, image_mus, image_peaks_mask, only_mus = True)
+# Find the peak pairs (directions)
+image_peak_pairs = get_image_peak_pairs(data, image_mus, image_peaks_mask, 
+                            distribution = distribution, only_mus = True, num_processes = 2,
+                            significance_threshold = 0.9, significance_weights = [1, 1],
+                            angle_threshold = 30 * np.pi / 180, num_attempts = 100000, 
+                            search_radius = 100)
 
-# Optional: Plot the picked data
-#plot_data_pixels(data, image_mus, image_peaks_mask, image_peak_pairs, indices = indices, 
-#                        directory = "plots", only_mus = True)
+# Use best pairs of all possible pairs
+best_image_peak_pairs = image_peak_pairs[:, :, 0, :, :]
 
 # Calculate the nerve fiber directions and save direction map in directory
-#directions = calculate_directions(image_peak_pairs, image_mus, directory = "direction_maps")
+directions = calculate_directions(best_image_peak_pairs, image_mus, directory = "direction_maps")
+
+# Create the fiber orientation map (fom) using the two direction files (for max 4 peaks)
+direction_files = ["direction_maps/dir_1.tiff", "direction_maps/dir_2.tiff"]
+write_fom(direction_files, "direction_maps")

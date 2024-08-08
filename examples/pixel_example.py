@@ -5,7 +5,7 @@ from SLIF.filters import apply_filter
 
 # Settings:
 data_file_path = "/home/user/workspace/SLI_Data.h5"
-dataset_path = "pyramid/02"
+dataset_path = "pyramid/00"
 pixel = [6311, 3300]
 distribution = "wrapped_cauchy"
 #pre_filter = ["gauss", 2]

@@ -1,6 +1,6 @@
 import h5py
 import matplotlib.pyplot as plt
-from SLIF import fit_image_stack, calculate_peak_pairs, calculate_directions, pick_data, plot_data_pixels
+from SLIF import fit_image_stack, get_image_peak_pairs, calculate_directions, pick_data, plot_data_pixels
 from SLIF.filters import apply_filter
 import os
 
@@ -44,17 +44,28 @@ with h5py.File(output_file_path, "w") as h5f:
 
 # Optional: Pick SLIF output data (if already fitted)
 #image_params, _ = pick_data(output_file_path, 
-#                                dataset_path + "/params", area = area, randoms = randoms)
+#                                dataset_path + "/params")
 #image_peaks_mask, _ = pick_data(output_file_path, 
-#                               dataset_path + "/peaks_mask", area = area, randoms = randoms)
+#                               dataset_path + "/peaks_mask")
     
-# Calculate the peak pairs (directions)
-image_peak_pairs = calculate_peak_pairs(data, image_params, image_peaks_mask, distribution)
+# Find the peak pairs (directions)
+image_peak_pairs = get_image_peak_pairs(data, image_params, image_peaks_mask, 
+                            distribution = distribution, only_mus = False, num_processes = 2,
+                            significance_threshold = 0.9, significance_weights = [1, 1],
+                            angle_threshold = 30 * np.pi / 180, num_attempts = 100000, 
+                            search_radius = 100)
 
-# Optional: Plot the picked data
-plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs, 
-                        distribution = distribution, indices = indices, directory = "plots")
+# Use best pairs of all possible pairs
+best_image_peak_pairs = image_peak_pairs[:, :, 0, :, :]
+
+# Optional: Plot the picked data (only recommended for small image areas)
+#plot_data_pixels(data, image_params, image_peaks_mask, best_image_peak_pairs, 
+#                        distribution = distribution, indices = indices, directory = "plots")
 
 # Calculate the nerve fiber directions and save direction map in directory
 image_mus = image_params[:, :, 1::3]
-directions = calculate_directions(image_peak_pairs, image_mus, directory = "direction_maps")
+directions = calculate_directions(best_image_peak_pairs, image_mus, directory = "direction_maps")
+
+# Create the fiber orientation map (fom) using the two direction files (for max 4 peaks)
+direction_files = ["direction_maps/dir_1.tiff", "direction_maps/dir_2.tiff"]
+write_fom(direction_files, "direction_maps")

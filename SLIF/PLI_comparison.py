@@ -4,7 +4,7 @@ import matplotlib as plt
 import pymp
 from .utils import angle_distance
 from .peaks_evaluator import calculate_peaks_gof, peak_pairs_to_directions, \
-                            peak_pairs_to_inclinations, direction_significances
+                            peak_pairs_to_inclinations, direction_significances, possible_pairs
 from .SLIF import fit_image_stack, full_fitfunction, find_image_peaks
 from itertools import combinations, chain
 from tqdm import tqdm
@@ -82,6 +82,8 @@ def mod2cplx(direction, retardation, scale=2.0):
 
 def get_distance_deviations(image_stack, fit_SLI = False, num_pixels = 0, 
                             distribution = "wrapped_cauchy", threshold = 1000, num_processes = 2):
+    # Function to get the deviation from the 180 degree distance between two peaks
+    # just needed for the research of relations to inclination of nerve fibers
 
     if num_pixels > 0:
         # Pick random pixels
@@ -362,114 +364,3 @@ def image_peak_pairs_by_PLI(PLI_directions, image_mus, image_heights,
                                                 image_peak_pairs.shape[3]))
 
     return image_peak_pairs
-
-@njit(cache = True, fastmath = True)
-def possible_pairs(num_peaks):
-    # Function returning pre calculated value of the get_possible_pairs function
-    if num_peaks == 1:
-        possible_pairs = np.array([[[0, -1]]])
-    elif num_peaks == 2:
-        possible_pairs = np.array([[[0, 1]]])
-    elif num_peaks == 3:
-        possible_pairs = np.array([
-            [[1, 2], [0, -1]],
-            [[0, 2], [1, -1]],
-            [[0, 1], [2, -1]]
-            ])
-    elif num_peaks == 4:
-        possible_pairs = np.array([
-            [[1, 2], [0, 3]],
-            [[0, 2], [1, 3]],
-            [[0, 1], [2, 3]]
-            ])
-    elif num_peaks == 5:
-        possible_pairs = np.array([
-            [[1, 2], [3, 4], [0, -1]],
-            [[1, 3], [2, 4], [0, -1]],
-            [[1, 4], [2, 3], [0, -1]],
-            [[0, 2], [3, 4], [1, -1]],
-            [[0, 3], [2, 4], [1, -1]],
-            [[0, 4], [2, 3], [1, -1]],
-            [[0, 1], [3, 4], [2, -1]],
-            [[0, 3], [1, 4], [2, -1]],
-            [[0, 4], [1, 3], [2, -1]],
-            [[0, 1], [2, 4], [3, -1]],
-            [[0, 2], [1, 4], [3, -1]],
-            [[0, 4], [1, 2], [3, -1]],
-            [[0, 1], [2, 3], [4, -1]],
-            [[0, 2], [1, 3], [4, -1]],
-            [[0, 3], [1, 2], [4, -1]]
-            ])
-    elif num_peaks == 6:
-        possible_pairs = np.array([
-            [[1, 2], [3, 4], [0, 5]],
-            [[1, 3], [2, 4], [0, 5]],
-            [[1, 4], [2, 3], [0, 5]],
-            [[0, 2], [3, 4], [1, 5]],
-            [[0, 3], [2, 4], [1, 5]],
-            [[0, 4], [2, 3], [1, 5]],
-            [[0, 1], [3, 4], [2, 5]],
-            [[0, 3], [1, 4], [2, 5]],
-            [[0, 4], [1, 3], [2, 5]],
-            [[0, 1], [2, 4], [3, 5]],
-            [[0, 2], [1, 4], [3, 5]],
-            [[0, 4], [1, 2], [3, 5]],
-            [[0, 1], [2, 3], [4, 5]],
-            [[0, 2], [1, 3], [4, 5]],
-            [[0, 3], [1, 2], [4, 5]]
-            ])
-    else:
-        possible_pairs = np.array([[[-1, -1]]])
-
-    return possible_pairs
-
-
-def get_possible_pairs(num_peaks):
-    """
-    Calculates all possible combinations of pairs of numbers from 0 to num_peaks.
-
-    Parameters:
-    - num_peaks: int
-        The maximum number (index) of the indices to use as elements for pair combinations.
-
-    Returns:
-    - pair_combinations: (n, m, 2)
-        The possible combinations of pairs.
-        The size of dimensions is: 
-            n = math.factorial(num_peaks) // ((2 ** (num_peaks // 2)) * math.factorial(num_peaks // 2))
-                so n = 3 for num_peaks = 4 and n = 15 for num_peaks = 6.
-                Odd numbers of num_peaks have the same dimension size as num_peaks + 1.
-            m = np.ceil(num_peaks / 2)
-
-    """
-    indices = list(range(num_peaks))
-    all_index_pairs = []
-
-    if num_peaks % 2 == 0:
-        index_combinations = list(combinations(indices, 2))
-
-        def is_non_overlapping(pair_set):
-            flat_list = [index for pair in pair_set for index in pair]
-            return len(flat_list) == len(set(flat_list))
-
-        for pair_set in combinations(index_combinations, num_peaks // 2):
-            if is_non_overlapping(pair_set):
-                all_index_pairs.append(pair_set)
-
-    else:
-        # Odd case: include an unmatched index with -1
-        for unmatched in indices:
-            remaining_indices = [i for i in indices if i != unmatched]
-            index_combinations = list(combinations(remaining_indices, 2))
-            
-            def is_non_overlapping(pair_set):
-                flat_list = list(chain.from_iterable(pair_set))
-                return len(flat_list) == len(set(flat_list))
-
-            for pair_set in combinations(index_combinations, (num_peaks - 1) // 2):
-                if is_non_overlapping(pair_set):
-                    all_index_pairs.append(pair_set + ((unmatched, -1),))
-
-    pair_combinations = np.array(all_index_pairs)
-    return pair_combinations
-
