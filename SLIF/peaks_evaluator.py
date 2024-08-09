@@ -114,7 +114,6 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             search_radius = 100):
     """
     Finds all the peak_pairs for a whole image stack and sorts them by comparing with neighbour pixels.
-    Only supports up to 4 peaks for now. For more peaks a similar search for remaining peaks is necessary.
 
     Parameters:
     - image_stack: np.ndarray (n, m, p)
