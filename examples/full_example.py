@@ -49,10 +49,10 @@ with h5py.File(output_file_path, "w") as h5f:
 #                               dataset_path + "/peaks_mask")
     
 # Find the peak pairs (directions)
-image_peak_pairs = get_image_peak_pairs(data, image_params, image_peaks_mask, 
+image_peak_pairs = get_image_peak_pairs(data, image_params, image_peaks_mask, min_distance = 20,
                             distribution = distribution, only_mus = False, num_processes = 2,
                             significance_threshold = 0.9, significance_weights = [1, 1],
-                            angle_threshold = 30 * np.pi / 180, num_attempts = 100000, 
+                            angle_threshold = 30, num_attempts = 100000, 
                             search_radius = 100)
 
 # Use best pairs of all possible pairs

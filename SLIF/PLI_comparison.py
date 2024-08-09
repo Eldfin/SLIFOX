@@ -82,8 +82,33 @@ def mod2cplx(direction, retardation, scale=2.0):
 
 def get_distance_deviations(image_stack, fit_SLI = False, num_pixels = 0, 
                             distribution = "wrapped_cauchy", threshold = 1000, num_processes = 2):
-    # Function to get the deviation from the 180 degree distance between two peaks
-    # just needed for the research of relations to inclination of nerve fibers
+    """
+    Gets the deviations from 180 degree distance between two peaks pixels.
+    Usefull to analyze how many flat nerve fibers are in the data
+    and if more than 2 peaks can be paired to 180 degree pairs.
+    
+    Parameters:
+    - image_stack: np.ndarray (n, m, p)
+        SLI measurement data.
+    - fit_SLI: boolean
+        Defines whether to fit the data to find the peak centers or just to use the peak finder.
+    - num_pixels: int
+        The number of random pixels to pick from the data.
+    - distribution: "wrapped_cauchy", "von_mises", or "wrapped_laplace"
+        The name of the distribution.
+    - threshold: int
+        Threshold value. If the mean intensity of one pixel is lower than that threshold value,
+        the pixel will not be evaluated.
+    - num_processes: int
+        Number that defines in how many sub-processes the fitting process should be split into.
+
+    Returns:
+    - distance_deviations: np.ndarray (q, )
+        Virtual direction value of the PLI measurement.
+    - full_pixel_mask: np.ndarray (n, m)
+        Boolean array defining which pixels of the "image_stack" are used.
+
+    """
 
     if num_pixels > 0:
         # Pick random pixels
