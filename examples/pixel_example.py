@@ -1,7 +1,7 @@
 import numpy as np
 import h5py
-from SLIF import fit_pixel_stack, show_pixel
-from SLIF.filters import apply_filter
+from SLIFOX import fit_pixel_stack, show_pixel
+from SLIFOX.filters import apply_filter
 
 # Settings:
 data_file_path = "/home/user/workspace/SLI_Data.h5"

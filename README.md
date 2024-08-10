@@ -23,7 +23,7 @@ git clone https://github.com/Eldfin/SLIFOX.git
 
 ### Create a virtual environment
 ```bash
-cd SLIF
+cd SLIFOX
 python -m venv .venv
 ```
 

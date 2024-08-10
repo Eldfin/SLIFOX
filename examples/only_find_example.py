@@ -1,6 +1,6 @@
 import h5py
 import matplotlib.pyplot as plt
-from SLIF import find_image_peaks, get_image_peak_pairs, calculate_directions, pick_data, plot_data_pixels
+from SLIFOX import find_image_peaks, pick_data
 import os
 
 # Settings

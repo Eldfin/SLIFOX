@@ -1,7 +1,7 @@
 import h5py
 import matplotlib.pyplot as plt
-from SLIF import fit_image_stack, get_image_peak_pairs, calculate_directions, pick_data, plot_data_pixels
-from SLIF.filters import apply_filter
+from SLIFOX import fit_image_stack, get_image_peak_pairs, calculate_directions, pick_data, plot_data_pixels
+from SLIFOX.filters import apply_filter
 import os
 
 # Settings

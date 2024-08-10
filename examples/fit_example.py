@@ -1,5 +1,5 @@
 import h5py
-from SLIF import fit_image_stack, pick_data
+from SLIFOX import fit_image_stack, pick_data
 import os
 
 # Settings
