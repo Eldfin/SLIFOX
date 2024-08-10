@@ -6,12 +6,12 @@ this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
 setup(
-    name="SLIF",
+    name="SLIFOX",
     version="1.0.0",
     author="Eldfin (Julian David Wieck)",
     author_email="julian_wieck@yahoo.com",
     license='MIT',
-    description="Scattered Light Imaging Fitter",
+    description="Scattered Light Imaging Fitting (and) Orientation ToolboX",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/eldfin/SLIF",
@@ -35,5 +35,6 @@ setup(
         "pymp-pypi>=0.5.0",
         "PyQt5>=5.15.10",
         "tqdm>=4.66.4",
+        "tifffile>=2024.7.2",
     ]
 )

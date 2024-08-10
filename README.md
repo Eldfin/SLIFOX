@@ -321,8 +321,7 @@ Calculates the directions from given peak_pairs.
 
 #### Function: `get_image_peak_pairs`
 ##### Description
-Finds all the peak_pairs for a whole image stack and sorts them by comparing with neighbour pixels. 
-Only supports up to 4 peaks for now. For more peaks a similar search for remaining peaks is necessary.
+Finds all the peak_pairs for a whole image stack and sorts them by comparing with neighbour pixels.
 
 ##### Parameters
 - `image_stack`: np.ndarray (n, m, p)
