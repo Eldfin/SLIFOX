@@ -18,7 +18,7 @@ Operating system should be Linux.
 ### Clone the repository
 
 ```bash
-git clone https://github.com/Eldfin/SLIF.git
+git clone https://github.com/Eldfin/SLIFOX.git
 ```
 
 ### Create a virtual environment
@@ -405,8 +405,8 @@ Calculates the significances of all found directions from given "image_peak_pair
 ```python
 import numpy as np
 import h5py
-from SLIF import fit_pixel_stack, show_pixel
-from SLIF.filters import apply_filter
+from SLIFOX import fit_pixel_stack, show_pixel
+from SLIFOX.filters import apply_filter
 
 # Settings:
 data_file_path = "/home/user/workspace/SLI_Data.h5"
@@ -448,7 +448,7 @@ show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distributi
 #### Fit image stack
 ```python
 import h5py
-from SLIF import fit_image_stack, pick_data
+from SLIFOX import fit_image_stack, pick_data
 import os
 
 # Settings
@@ -491,7 +491,7 @@ with h5py.File(output_directory + output_filename, "w") as h5f:
 ```python
 import h5py
 import matplotlib.pyplot as plt
-from SLIF import find_image_peaks, get_image_peak_pairs, calculate_directions, pick_data, plot_data_pixels
+from SLIFOX import find_image_peaks, pick_data
 import os
 
 # Settings
@@ -531,8 +531,8 @@ with h5py.File(output_file_path, "w") as h5f:
 ```python
 import h5py
 import matplotlib.pyplot as plt
-from SLIF import fit_image_stack, get_image_peak_pairs, calculate_directions, pick_data, plot_data_pixels
-from SLIF.filters import apply_filter
+from SLIFOX import fit_image_stack, get_image_peak_pairs, calculate_directions, pick_data, plot_data_pixels
+from SLIFOX.filters import apply_filter
 import os
 
 # Settings
