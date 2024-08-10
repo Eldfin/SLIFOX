@@ -12,7 +12,7 @@ Finds the peaks in Scattered Light Imaging measurement data, fits a given distri
 
 ## Installation
 
-Installed Python version >= 3.12.4 is necessary.
+Installed Python version >= 3.11.3 is necessary.
 Operating system should be Linux.
 
 ### Clone the repository
