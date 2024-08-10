@@ -1,6 +1,6 @@
-# SLIF
-Scattered Light Imaging Fitter  
-Finds the peaks in Scattered Light Imaging measurement data, fits a given distribution to this peaks and calculates the found nerve fiber directions.
+# SLIFOX
+Scattered Light Imaging Fitting and Orientation ToolboX
+Finds the peaks in Scattered Light Imaging measurement data, fits a given distribution to this peaks and calculates the nerve fiber directions.
 
 ## Table of Contents
 
