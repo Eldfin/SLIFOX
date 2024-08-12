@@ -279,9 +279,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
                 check_pixels = np.copy(direction_found_mask)
                 num_best_combs = num_sig_combs
-                best_nb_indices = np.full(num_sig_combs, -1)
-                best_dir_indices = np.full(num_sig_combs, -1)
-                first_neighbour = (-1, -1)
+                matched_dir_mask = np.zeros(direction_combs.shape, dtype = np.bool_)
                 for attempt in range(num_attempts):
                     neighbour_x, neighbour_y = _find_closest_true_pixel(check_pixels, (x, y), search_radius)
                     if neighbour_x == -1 and neighbour_y == -1:
@@ -305,33 +303,45 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                 neighbour_intensities, angles, weights = significance_weights, 
                                 distribution = distribution, only_mus = only_mus)
 
-                    # Filter directions with low significance out
+                    # Filter neighbour directions with low significance out
                     neighbour_directions = neighbour_directions[neighbour_significances
                                                                     > significance_threshold]
 
                     if len(neighbour_directions) == 0:
                         check_pixels[neighbour_x, neighbour_y] = False
+                        if attempt == num_attempts - 1 or not np.any(check_pixels):
+                            # When no neighbouring pixel within num_attempts had
+                            # a direction difference below the threshold
+                            # return no peak pairs
+                            image_peak_pairs[x, y] = np.array([[[-1, -1]]])
+                            break
                         continue
 
                     direction_diffs = np.empty(num_best_combs, dtype = np.float64)
-                    nb_diff_indices = np.empty(num_best_combs, dtype = np.int16)
                     dir_diff_indices = np.empty(num_best_combs, dtype = np.int16)
+                    no_directions = False
                     for k in range(num_best_combs):
                         directions = direction_combs[k]
+                        directions = directions[matched_dir_mask[k]]
                         directions = directions[directions != -1]
-                        
-                        # Remove already matched directions
-                        if first_neighbour == (neighbour_x, neighbour_y) and best_nb_indices[k] != -1:
-                            neighbour_directions = np.delete(neighbour_directions, best_nb_indices[k])
-                        if best_dir_indices[k] != -1:
-                            directions = np.delete(directions, best_dir_indices[k])
+
+                        if len(directions) == 0:
+                            no_directions = True
+                            break
 
                         differences = np.abs(neighbour_directions[:, np.newaxis] - directions)
                         min_diff_index = np.argmin(differences)
-                        nb_diff_indices[k], dir_diff_indices[k] = np.unravel_index(min_diff_index, 
+                        _, dir_diff_indices[k] = np.unravel_index(min_diff_index, 
                                                                                 differences.shape)
                         # Insert minimum difference to neighbour directions into array for sorting later
                         direction_diffs[k] = np.min(differences)
+
+                    if no_directions:
+                        image_peak_pairs[x, y, 
+                                        :sig_peak_pair_combs.shape[0],
+                                        :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
+                        direction_found_mask[x, y] = True
+                        break
 
                     if np.min(direction_diffs) < angle_threshold * np.pi / 180:
                         # If minimum difference to neighbour direction is smaller than given threshold
@@ -340,22 +350,23 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
                         sort_indices = np.argsort(direction_diffs)
                         sig_peak_pair_combs[:num_best_combs] = sig_peak_pair_combs[sort_indices]
+                        direction_combs[:num_best_combs] = direction_combs[sort_indices]
+                        matched_dir_mask[:num_best_combs] = matched_dir_mask[sort_indices]
                         old_num_best_combs = num_best_combs
                         num_best_combs = np.sum(direction_diffs == np.min(direction_diffs))
-                        best_nb_indices = nb_diff_indices[sort_indices[:num_best_combs]]
                         best_dir_indices = dir_diff_indices[sort_indices[:num_best_combs]]
-                        direction_combs = direction_combs[:num_best_combs]
-                        if first_neighbour == (-1, -1):
-                            first_neighbour = (neighbour_x, neighbour_y)
-                        else:
-                            check_pixels[neighbour_x, neighbour_y] = False
+                        for k in range(num_best_combs):
+                            matched_dir_mask[k, best_dir_indices[k]] = True
 
+                        direction_combs = direction_combs[:num_best_combs]
                         if num_best_combs == 1 or num_best_combs == old_num_best_combs:
                             image_peak_pairs[x, y, 
                                         :sig_peak_pair_combs.shape[0],
                                         :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
                             direction_found_mask[x, y] = True
                             break
+                        else:
+                            continue
                     else:
                         check_pixels[neighbour_x, neighbour_y] = False
                         if attempt == num_attempts - 1 or not np.any(check_pixels):
@@ -445,7 +456,7 @@ def calculate_directions(image_peak_pairs, image_mus, directory = None, only_pea
     - directory: string
         The directory path defining where direction images should be writen to.
         If None, no images will be writen.
-    - only_peaks_count: int
+    - only_peaks_count: int (or list of ints)
         Defines a filter for the number of peaks, so that only pixels will be processed that have
         this number of peaks.
 
@@ -464,7 +475,7 @@ def calculate_directions(image_peak_pairs, image_mus, directory = None, only_pea
             if only_peaks_count != -1:
                 num_peaks = int(np.max(image_peak_pairs[x, y]) + 1)
                 if isinstance(only_peaks_count, list):
-                    if num_peaks in only_peaks_count: continue
+                    if num_peaks not in only_peaks_count: continue
                 else:
                     if num_peaks != only_peaks_count: continue
             
