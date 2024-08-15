@@ -271,7 +271,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                     # If all differences between directions are below 30 degree,
                     # its not a valid peak pair combination
                     differences = np.abs(directions[:, np.newaxis] - directions)
-                    if np.all(differences) < min_directions_diff:
+                    if np.all(differences) < min_directions_diff * np.pi / 180:
                         valid_combs[k] = False
                         continue
 
