@@ -110,7 +110,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             amplitude_threshold = 0.2, gof_threshold = 0.5,
                             significance_threshold = 0.3, significance_weights = [1, 1],
                             angle_threshold = 30, num_attempts = 10000, 
-                            search_radius = 100, min_directions_diff = 30):
+                            search_radius = 100, min_directions_diff = 20):
     """
     Finds all the peak_pairs for a whole image stack and sorts them by comparing with neighbour pixels.
 
@@ -271,7 +271,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                     # If all differences between directions are below 30 degree,
                     # its not a valid peak pair combination
                     differences = np.abs(directions[:, np.newaxis] - directions)
-                    if np.all(differences) < min_directions_diff * np.pi / 180:
+                    if np.all(differences < min_directions_diff * np.pi / 180):
                         valid_combs[k] = False
                         continue
 
