@@ -9,7 +9,6 @@ import imageio
 import pymp
 from tqdm import tqdm
 import multiprocessing
-from scipy.ndimage import distance_transform_edt
 
 @njit(cache = True, fastmath = True)
 def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "nrmse"):
@@ -66,7 +65,6 @@ def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "nrmse"):
 
     return peaks_gof
 
-
 def _find_closest_true_pixel(mask, start_pixel, radius):
     """
     Finds the closest true pixel for a given 2d-mask and a start_pixel within a given radius.
@@ -109,9 +107,10 @@ def _find_closest_true_pixel(mask, start_pixel, radius):
 
 def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distance = 20,
                             distribution = "wrapped_cauchy", only_mus = False, num_processes = 2,
-                            significance_threshold = 0.8, significance_weights = [1, 1],
+                            amplitude_threshold = 0.2, gof_threshold = 0.5,
+                            significance_threshold = 0.3, significance_weights = [1, 1],
                             angle_threshold = 30, num_attempts = 10000, 
-                            search_radius = 100):
+                            search_radius = 100, min_directions_diff = 30):
     """
     Finds all the peak_pairs for a whole image stack and sorts them by comparing with neighbour pixels.
 
@@ -186,8 +185,12 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                                 image_peak_pairs.shape[2],
                                                 image_peak_pairs.shape[3])
 
-    # Get the number of peaks for every pixel
-    image_num_peaks = np.sum(np.any(image_peaks_mask, axis=-1), axis = -1)
+    image_num_peaks, sig_image_peaks_mask = image_number_of_peaks(image_stack, image_params, image_peaks_mask, 
+                            distribution = distribution, only_mus = only_mus, 
+                            gof_threshold = gof_threshold, 
+                            amplitude_threshold = amplitude_threshold, 
+                            num_processes = num_processes)
+
     direction_found_mask = pymp.shared.array((n_rows, n_cols), dtype = np.bool_)
 
     # iterate from 2 to max_peaks and 1, 0 at last
@@ -209,6 +212,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
         with pymp.Parallel(num_processes) as p:
             for j in p.range(num_pixels_iteration):
                 x, y = indices[0][j], indices[1][j]
+                sig_peak_indices = sig_image_peaks_mask[x, y].nonzero()[0]
 
                 # Update progress bar
                 shared_counter[p.thread_num] += 1
@@ -221,7 +225,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                 elif i <= 2:
                     image_peak_pairs[x, y, 
                                     :peak_pairs_combinations.shape[0],
-                                    :peak_pairs_combinations.shape[1]] = peak_pairs_combinations
+                                    :peak_pairs_combinations.shape[1]] \
+                                = sig_peak_indices[peak_pairs_combinations]
                     direction_found_mask[x, y] = True
                     continue
 
@@ -237,7 +242,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                 valid_combs = np.ones(num_combs, dtype = np.bool_)
                 direction_combs = np.full((num_combs, image_peak_pairs.shape[3]), -1, dtype = np.float64)
                 for k in range(num_combs):
-                    peak_pairs = peak_pairs_combinations[k]
+                    peak_pairs = sig_peak_indices[peak_pairs_combinations[k]]
 
                     # Check if any pair has a smaller distance than min_distance
                     for pair in peak_pairs:
@@ -263,10 +268,17 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                     directions = directions[significances > significance_threshold]
                     direction_combs[k, :len(directions)] = directions
 
+                    # If all differences between directions are below 30 degree,
+                    # its not a valid peak pair combination
+                    differences = np.abs(directions[:, np.newaxis] - directions)
+                    if np.all(differences) < min_directions_diff:
+                        valid_combs[k] = False
+                        continue
+
                 if not np.any(valid_combs):
                     continue
 
-                sig_peak_pair_combs = peak_pairs_combinations[valid_combs]
+                sig_peak_pair_combs = sig_peak_indices[peak_pairs_combinations[valid_combs]]
                 direction_combs = direction_combs[valid_combs]
                 num_sig_combs = sig_peak_pair_combs.shape[0]
 
@@ -659,6 +671,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
         amplitudes = np.zeros(num_peaks)
         for i in range(num_peaks):
             peak_intensities = intensities[peaks_mask[i]]
+            if len(peak_intensities) == 0: continue
             amplitudes[i] = np.max(peak_intensities) - np.min(peak_intensities)
 
         for i in range(num_directions):
@@ -696,7 +709,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
 
 def image_direction_significances(image_stack, image_peak_pairs, image_params, image_peaks_mask, 
                                 directory = None, distribution = "wrapped_cauchy",
-                                weights = [1, 1]):
+                                weights = [1, 1], num_processes = 2):
     """
     Calculates the significances of all found directions from given "image_peak_pairs".
 
@@ -733,17 +746,34 @@ def image_direction_significances(image_stack, image_peak_pairs, image_params, i
     x_range = image_peak_pairs.shape[0]
     y_range = image_peak_pairs.shape[1]
     max_significances = image_peak_pairs.shape[2]
-    significances = np.zeros((x_range, y_range, max_significances), dtype = np.float64)
-    for x in range(x_range):
-        for y in range(y_range):
-            peak_pairs = image_peak_pairs[x, y]
-            params = image_params[x, y]
-            peaks_mask = image_peaks_mask[x, y]
-            intensities = image_stack[x, y]
+    total_pixels = x_range * y_range
+    significances = pymp.shared.array((total_pixels, max_significances), dtype = np.float64)
+    image_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))
+    image_params = image_params.reshape((total_pixels, image_params.shape[2]))
+    image_peaks_mask = image_peaks_mask.reshape((total_pixels, *image_peaks_mask.shape[2:]))
+    image_peak_pairs = image_peak_pairs.reshape((total_pixels, *image_peak_pairs.shape[2:]))
+
+    # Initialize the progress bar
+    pbar = tqdm(total = total_pixels, desc = "Calculating direction significances", smoothing = 0)
+    shared_counter = pymp.shared.array((num_processes, ), dtype = int)
+
+    with pymp.Parallel(num_processes) as p:
+        for i in p.range(total_pixels):
+            peak_pairs = image_peak_pairs[i]
+            params = image_params[i]
+            peaks_mask = image_peaks_mask[i]
+            intensities = image_stack[i]
             
-            significances[x, y] = pixel_significances(peak_pairs, params, peaks_mask, 
+            significances[i] = direction_significances(peak_pairs, params, peaks_mask, 
                                     intensities, angles, weights = weights,
                                     distribution = distribution)
+
+            # Update progress bar
+            shared_counter[p.thread_num] += 1
+            status = np.sum(shared_counter)
+            pbar.update(status - pbar.n)
+
+    significances = significances.reshape((x_range, y_range, significances.shape[1]))
             
     if directory != None:
         if not os.path.exists(directory):
@@ -755,3 +785,124 @@ def image_direction_significances(image_stack, image_peak_pairs, image_params, i
 
     return significances
 
+@njit(cache = True, fastmath = True)
+def peak_significances(intensities, angles, params, peaks_mask, distribution, only_mus,
+                        significance_weights):
+    global_amplitude = np.max(intensities) - np.min(intensities)
+    num_peaks = peaks_mask.shape[0]
+
+    if only_mus:
+        # If only mus are provided, just use amplitude significance
+        
+        amplitudes = np.zeros(num_peaks)
+        for i in range(num_peaks):
+            peak_intensities = intensities[peaks_mask[i]]
+            if len(peak_intensities) == 0:
+                continue
+            amplitudes[i] = np.max(peak_intensities) - np.min(peak_intensities)
+
+        significances = amplitudes / global_amplitude
+        return significances
+
+    model_y = full_fitfunction(angles, params, distribution)
+    peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
+
+    heights = params[0:-1:3]
+    scales = params[2::3]
+    rel_amplitudes = np.zeros(num_peaks)
+    for i in range(num_peaks):
+        if heights[i] < 1:
+            continue
+        amplitude = heights[i] * distribution_pdf(0, 0, scales[i], distribution)
+        rel_amplitudes[i] = amplitude / global_amplitude
+
+    significances = (rel_amplitudes * significance_weights[0] + peaks_gof * significance_weights[1]) / 2
+
+    return significances
+
+def image_number_of_peaks(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
+                            only_mus = False, gof_threshold = 0.5, amplitude_threshold = 0.1,
+                            colors = ["black", "green", "red", "yellow", "blue", "magenta", "cyan"],
+                            directory = None, num_processes = 2):
+
+    if gof_threshold == 0 and amplitude_threshold == 0:
+        # Get the number of peaks for every pixel
+        image_num_peaks = np.sum(np.any(image_peaks_mask, axis=-1), axis = -1)
+   
+    else:
+        angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)        
+        x_range = image_stack.shape[0]
+        y_range = image_stack.shape[1]
+        total_pixels = x_range * y_range
+        image_num_peaks = pymp.shared.array(total_pixels, dtype = np.uint8)
+        sig_image_peaks_mask = pymp.shared.array((total_pixels, image_peaks_mask.shape[-2]), dtype = np.bool_)
+        image_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))
+        image_params = image_params.reshape((total_pixels, image_params.shape[2]))
+        image_peaks_mask = image_peaks_mask.reshape((total_pixels, *image_peaks_mask.shape[2:]))
+
+        # Initialize the progress bar
+        pbar = tqdm(total = total_pixels, desc = "Calculating number of peaks", smoothing = 0)
+        shared_counter = pymp.shared.array((num_processes, ), dtype = int)
+
+        with pymp.Parallel(num_processes) as p:
+            for i in p.range(total_pixels):
+                intensities = image_stack[i]
+                params = image_params[i]
+                peaks_mask = image_peaks_mask[i]
+                global_amplitude = np.max(intensities) - np.min(intensities)
+
+                model_y = full_fitfunction(angles, params, distribution)
+                peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
+
+                heights = params[0:-1:3]
+                scales = params[2::3]
+                num_peaks = len(peaks_gof)
+                rel_amplitudes = np.zeros(num_peaks)
+                for j in range(num_peaks):
+                    if heights[j] < 1:
+                        continue
+                    amplitude = heights[j] * distribution_pdf(0, 0, scales[j], distribution)
+                    rel_amplitudes[j] = amplitude / global_amplitude
+
+                sig_peaks_mask = (rel_amplitudes > amplitude_threshold) & (peaks_gof > gof_threshold)
+
+                # Set not significant peaks mask values to False
+                sig_image_peaks_mask[i] = sig_peaks_mask
+
+                image_num_peaks[i] = np.count_nonzero(sig_peaks_mask)
+
+                # Update progress bar
+                shared_counter[p.thread_num] += 1
+                status = np.sum(shared_counter)
+                pbar.update(status - pbar.n)
+
+        image_num_peaks = image_num_peaks.reshape((x_range, y_range))
+        sig_image_peaks_mask = sig_image_peaks_mask.reshape((x_range, y_range, sig_image_peaks_mask.shape[1]))
+
+    if directory != None:
+        if not os.path.exists(directory):
+                os.makedirs(directory)
+
+        colormap = np.empty((len(colors), 3), dtype = np.uint8)
+        for i, color in enumerate(colors):
+            if color == "black":
+                colormap[i] = [0, 0, 0]
+            elif color == "green":
+                colormap[i] = [0, 255, 0]
+            elif color == "red":
+                colormap[i] = [255, 0, 0]
+            elif color == "yellow":
+                colormap[i] == [255, 255, 0]
+            elif color == "blue":
+                colormap[i] == [0, 0, 255]
+            elif color == "magenta":
+                colormap[i] == [255, 0, 255]
+            elif color == "cyan":
+                colormap[i] == [0, 255, 255]
+
+        image = colormap[image_num_peaks]
+
+        imageio.imwrite(f'{directory}/n_peaks_map.tiff', np.swapaxes(image, 0, 1), format = 'tiff')
+
+    return image_num_peaks, sig_image_peaks_mask
+    
