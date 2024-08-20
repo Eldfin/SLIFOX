@@ -28,7 +28,7 @@ def wrapped_cauchy_pdf(x, mu, scale):
     return pdf
 
 @njit(cache = True, fastmath = True)
-def bessel_i0(scale):
+def bessel_i0_scalar(scale):
     result = 1.0
     term = 1.0
     k = 1
@@ -36,6 +36,21 @@ def bessel_i0(scale):
         term *= (scale / (2 * k)) ** 2
         result += term
         k += 1
+    return result
+
+@njit(cache=True, fastmath=True)
+def bessel_i0(scale):
+    scale = np.asarray(scale)
+    result = np.ones_like(scale)
+    term = np.ones_like(scale)
+
+    for index in np.ndindex(term.shape):
+        k = 1
+        while term[index] > 1e-10 * result[index]:
+            term[index] *= (scale[index] / (2 * k)) ** 2
+            result[index] += term[index]
+            k += 1
+    
     return result
 
 @njit(cache = True, fastmath = True)
@@ -111,6 +126,14 @@ def distribution_pdf(x, mu, scale, distribution):
     - pdf: np.ndarray (n, )
         The PDF values corresponding to x.
     """
+
+    mu = np.asarray(mu)
+    scale = np.asarray(scale)
+    scale = np.where(scale == 0, np.inf, scale)
+    
+    # Expand dimensions for broadcasting
+    scale = scale[..., np.newaxis]
+    mu = mu[..., np.newaxis]
 
     if distribution == "wrapped_cauchy":
         return wrapped_cauchy_pdf(x, mu, scale)

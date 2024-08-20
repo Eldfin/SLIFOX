@@ -25,6 +25,307 @@ def angle_distance(angle1, angle2):
     
     return distance
 
+# Define function like numpy.sum with parameter axis = -1 for use with numba
+@njit(cache = True, fastmath = True)
+def numba_sum_last_axis(arr):
+    # Ensure input is a numpy array
+    arr = np.asarray(arr)
+    
+    # Get the shape of the array
+    shape = arr.shape
+    
+    # Initialize the output array for the result
+    result_shape = shape[:-1]
+    result = np.empty(result_shape, dtype = arr.dtype)
+    
+    # Iterate over all indices except the last axis
+    for index in np.ndindex(result_shape):
+        # Extract the sub-array for the current index
+        sub_array = arr[index]
+        
+        # Compute the sum along the last axis
+        sum_value = 0
+        for value in sub_array:
+            sum_value += value
+        
+        # Store the result
+        result[index] = sum_value
+    
+    return result
+
+@njit(cache=True, fastmath=True)
+def numba_sum_second_last_axis(arr):
+    # Ensure input is a numpy array
+    arr = np.asarray(arr)
+    
+    # Get the shape of the array
+    shape = arr.shape
+
+    # Get the size of the second-to-last axis
+    second_last_axis_size = shape[-2]
+    
+    # Determine the shape of the output array
+    result_shape = shape[:-2] + (shape[-1],)
+    result = np.empty(result_shape, dtype = arr.dtype)
+    
+    # Iterate over all indices except the second-to-last axis
+    for index in np.ndindex(result_shape):
+        # Initialize the sum to zero
+        sum_value = 0
+        
+        # Iterate over the second-to-last axis to compute the sum
+        for i in range(second_last_axis_size):
+            # Construct the full index manually
+            full_index = (*index[:-1], i, index[-1])
+            sum_value += arr[full_index]
+        
+        # Store the result
+        result[index] = sum_value
+    
+    return result
+
+# Define function like numpy.repeat with parameter axis = -1 for numba use
+@njit(cache = True, fastmath = True)
+def numba_repeat_last_axis(arr, repeats):
+    # Ensure input is a numpy array
+    arr = np.asarray(arr)
+    
+    # Get the shape of the array
+    shape = arr.shape
+    
+    # Get the size of the last axis
+    last_axis_size = shape[-1]
+    
+    # Determine the shape of the output array
+    result_shape = shape[:-1] + (last_axis_size * repeats,)
+    result = np.empty(result_shape, dtype = arr.dtype)
+    
+    # Iterate over all indices except the last axis
+    for index in np.ndindex(shape[:-1]):
+        # Extract the sub-array for the current index
+        sub_array = arr[index]
+        
+        # Repeat the elements along the last axis
+        start = 0
+        for value in sub_array:
+            for _ in range(repeats):
+                result[index + (start,)] = value
+                start += 1
+    
+    return result
+
+# Define function line numpy.max with parameter axis = -1 for use with numba
+@njit(cache = True, fastmath = True)
+def numba_max_last_axis(arr):
+    # Ensure input is a numpy array
+    arr = np.asarray(arr)
+    
+    # Get the shape of the array
+    shape = arr.shape
+    
+    # Initialize the output array for the result
+    result_shape = shape[:-1]
+    result = np.empty(result_shape, dtype = arr.dtype)
+    
+    # Iterate over all indices except the last axis
+    for index in np.ndindex(result_shape):
+        # Extract the sub-array for the current index
+        sub_array = arr[index]
+        
+        # Initialize the max value to the first element of the sub-array
+        max_value = sub_array[0]
+        
+        # Iterate over the last axis to find the maximum value
+        for value in sub_array[1:]:
+            if value > max_value:
+                max_value = value
+        
+        # Store the result
+        result[index] = max_value
+    
+    return result
+
+@njit(cache = True, fastmath = True)
+def numba_min_last_axis(arr):
+    # Ensure input is a numpy array
+    arr = np.asarray(arr)
+    
+    # Get the shape of the array
+    shape = arr.shape
+    
+    # Initialize the output array for the result
+    result_shape = shape[:-1]
+    result = np.empty(result_shape, dtype = arr.dtype)
+    
+    # Iterate over all indices except the last axis
+    for index in np.ndindex(result_shape):
+        # Extract the sub-array for the current index
+        sub_array = arr[index]
+        
+        # Initialize the min value to the first element of the sub-array
+        min_value = sub_array[0]
+        
+        # Iterate over the last axis to find the minimum value
+        for value in sub_array[1:]:
+            if value < min_value:
+                min_value = value
+        
+        # Store the result
+        result[index] = min_value
+    
+    return result
+
+# Define function like numpy.nanmin with parameter arg = -1 for use with numba
+@njit(cache = True)
+def numba_nanmin_last_axis(arr):
+    # Ensure input is a numpy array
+    arr = np.asarray(arr)
+    
+    # Get the shape of the array
+    shape = arr.shape
+    
+    # Initialize the output array for the result
+    result_shape = shape[:-1]
+    result = np.empty(result_shape, dtype = arr.dtype)
+    
+    # Iterate over all indices except the last axis
+    for index in np.ndindex(result_shape):
+        # Extract the sub-array for the current index
+        sub_array = arr[index]
+        
+        # Initialize the min value to a very large number
+        min_value = np.nan
+        
+        # Iterate over the last axis
+        for value in sub_array:
+            if not np.isnan(value):
+                if np.isnan(min_value) or value < min_value:
+                    min_value = value
+        
+        # Store the result
+        result[index] = min_value
+    
+    return result
+
+# Define function like numpy.nanmax with parameter arg = -1 for use with numba
+@njit(cache = True)
+def numba_nanmax_last_axis(arr):
+    # Ensure input is a numpy array
+    arr = np.asarray(arr)
+    
+    # Get the shape of the array
+    shape = arr.shape
+    
+    # Initialize the output array for the result
+    result_shape = shape[:-1]
+    result = np.empty(result_shape, dtype = arr.dtype)
+    
+    # Iterate over all indices except the last axis
+    for index in np.ndindex(result_shape):
+        # Extract the sub-array for the current index
+        sub_array = arr[index]
+        
+        # Initialize the max value to a very small number
+        max_value = np.nan
+        
+        # Iterate over the last axis
+        for value in sub_array:
+            if not np.isnan(value):
+                if np.isnan(max_value) or value > max_value:
+                    max_value = value
+        
+        # Store the result
+        result[index] = max_value
+    
+    return result
+
+# Define function like numpy.nansum with axis = -1 for numba use
+@njit(cache = True)
+def numba_nansum_last_axis(arr):
+    # Ensure input is a numpy array
+    arr = np.asarray(arr)
+    
+    # Get the shape of the array
+    shape = arr.shape
+    
+    # Initialize the output array for the result
+    result_shape = shape[:-1]
+    result = np.empty(result_shape, dtype = arr.dtype)
+    
+    # Iterate over all axes except the last one
+    for index in np.ndindex(result_shape):
+        # Extract the sub-array for the current index
+        sub_array = arr[index]
+        
+        # Compute the sum of non-NaN values along the last axis
+        sum_values = 0
+        for value in sub_array:
+            if not np.isnan(value):
+                sum_values += value
+        
+        # Store the result
+        result[index] = sum_values
+    
+    return result
+
+# Define function like numpy.nanmean with axis = -1 for numba
+@njit(cache = True)
+def numba_nanmean_last_axis(arr):
+    # Ensure input is a numpy array
+    arr = np.asarray(arr)
+    
+    # Get the shape of the array
+    shape = arr.shape
+    
+    # Initialize the output array for the mean
+    mean_result = np.empty(shape[:-1], dtype = np.float64)
+    
+    # Iterate over all axes except the last one
+    for index in np.ndindex(shape[:-1]):
+        # Extract the sub-array for the current index
+        sub_array = arr[index]
+        
+        # Initialize sum and count
+        sum_values = 0.0
+        count = 0
+        
+        # Iterate over the last axis values
+        for value in sub_array:
+            if not np.isnan(value):
+                sum_values += value
+                count += 1
+        
+        # Compute the mean for this sub-array
+        if count > 0:
+            mean_result[index] = sum_values / count
+        else:
+            mean_result[index] = np.nan
+    
+    return mean_result
+
+# Define function like numpy.any with axis = -1 for numba
+@njit(cache = True)
+def numba_any_last_axis(arr):
+    # Ensure input is a numpy array
+    arr = np.asarray(arr)
+    
+    # Get the shape of the array
+    shape = arr.shape
+    
+    # Initialize the output array for the result
+    result_shape = shape[:-1]
+    result = np.empty(result_shape, dtype=np.bool_)
+    
+    # Iterate over all axes except the last one
+    for index in np.ndindex(result_shape):
+        # Extract the sub-array for the current index
+        sub_array = arr[index]
+        
+        # Check if any value in the last axis is True
+        result[index] = np.any(sub_array)
+    
+    return result
+
 # define function like numpy.insert for use with numba
 @njit(cache = True, fastmath = True)
 def numba_insert(array, index, value):

@@ -8,7 +8,7 @@ from time import time
 from tqdm import tqdm
 from .filters import apply_filter
 from .wrapped_distributions import distribution_pdf
-from .utils import angle_distance, calculate_chi2
+from .utils import angle_distance, calculate_chi2, numba_repeat_last_axis, numba_sum_second_last_axis
 from .SLI_peak_finder import find_peaks
 
 @njit(cache = True, fastmath = True)
@@ -54,13 +54,23 @@ def full_fitfunction(x, params, distribution = "wrapped_cauchy"):
         Intensities of the model at all positions of x
     """
 
-    y = np.full_like(x, params[-1])
-    heights = params[0:-1:3]
-    for i, height in enumerate(heights):
-        if height == 0:
-            continue
-        y += params[i * 3] * distribution_pdf(x, params[i * 3 + 1], params[i * 3 + 2], distribution)
-                                           
+    heights = params[..., 0:-1:3]
+    mus = params[..., 1::3]
+    scales = params[..., 2::3]
+
+    if params.ndim == 1:
+        y = np.full_like(x, params[..., -1])
+        for i, height in enumerate(heights):
+            if height == 0:
+                continue
+            y += params[i * 3] * distribution_pdf(x, params[i * 3 + 1], params[i * 3 + 2], distribution)
+    else:
+        # If the input is params of a whole image, create output for the whole image
+        # so first fill y with offsets
+        y = numba_repeat_last_axis(params[..., -1, np.newaxis], x.shape[0])
+        y += numba_sum_second_last_axis(heights[..., np.newaxis] 
+                    * distribution_pdf(x, mus, scales, distribution))
+                          
     return y
 
 def _lmfit_fitfunction(x, **params):
