@@ -356,7 +356,10 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
                             distribution = distribution, gof_threshold = gof_threshold, 
                             amplitude_threshold = amplitude_threshold, only_mus = only_mus)
 
-    imageio.imwrite(f'{directory}/peak_distances.tiff', np.swapaxes(image_distances, 0, 1), format = 'tiff')
+    image_distances = np.swapaxes(image_distances, 0, 1)
+    image_distances[image_distances != -1] = image_distances[image_distances != -1] * 180 / np.pi
+
+    imageio.imwrite(f'{directory}/peak_distances.tiff', image_distances, format = 'tiff')
 
     return image_distances
 
@@ -378,6 +381,9 @@ def map_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
     image_scales = get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = distribution, 
                             gof_threshold = gof_threshold, amplitude_threshold = amplitude_threshold)
 
+    # scale = hwhm for wrapped cauchy distribution
+    image_scales = image_scales * 180 / np.pi * 2
+
     imageio.imwrite(f'{directory}/peak_widths_map.tiff', np.swapaxes(image_scales, 0, 1), format = 'tiff')
 
     return image_scales
@@ -391,9 +397,9 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, directory
                 os.makedirs(directory)
 
         for dir_n in range(max_directions):
-            write_directions = np.swapaxes(image_directions[:, :, dir_n], 0, 1)
-            write_directions[write_directions != -1] = write_directions[write_directions != -1] * 180 / np.pi
-            imageio.imwrite(f'{directory}/dir_{dir_n + 1}.tiff', write_directions)
+            image_directions = np.swapaxes(image_directions[:, :, dir_n], 0, 1)
+            image_directions[image_directions != -1] = image_directions[image_directions != -1] * 180 / np.pi
+            imageio.imwrite(f'{directory}/dir_{dir_n + 1}.tiff', image_directions)
 
 def map_direction_significances(image_stack, image_peak_pairs, image_params, 
                                 image_peaks_mask, distribution = "wrapped_cauchy", weights = [1, 1], 

@@ -1067,7 +1067,7 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
     image_distances = -np.ones(mask.shape, dtype = np.float32)
     flat_mask = mask.flatten()
     image_distances = image_distances.flatten()
-    image_distances[flat_mask] = np.abs(sig_image_mus[::2] - sig_image_mus[1::2])
+    image_distances[flat_mask] = np.abs(angle_distance(sig_image_mus[::2], sig_image_mus[1::2]))
     image_distances = image_distances.reshape(mask.shape)
 
     return image_distances
@@ -1087,7 +1087,7 @@ def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
         image_model_y = full_fitfunction(angles, image_params, distribution)
         image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, image_peaks_mask, method = "r2")
 
-        image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
+        image_valid_peaks_mask = ((image_rel_amplitudes > amplitude_threshold)
                                             & (image_peaks_gof > gof_threshold))
 
         image_amplitudes = np.where(image_valid_peaks_mask, image_amplitudes, np.nan)
