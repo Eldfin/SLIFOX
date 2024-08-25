@@ -45,13 +45,15 @@ def full_fitfunction(x, params, distribution = "wrapped_cauchy"):
     ----------
     - x: np.ndarray (n, )
         The angles (in radians)
-    - params: np.ndarray (3 * n_peaks + 1, )
+    - params: np.ndarray (..., 3 * n_peaks + 1)
         The array of params: (I, mu, scale) per peak + A (underground)
+        Can be one dimensional (single pixel) or three dimensional (whole image).
 
     Returns
     -------
-    - res: np.ndarray (n, )
-        Intensities of the model at all positions of x
+    - res: np.ndarray (..., n)
+        Intensities of the model at all positions of x.
+        Dimension is the same as for params.
     """
 
     heights = params[..., 0:-1:3]

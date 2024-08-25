@@ -1,17 +1,13 @@
 import numpy as np
 import h5py
 from numba import njit
-from .SLIF import full_fitfunction, angle_distance
+from .fitter import full_fitfunction, angle_distance
 from .wrapped_distributions import distribution_pdf, wrapped_cauchy_pdf
-from .utils import numba_any_last_axis, numba_nanmean_last_axis, numba_nansum_last_axis, \
-                    numba_nanmin_last_axis, numba_nanmax_last_axis, numba_max_last_axis, \
-                    numba_min_last_axis, numba_sum_last_axis
 from collections import deque
 import os
 import imageio
 import pymp
 from tqdm import tqdm
-import multiprocessing
 
 #@njit(cache = True, fastmath = True)
 def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2"):
@@ -887,11 +883,11 @@ def peak_significances(intensities, angles, params, peaks_mask, distribution, on
 
     return significances
 
-# Old, remove:
-def image_number_of_peaks(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            gof_threshold = 0.5, amplitude_threshold = 0.1,
-                            colors = ["black", "green", "red", "yellow", "blue", "magenta", "cyan"],
-                            directory = None, num_processes = 2):
+    return image_num_peaks, image_used_peaks_mask
+
+#@njit(cache = True, fastmath = True)
+def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
+                            gof_threshold = 0.5, amplitude_threshold = 0.1, only_mus = False):
     """
     Returns the number of peaks for every pixel.
 
@@ -914,105 +910,16 @@ def image_number_of_peaks(image_stack, image_params, image_peaks_mask, distribut
         Value between 0 and 1.
         Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
         this threshold will not be counted.
-    - colors: list
-        List of the color names that should be used for the colormap in the image.
-        First color will be used for zero peaks, second for 1 peaks, third for 2 peaks, ...
-    - directory: string
-        The directory path defining where the resulting image should be writen to.
-        If None, no image will be writen.
+    - only_mus: boolean
+        Whether only the mus (peak centers) are provided in the image_params.
+        If so only amplitude_threshold will be used.
 
     Returns:
     - image_num_peaks: np.ndarray (n, m)
         The number of peaks for every pixel.
-    - image_used_peaks_mask: np.ndarray (n, m, max_peaks)
+    - image_valid_peaks_mask: np.ndarray (n, m, max_peaks)
         Mask that stores the information, which peaks are used in the counting process.
     """
-
-    if gof_threshold == 0 and amplitude_threshold == 0:
-        # Get the number of peaks for every pixel
-        image_num_peaks = np.sum(np.any(image_peaks_mask, axis=-1), axis = -1)
-   
-    else:
-        angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)        
-        x_range = image_stack.shape[0]
-        y_range = image_stack.shape[1]
-        total_pixels = x_range * y_range
-        image_num_peaks = pymp.shared.array(total_pixels, dtype = np.uint8)
-        image_used_peaks_mask = pymp.shared.array((total_pixels, image_peaks_mask.shape[-2]), dtype = np.bool_)
-        image_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))
-        image_params = image_params.reshape((total_pixels, image_params.shape[2]))
-        image_peaks_mask = image_peaks_mask.reshape((total_pixels, *image_peaks_mask.shape[2:]))
-
-        # Initialize the progress bar
-        pbar = tqdm(total = total_pixels, desc = "Calculating number of peaks", smoothing = 0)
-        shared_counter = pymp.shared.array((num_processes, ), dtype = int)
-
-        with pymp.Parallel(num_processes) as p:
-            for i in p.range(total_pixels):
-                intensities = image_stack[i]
-                params = image_params[i]
-                peaks_mask = image_peaks_mask[i]
-                global_amplitude = np.max(intensities) - np.min(intensities)
-
-                model_y = full_fitfunction(angles, params, distribution)
-                peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
-
-                heights = params[0:-1:3]
-                scales = params[2::3]
-                num_peaks = len(peaks_gof)
-                rel_amplitudes = np.zeros(num_peaks)
-                for j in range(num_peaks):
-                    if heights[j] < 1:
-                        continue
-                    amplitude = heights[j] * distribution_pdf(0, 0, scales[j], distribution)
-                    rel_amplitudes[j] = amplitude / global_amplitude
-
-                valid_peaks_mask = (rel_amplitudes > amplitude_threshold) & (peaks_gof > gof_threshold)
-
-                # Set not significant peaks mask values to False
-                image_used_peaks_mask[i] = valid_peaks_mask
-
-                image_num_peaks[i] = np.count_nonzero(valid_peaks_mask)
-
-                # Update progress bar
-                shared_counter[p.thread_num] += 1
-                status = np.sum(shared_counter)
-                pbar.update(status - pbar.n)
-
-        image_num_peaks = image_num_peaks.reshape((x_range, y_range))
-        image_used_peaks_mask = image_used_peaks_mask.reshape((x_range, y_range, image_used_peaks_mask.shape[1]))
-
-    if directory != None:
-        if not os.path.exists(directory):
-                os.makedirs(directory)
-
-        colormap = np.empty((len(colors), 3), dtype = np.uint8)
-        for i, color in enumerate(colors):
-            if color == "black":
-                colormap[i] = [0, 0, 0]
-            elif color == "green":
-                colormap[i] = [0, 255, 0]
-            elif color == "red":
-                colormap[i] = [255, 0, 0]
-            elif color == "yellow":
-                colormap[i] = [255, 255, 0]
-            elif color == "blue":
-                colormap[i] = [0, 0, 255]
-            elif color == "magenta":
-                colormap[i] = [255, 0, 255]
-            elif color == "cyan":
-                colormap[i] = [0, 255, 255]
-
-        image = colormap[image_num_peaks]
-
-        imageio.imwrite(f'{directory}/n_peaks_map.tiff', np.swapaxes(image, 0, 1), format = 'tiff')
-
-    return image_num_peaks, image_used_peaks_mask
-
-#@njit(cache = True, fastmath = True)
-def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            gof_threshold = 0.5, amplitude_threshold = 0.1, only_mus = False,
-                            colors = ["black", "green", "red", "yellow", "blue", "magenta", "cyan"]):
     if gof_threshold == 0 and amplitude_threshold == 0:
         # Get the number of peaks for every pixel
         image_num_peaks = np.sum(np.any(image_peaks_mask, axis=-1), axis = -1)
@@ -1048,6 +955,38 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
 def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             gof_threshold = 0.5, amplitude_threshold = 0.1, only_mus = False,
                             only_peaks_count = 2):
+    """
+    Returns the number of peaks for every pixel.
+
+    Parameters:
+    - image_stack: np.ndarray (n, m, p)
+        The image stack containing the measured intensities.
+        n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
+    - image_params: np.ndarray (n, m, q)
+        The output of fitting the image stack, which stores the parameters of the full fitfunction.
+        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
+    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+        The mask defining which of the p-measurements corresponds to one of the peaks.
+        The first two dimensions are the image dimensions.
+    - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
+        The name of the distribution.
+    - gof_threshold: float
+        Value between 0 and 1.
+        Peaks with a goodness-of-fit value below this threshold will not be counted.
+    - amplitude_threshold: float
+        Value between 0 and 1.
+        Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+        this threshold will not be counted.
+    - only_mus: boolean
+        Whether only the mus (peak centers) are provided in the image_params.
+        If so only amplitude_threshold will be used.
+    - only_peaks_count: int or list of ints
+        Only use pixels where the number of peaks equals this number.
+
+    Returns:
+    - image_distances: np.ndarray (n, m)
+        The distance between paired peaks for every pixel.
+    """
     
     image_mus = image_params[:, :, 1::3]
 
@@ -1074,6 +1013,36 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
 
 def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             gof_threshold = 0.5, amplitude_threshold = 0.1, only_mus = False):
+    """
+    Returns the mean peak amplitude for every pixel.
+
+    Parameters:
+    - image_stack: np.ndarray (n, m, p)
+        The image stack containing the measured intensities.
+        n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
+    - image_params: np.ndarray (n, m, q)
+        The output of fitting the image stack, which stores the parameters of the full fitfunction.
+        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
+    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+        The mask defining which of the p-measurements corresponds to one of the peaks.
+        The first two dimensions are the image dimensions.
+    - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
+        The name of the distribution.
+    - gof_threshold: float
+        Value between 0 and 1.
+        Peaks with a goodness-of-fit value below this threshold will not be counted.
+    - amplitude_threshold: float
+        Value between 0 and 1.
+        Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+        this threshold will not be counted.
+    - only_mus: boolean
+        Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
+
+    Returns:
+    - image_amplitudes: np.ndarray (n, m)
+        The mean amplitude for every pixel.
+    """
+
 
     angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)
     image_global_amplitudes = np.max(image_stack, axis = -1) - np.min(image_stack, axis = -1)
@@ -1107,6 +1076,34 @@ def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
 
 def get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             gof_threshold = 0.5, amplitude_threshold = 0.1):
+    """
+    Returns the mean peak width for every pixel.
+
+    Parameters:
+    - image_stack: np.ndarray (n, m, p)
+        The image stack containing the measured intensities.
+        n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
+    - image_params: np.ndarray (n, m, q)
+        The output of fitting the image stack, which stores the parameters of the full fitfunction.
+        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
+    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+        The mask defining which of the p-measurements corresponds to one of the peaks.
+        The first two dimensions are the image dimensions.
+    - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
+        The name of the distribution.
+    - gof_threshold: float
+        Value between 0 and 1.
+        Peaks with a goodness-of-fit value below this threshold will not be counted.
+    - amplitude_threshold: float
+        Value between 0 and 1.
+        Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+        this threshold will not be counted.
+
+    Returns:
+    - image_widths: np.ndarray (n, m)
+        The mean amplitude for every pixel.
+    """
+
 
     angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False) 
     image_heights = image_params[:, :, 0:-1:3]

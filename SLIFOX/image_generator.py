@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from .SLIF import full_fitfunction
+from .fitter import full_fitfunction
 from .peaks_evaluator import calculate_peaks_gof, get_number_of_peaks, get_direction_significances, \
                                 get_peak_distances, get_peak_amplitudes, get_peak_widths, \
                                     calculate_directions
@@ -281,7 +281,7 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
                             colors = ["black", "green", "red", "yellow", "blue", "magenta", "cyan"],
                             directory = "maps"):
     """
-    Returns the number of peaks for every pixel.
+    Maps the number of peaks for every pixel.
 
     Parameters:
     - image_stack: np.ndarray (n, m, p)
@@ -312,8 +312,6 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
     Returns:
     - image_num_peaks: np.ndarray (n, m)
         The number of peaks for every pixel.
-    - image_used_peaks_mask: np.ndarray (n, m, max_peaks)
-        Mask that stores the information, which peaks are used in the counting process.
     """
 
     image_num_peaks, image_valid_peaks_mask = get_number_of_peaks(image_stack, 
@@ -351,10 +349,45 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
 def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             gof_threshold = 0.5, amplitude_threshold = 0.1, only_mus = False,
                             only_peaks_count = 2, directory = "maps"):
+    """
+    Maps the distance between two paired peaks for every pixel.
+
+    Parameters:
+    - image_stack: np.ndarray (n, m, p)
+        The image stack containing the measured intensities.
+        n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
+    - image_params: np.ndarray (n, m, q)
+        The output of fitting the image stack, which stores the parameters of the full fitfunction.
+        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
+    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+        The mask defining which of the p-measurements corresponds to one of the peaks.
+        The first two dimensions are the image dimensions.
+    - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
+        The name of the distribution.
+    - gof_threshold: float
+        Value between 0 and 1.
+        Peaks with a goodness-of-fit value below this threshold will not be counted.
+    - amplitude_threshold: float
+        Value between 0 and 1.
+        Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+        this threshold will not be counted.
+    - only_mus: boolean
+        Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
+    - only_peaks_count: int or list of ints
+        Only use pixels where the number of peaks equals this number. -1 for use of every number of peaks.
+    - directory: string
+        The directory path defining where the resulting image should be writen to.
+        If None, no image will be writen.
+
+    Returns:
+    - image_distances: np.ndarray (n, m)
+        The distance between paired peaks for every pixel.
+    """
     
     image_distances = get_peak_distances(image_stack, image_params, image_peaks_mask, 
                             distribution = distribution, gof_threshold = gof_threshold, 
-                            amplitude_threshold = amplitude_threshold, only_mus = only_mus)
+                            amplitude_threshold = amplitude_threshold, only_mus = only_mus,
+                            only_peaks_count = only_peaks_count)
 
     image_distances = np.swapaxes(image_distances, 0, 1)
     image_distances[image_distances != -1] = image_distances[image_distances != -1] * 180 / np.pi
@@ -366,6 +399,38 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
 def map_peak_amplitudes(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             gof_threshold = 0.5, amplitude_threshold = 0.1, only_mus = False,
                             directory = "maps"):
+    """
+    Maps the mean peak amplitude for every pixel.
+
+    Parameters:
+    - image_stack: np.ndarray (n, m, p)
+        The image stack containing the measured intensities.
+        n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
+    - image_params: np.ndarray (n, m, q)
+        The output of fitting the image stack, which stores the parameters of the full fitfunction.
+        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
+    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+        The mask defining which of the p-measurements corresponds to one of the peaks.
+        The first two dimensions are the image dimensions.
+    - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
+        The name of the distribution.
+    - gof_threshold: float
+        Value between 0 and 1.
+        Peaks with a goodness-of-fit value below this threshold will not be counted.
+    - amplitude_threshold: float
+        Value between 0 and 1.
+        Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+        this threshold will not be counted.
+    - only_mus: boolean
+        Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
+    - directory: string
+        The directory path defining where the resulting image should be writen to.
+        If None, no image will be writen.
+
+    Returns:
+    - image_amplitudes: np.ndarray (n, m)
+        The mean amplitude for every pixel.
+    """
 
     image_amplitudes = get_peak_amplitudes(image_stack, image_params, image_peaks_mask, 
                         distribution = distribution, gof_threshold = gof_threshold, 
@@ -377,6 +442,36 @@ def map_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
 
 def map_peak_widths(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             gof_threshold = 0.5, amplitude_threshold = 0.1, directory = "maps"):
+    """
+    Maps the mean peak width for every pixel.
+
+    Parameters:
+    - image_stack: np.ndarray (n, m, p)
+        The image stack containing the measured intensities.
+        n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
+    - image_params: np.ndarray (n, m, q)
+        The output of fitting the image stack, which stores the parameters of the full fitfunction.
+        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
+    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+        The mask defining which of the p-measurements corresponds to one of the peaks.
+        The first two dimensions are the image dimensions.
+    - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
+        The name of the distribution.
+    - gof_threshold: float
+        Value between 0 and 1.
+        Peaks with a goodness-of-fit value below this threshold will not be counted.
+    - amplitude_threshold: float
+        Value between 0 and 1.
+        Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+        this threshold will not be counted.
+    - directory: string
+        The directory path defining where the resulting image should be writen to.
+        If None, no image will be writen.
+
+    Returns:
+    - image_widths: np.ndarray (n, m)
+        The mean amplitude for every pixel.
+    """
 
     image_scales = get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = distribution, 
                             gof_threshold = gof_threshold, amplitude_threshold = amplitude_threshold)
@@ -389,6 +484,27 @@ def map_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
     return image_scales
 
 def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, directory = "maps"):
+    """
+    Maps the directions for every pixel.
+
+    Parameters:
+     - image_peak_pairs: np.ndarray (n, m, 3, 2)
+        The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
+        a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
+        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+        The first two dimensions are the image dimensions.
+    - image_mus: np.ndarray (n, m, q)
+        The mus (peak centers) for every pixel.
+    - only_peaks_count: int or list of ints
+        Only use pixels where the number of peaks equals this number. -1 uses every number of peaks.
+    - directory: string
+        The directory path defining where the resulting image should be writen to.
+        If None, no image will be writen.
+
+    Returns:
+    - image_directions: np.ndarray (n, m, 3)
+        The directions for every pixel.
+    """
 
     image_directions = calculate_directions(image_peak_pairs, image_mus, only_peaks_count = only_peaks_count)
 
@@ -401,9 +517,46 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, directory
             image_directions[image_directions != -1] = image_directions[image_directions != -1] * 180 / np.pi
             imageio.imwrite(f'{directory}/dir_{dir_n + 1}.tiff', image_directions)
 
+    return image_directions
+
 def map_direction_significances(image_stack, image_peak_pairs, image_params, 
                                 image_peaks_mask, distribution = "wrapped_cauchy", weights = [1, 1], 
                                 num_processes = 2, directory = "maps"):
+"""
+    Maps the significance of the directions for every pixel.
+    -Old function that could be updated without need for multi processing and in similar manner
+    as the other map functions.-
+
+    Parameters:
+    - image_stack: np.ndarray (n, m, p)
+        The image stack containing the measured intensities.
+        n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
+    - image_peak_pairs: np.ndarray (n, m, 3, 2)
+        The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
+        a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
+        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+        The first two dimensions are the image dimensions.
+    - image_params: np.ndarray (n, m, q)
+        The output of fitting the image stack, which stores the parameters of the full fitfunction.
+        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
+    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+        The mask defining which of the p-measurements corresponds to one of the peaks.
+        The first two dimensions are the image dimensions.
+    - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
+        The name of the distribution.
+    - weights: list (2, )
+        The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
+    - num_processes: int
+        The number of processes to use for calculation.
+    - directory: string
+        The directory path defining where the resulting image should be writen to.
+        If None, no image will be writen.
+
+    Returns:
+    - image_significances: np.ndarray (n, m, 3)
+        The significances of the directions for every pixel.
+    """
+
 
     image_significances = get_direction_significances(image_stack, image_peak_pairs, image_params, 
                                 image_peaks_mask, distribution = distribution, weights = weights, 
@@ -416,3 +569,5 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
         for dir_n in range(max_significances):
             imageio.imwrite(f'{directory}/dir_{dir_n + 1}_sig.tiff', 
                                 np.swapaxes(image_significances[:, :, dir_n], 0, 1))
+
+    return image_significances

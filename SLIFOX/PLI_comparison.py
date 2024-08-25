@@ -5,7 +5,7 @@ import pymp
 from .utils import angle_distance
 from .peaks_evaluator import calculate_peaks_gof, peak_pairs_to_directions, \
                             peak_pairs_to_inclinations, direction_significances, possible_pairs
-from .SLIF import fit_image_stack, full_fitfunction, find_image_peaks
+from .fitter import fit_image_stack, full_fitfunction, find_image_peaks
 from itertools import combinations, chain
 from tqdm import tqdm
 

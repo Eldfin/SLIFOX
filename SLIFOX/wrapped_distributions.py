@@ -115,15 +115,19 @@ def distribution_pdf(x, mu, scale, distribution):
     Parameters:
     - x: np.ndarray (n, )
         The angles (in radians) at which to evaluate the PDF.
-    - mu: float
+    - mu: float or np.ndarray (p, q, m)
         The location parameter of the distribution, corresponding to the peak (peak position).
-    - scale: float 
+        Can be a float value or a three dimensional array (image), where the lengt of the last dimension
+        equals the number of peaks.
+    - scale: float or np.ndarray (p, q, m) 
         The scale parameter of the distribution (peak width).
+        Can be a float value or a three dimensional array (image), where the lengt of the last dimension
+        equals the number of peaks.
     - distribution: "wrapped_cauchy", "von_mises", or "wrapped_laplace"
         The name of the distribution.
     
     Returns:
-    - pdf: np.ndarray (n, )
+    - pdf: np.ndarray (n, ) or np.ndarray (p, q, m, n)
         The PDF values corresponding to x.
     """
 
