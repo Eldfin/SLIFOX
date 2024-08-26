@@ -698,7 +698,7 @@ def get_possible_pairs(num_peaks):
     pair_combinations = np.array(all_index_pairs)
     return pair_combinations
 
-@njit(cache = True, fastmath = True)
+#@njit(cache = True, fastmath = True)
 def direction_significances(peak_pairs, params, peaks_mask, intensities, angles, weights = [1, 1],
                             distribution = "wrapped_cauchy", only_mus = False):
     """
