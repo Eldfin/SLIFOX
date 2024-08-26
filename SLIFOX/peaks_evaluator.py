@@ -7,7 +7,7 @@ from collections import deque
 import os
 import imageio
 import pymp
-from tqdm import tqgdm
+from tqdm import tqdm
 
 #@njit(cache = True, fastmath = True)
 def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2"):
