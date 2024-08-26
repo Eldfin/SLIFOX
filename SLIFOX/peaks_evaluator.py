@@ -257,11 +257,10 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                                 image_peak_pair_combs.shape[2],
                                                 image_peak_pair_combs.shape[3])
 
-    image_num_peaks, sig_image_peaks_mask = image_number_of_peaks(image_stack, image_params, image_peaks_mask, 
+    image_num_peaks, sig_image_peaks_mask = get_number_of_peaks(image_stack, image_params, image_peaks_mask, 
                             distribution = distribution, only_mus = only_mus, 
                             gof_threshold = gof_threshold, 
-                            amplitude_threshold = amplitude_threshold, 
-                            num_processes = num_processes)
+                            amplitude_threshold = amplitude_threshold)
 
     direction_found_mask = pymp.shared.array((n_rows, n_cols), dtype = np.bool_)
 
