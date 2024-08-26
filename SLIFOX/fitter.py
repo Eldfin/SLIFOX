@@ -9,7 +9,7 @@ from tqdm import tqdm
 from .filters import apply_filter
 from .wrapped_distributions import distribution_pdf
 from .utils import angle_distance, calculate_chi2, numba_repeat_last_axis, numba_sum_second_last_axis
-from .SLI_peak_finder import find_peaks
+from .peak_finder import find_peaks
 
 @njit(cache = True, fastmath = True)
 def _objective(params, x, y, y_err, distribution):
