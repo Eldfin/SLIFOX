@@ -512,7 +512,7 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, directory
         if not os.path.exists(directory):
                 os.makedirs(directory)
 
-        for dir_n in range(max_directions):
+        for dir_n in range(image_directions.shape[-1]):
             image_directions = np.swapaxes(image_directions[:, :, dir_n], 0, 1)
             image_directions[image_directions != -1] = image_directions[image_directions != -1] * 180 / np.pi
             imageio.imwrite(f'{directory}/dir_{dir_n + 1}.tiff', image_directions)
@@ -566,7 +566,7 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
         if not os.path.exists(directory):
                 os.makedirs(directory)
 
-        for dir_n in range(max_significances):
+        for dir_n in range(image_significances.shape[-1]):
             imageio.imwrite(f'{directory}/dir_{dir_n + 1}_sig.tiff', 
                                 np.swapaxes(image_significances[:, :, dir_n], 0, 1))
 
