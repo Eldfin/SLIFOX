@@ -522,7 +522,7 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, directory
 def map_direction_significances(image_stack, image_peak_pairs, image_params, 
                                 image_peaks_mask, distribution = "wrapped_cauchy", weights = [1, 1], 
                                 num_processes = 2, directory = "maps"):
-"""
+    """
     Maps the significance of the directions for every pixel.
     -Old function that could be updated without need for multi processing and in similar manner
     as the other map functions.-
