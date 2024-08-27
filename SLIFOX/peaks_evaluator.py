@@ -809,10 +809,12 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
     - gof_threshold: float
         Value between 0 and 1.
         Peak-Pairs with a goodness-of-fit value below this threshold will not be counted.
+        Unnecessary if already used in peak pairs calculation.
     - amplitude_threshold: float
         Value between 0 and 1.
         Peak-Pairs with a relative amplitude (to maximum - minimum intensity of the pixel) below
         this threshold will not be counted.
+        Unnecessary if already used in peak pairs calculation.
     - weights: list (2, )
         The weights for the amplitude and for the goodnes-of-fit, when calculating the significance.
         First weight is for amplitude, second for goodness-of-fit.

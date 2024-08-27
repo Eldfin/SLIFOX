@@ -520,7 +520,7 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, directory
 
 def map_direction_significances(image_stack, image_peak_pairs, image_params, 
                                 image_peaks_mask, distribution = "wrapped_cauchy", 
-                                gof_threshold = 0.5, amplitude_threshold = 0.1,
+                                gof_threshold = 0, amplitude_threshold = 0,
                                 weights = [1, 1], only_mus = False, directory = "maps"):
     """
     Maps the significance of the directions for every pixel.
@@ -546,11 +546,13 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
         The name of the distribution.
     - gof_threshold: float
         Value between 0 and 1.
-        Peaks with a goodness-of-fit value below this threshold will not be counted.
+        Peak-Pairs with a goodness-of-fit value below this threshold will not be counted.
+        Unnecessary if already used in peak pairs calculation.
     - amplitude_threshold: float
         Value between 0 and 1.
-        Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+        Peak-Pairs with a relative amplitude (to maximum - minimum intensity of the pixel) below
         this threshold will not be counted.
+        Unnecessary if already used in peak pairs calculation.
     - weights: list (2, )
         The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
     - only_mus: boolean
