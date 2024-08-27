@@ -557,6 +557,7 @@ def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1):
         The calculated directions for everyoe of the (n * m) pixels.
         Max 3 directions (for 6 peaks).
     """
+    print("Calculating image directions...")
 
     x_range = image_peak_pairs.shape[0]
     y_range = image_peak_pairs.shape[1]
@@ -572,6 +573,8 @@ def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1):
                     if num_peaks != only_peaks_count: continue
             
             image_directions[x, y] = peak_pairs_to_directions(image_peak_pairs[x, y], image_mus[x, y])
+
+    print("Done")
 
     return image_directions
 
@@ -700,7 +703,7 @@ def get_possible_pairs(num_peaks):
     pair_combinations = np.array(all_index_pairs)
     return pair_combinations
 
-@njit(cache = True, fastmath = True)
+#@njit(cache = True, fastmath = True)
 def direction_significances(peak_pairs, params, peaks_mask, intensities, angles, weights = [1, 1],
                             distribution = "wrapped_cauchy", only_mus = False):
     """
@@ -781,10 +784,10 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
 
 def get_image_direction_significances(image_stack, image_peak_pairs, image_params, image_peaks_mask, 
                             distribution = "wrapped_cauchy", 
-                            gof_threshold = 0.5, amplitude_threshold = 0.1, 
+                            gof_threshold = 0, amplitude_threshold = 0, 
                             weights = [1, 1], only_mus = False):
     """
-    Returns the mean peak amplitude for every pixel.
+    Returns the direction significances for every pixel.
 
     Parameters:
     - image_stack: np.ndarray (n, m, p)
@@ -805,10 +808,10 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
         The name of the distribution.
     - gof_threshold: float
         Value between 0 and 1.
-        Peaks with a goodness-of-fit value below this threshold will not be counted.
+        Peak-Pairs with a goodness-of-fit value below this threshold will not be counted.
     - amplitude_threshold: float
         Value between 0 and 1.
-        Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+        Peak-Pairs with a relative amplitude (to maximum - minimum intensity of the pixel) below
         this threshold will not be counted.
     - weights: list (2, )
         The weights for the amplitude and for the goodnes-of-fit, when calculating the significance.
@@ -821,6 +824,8 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
         The calculated significances (ranging from 0 to 1) for everyoe of the (n * m) pixels.
         Max 3 significances (shape like directions).
     """
+
+    print("Calculating image direction significances...")
 
     angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)
     image_global_amplitudes = np.max(image_stack, axis = -1) - np.min(image_stack, axis = -1)
@@ -836,6 +841,8 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
         image_model_y = full_fitfunction(angles, image_params, distribution)
         image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, image_peaks_mask, method = "r2")
 
+        # Filtering with threshold kinda unnecessary since it is already done in
+        # the calculation of image_peak_pairs
         image_valid_peaks_mask = ((image_rel_amplitudes > amplitude_threshold)
                                             & (image_peaks_gof > gof_threshold))
     else:
@@ -877,6 +884,8 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
     image_peaks_gof[image_peaks_gof < 0] = 0
 
     image_direction_sig = (image_rel_amplitudes * weights[0] + image_peaks_gof * weights[1]) / 2
+
+    print("Done")
 
     return image_direction_sig
 
@@ -952,6 +961,8 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
     - image_valid_peaks_mask: np.ndarray (n, m, max_peaks)
         Mask that stores the information, which peaks are used in the counting process.
     """
+    print("Calculating image number of peaks...")
+
     if gof_threshold == 0 and amplitude_threshold == 0:
         # Get the number of peaks for every pixel
         image_num_peaks = np.sum(np.any(image_peaks_mask, axis=-1), axis = -1)
@@ -981,6 +992,8 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
             image_valid_peaks_mask = (image_amplitudes > amplitude_threshold)
 
         image_num_peaks = np.sum(image_valid_peaks_mask, axis = -1)
+
+    print("Done")
 
     return image_num_peaks, image_valid_peaks_mask
     
@@ -1019,6 +1032,8 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
     - image_distances: np.ndarray (n, m)
         The distance between paired peaks for every pixel.
     """
+
+    print("Calculating image peak distances...")
     
     image_mus = image_params[:, :, 1::3]
 
@@ -1040,6 +1055,8 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
     image_distances = image_distances.flatten()
     image_distances[flat_mask] = np.abs(angle_distance(sig_image_mus[::2], sig_image_mus[1::2]))
     image_distances = image_distances.reshape(mask.shape)
+
+    print("Done")
 
     return image_distances
 
@@ -1075,6 +1092,7 @@ def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
         The mean amplitude for every pixel.
     """
 
+    print("Calculating image peak amplitudes...")
 
     angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)
     image_global_amplitudes = np.max(image_stack, axis = -1) - np.min(image_stack, axis = -1)
@@ -1102,6 +1120,8 @@ def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
     all_nan_slices = np.all(~image_valid_peaks_mask, axis = -1)
     image_amplitudes[all_nan_slices] = 0
     image_amplitudes = np.nanmean(image_amplitudes, axis = -1)
+
+    print("Done")
 
     return image_amplitudes
 
@@ -1135,6 +1155,7 @@ def get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
         The mean amplitude for every pixel.
     """
 
+    print("Calculating image peak widths...")
 
     angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False) 
     image_heights = image_params[:, :, 0:-1:3]
@@ -1153,5 +1174,7 @@ def get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
     all_nan_slices = np.all(~image_valid_peaks_mask, axis = -1)
     image_scales[all_nan_slices] = 0
     image_scales = np.nanmean(image_scales, axis = -1)
+
+    print("Done")
 
     return image_scales
