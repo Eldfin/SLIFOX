@@ -321,7 +321,7 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
                             image_params, image_peaks_mask, distribution = distribution, 
                             amplitude_threshold = amplitude_threshold, 
                             rel_amplitude_threshold = rel_amplitude_threshold, 
-                            gof_threshold = gof_threshold
+                            gof_threshold = gof_threshold,
                             only_mus = only_mus)
 
     if directory != None:
@@ -449,7 +449,7 @@ def map_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
                         distribution = distribution,
                         amplitude_threshold = amplitude_threshold, 
                         rel_amplitude_threshold = rel_amplitude_threshold, 
-                        gof_threshold = gof_threshold
+                        gof_threshold = gof_threshold,
                         only_mus = only_mus)
 
     imageio.imwrite(f'{directory}/peak_amplitudes.tiff', np.swapaxes(image_amplitudes, 0, 1), format = 'tiff')
