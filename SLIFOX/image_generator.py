@@ -277,7 +277,7 @@ def plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs = No
             plt.clf()
             
 def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.1,
+                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, only_mus = False,
                             colors = ["black", "green", "red", "yellow", "blue", "magenta", "cyan"],
                             directory = "maps"):
@@ -352,7 +352,7 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
     return image_num_peaks
     
 def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.1,
+                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, only_mus = False,
                             only_peaks_count = 2, directory = "maps"):
     """
@@ -407,7 +407,7 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
     return image_distances
 
 def map_peak_amplitudes(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.1,
+                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, only_mus = False,
                             directory = "maps"):
     """
@@ -457,7 +457,7 @@ def map_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
     return image_amplitudes
 
 def map_peak_widths(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.1,
+                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, directory = "maps"):
     """
     Maps the mean peak width for every pixel.

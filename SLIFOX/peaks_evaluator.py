@@ -167,11 +167,11 @@ def _find_closest_true_pixel(mask, start_pixel, radius):
 
 def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distance = 20,
                             distribution = "wrapped_cauchy", only_mus = False, num_processes = 2,
-                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.2,
+                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, significance_threshold = 0.3, 
                             significance_weights = [1, 1],
-                            angle_threshold = 30, num_attempts = 10000, 
-                            search_radius = 100, min_directions_diff = 20):
+                            angle_threshold = 20, num_attempts = 10000, 
+                            search_radius = 50, min_directions_diff = 20):
     """
     Finds all the peak_pairs for a whole image stack and sorts them by comparing with neighbour pixels.
 
@@ -941,7 +941,7 @@ def peak_significances(intensities, angles, params, peaks_mask, distribution, on
 
 #@njit(cache = True, fastmath = True)
 def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.1, 
+                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
                             gof_threshold = 0.5, only_mus = False):
     """
     Returns the number of peaks for every pixel.
@@ -1017,7 +1017,7 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
     return image_num_peaks, image_valid_peaks_mask
     
 def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy",
-                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.1, 
+                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
                             gof_threshold = 0.5, only_mus = False,
                             only_peaks_count = 2):
     """
@@ -1084,7 +1084,7 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
     return image_distances
 
 def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                        amplitude_threshold = 10000, rel_amplitude_threshold = 0.1,
+                        amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                         gof_threshold = 0.5, only_mus = False):
     """
     Returns the mean peak amplitude for every pixel.
@@ -1155,7 +1155,7 @@ def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
     return image_amplitudes
 
 def get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.1,
+                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5):
     """
     Returns the mean peak width for every pixel.
@@ -1195,7 +1195,7 @@ def get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
     image_amplitudes = image_heights * \
                                 distribution_pdf(0, 0, image_scales, distribution)[..., 0]
     image_global_amplitudes = np.max(image_stack, axis = -1) - np.min(image_stack, axis = -1)
-    image_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
+    image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
     image_model_y = full_fitfunction(angles, image_params, distribution)
     image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, image_peaks_mask, method = "r2")
 
