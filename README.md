@@ -344,14 +344,17 @@ Maps the significances of all found directions from given "image_peak_pairs".
     If None, no image will be writen.
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
     The name of the distribution.
+- `amplitude_threshold`: float
+    Peaks with a amplitude below this threshold will not be evaluated.  
+    Unnecessary if already used in peak pairs calculation. 
+- `rel_amplitude_threshold`: float
+    Value between 0 and 1.  
+    Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below  
+    this threshold will not be evaluated.  
+    Unnecessary if already used in peak pairs calculation. 
 - `gof_threshold`: float
     Value between 0 and 1.  
-    Peak-Pairs with a goodness-of-fit value below this threshold will not be counted.  
-    Unnecessary if already used in peak pairs calculation.  
-- `amplitude_threshold`: float
-    Value between 0 and 1.  
-    Peak-Pairs with a relative amplitude (to maximum - minimum intensity of the pixel) below  
-    this threshold will not be counted.  
+    Peaks with a goodness-of-fit value below this threshold will not be evaluated.  
     Unnecessary if already used in peak pairs calculation.  
 - `weights`: list (2, )
     The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
@@ -379,13 +382,15 @@ Maps the number of peaks for every pixel.
     The first two dimensions are the image dimensions.
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
     The name of the distribution.
+- `amplitude_threshold`: float
+    Peaks with a amplitude below this threshold will not be evaluated.
+- `rel_amplitude_threshold`: float
+    Value between 0 and 1.  
+    Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below  
+    this threshold will not be evaluated.
 - `gof_threshold`: float
     Value between 0 and 1.  
-    Peaks with a goodness-of-fit value below this threshold will not be counted.
-- `amplitude_threshold`: float
-    Value between 0 and 1.  
-    Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
-    this threshold will not be counted.
+    Peaks with a goodness-of-fit value below this threshold will not be evaluated.
 - `colors`: list
     List of the color names that should be used for the colormap in the image.  
     First color will be used for zero peaks, second for 1 peaks, third for 2 peaks, ...
@@ -413,13 +418,15 @@ Maps the distance between two paired peaks for every pixel.
     The first two dimensions are the image dimensions.
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
     The name of the distribution.
+- `amplitude_threshold`: float
+    Peaks with a amplitude below this threshold will not be evaluated.
+- `rel_amplitude_threshold`: float
+    Value between 0 and 1.  
+    Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below  
+    this threshold will not be evaluated.
 - `gof_threshold`: float
     Value between 0 and 1.  
-    Peaks with a goodness-of-fit value below this threshold will not be counted.
-- `amplitude_threshold`: float
-    Value between 0 and 1.  
-    Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
-    this threshold will not be counted.
+    Peaks with a goodness-of-fit value below this threshold will not be evaluated.
 - `only_mus`: boolean
     Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
 - `only_peaks_count`: int
@@ -448,13 +455,15 @@ Maps the mean peak amplitude for every pixel.
     The first two dimensions are the image dimensions.
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
     The name of the distribution.
+- `amplitude_threshold`: float
+    Peaks with a amplitude below this threshold will not be evaluated.
+- `rel_amplitude_threshold`: float
+    Value between 0 and 1.  
+    Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below  
+    this threshold will not be evaluated.  
 - `gof_threshold`: float
     Value between 0 and 1.  
-    Peaks with a goodness-of-fit value below this threshold will not be counted.
-- `amplitude_threshold`: float
-    Value between 0 and 1.  
-    Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
-    this threshold will not be counted.
+    Peaks with a goodness-of-fit value below this threshold will not be evaluated.
 - `only_mus`: boolean
     Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
 - `directory`: string
@@ -481,13 +490,15 @@ Maps the mean peak width for every pixel.
     The first two dimensions are the image dimensions.
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
     The name of the distribution.
+- `amplitude_threshold`: float
+    Peaks with a amplitude below this threshold will not be evaluated.
+- `rel_amplitude_threshold`: float
+    Value between 0 and 1.  
+    Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below  
+    this threshold will not be evaluated.
 - `gof_threshold`: float
     Value between 0 and 1.  
-    Peaks with a goodness-of-fit value below this threshold will not be counted.
-- `amplitude_threshold`: float
-    Value between 0 and 1.  
-    Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
-    this threshold will not be counted.
+    Peaks with a goodness-of-fit value below this threshold will not be evaluated.
 - `directory`: string
     The directory path defining where the significance image should be writen to.
     If None, no image will be writen.

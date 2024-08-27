@@ -167,8 +167,9 @@ def _find_closest_true_pixel(mask, start_pixel, radius):
 
 def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distance = 20,
                             distribution = "wrapped_cauchy", only_mus = False, num_processes = 2,
-                            amplitude_threshold = 0.2, gof_threshold = 0.5,
-                            significance_threshold = 0.3, significance_weights = [1, 1],
+                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.2,
+                            gof_threshold = 0.5, significance_threshold = 0.3, 
+                            significance_weights = [1, 1],
                             angle_threshold = 30, num_attempts = 10000, 
                             search_radius = 100, min_directions_diff = 20):
     """
@@ -196,12 +197,14 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
     - num_processes: int
         Defines the number of processes to split the task into.
     - amplitude_threshold: float
-        Value between 0 and 1. 
-        Peaks with a lower relative amplitude to global amplitude (maximum to minimum pixel intensity)
-        are filtered out and not considered for peak pairs.
+        Peaks with a amplitude below this threshold will not be evaluated.
+    - rel_amplitude_threshold: float
+        Value between 0 and 1.
+        Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+        this threshold will not be evaluated.
     - gof_threshold: float
         Value between 0 and 1.
-        Peaks with a lower goodness-of-fit value are filtered out and not considered for peak pairs.
+        Peaks with a goodness-of-fit value below this threshold will not be evaluated.
     - significance_threshold: float
         Value between 0 and 1. Peak Pairs with peaks that have a significance
         lower than this threshold are not considered for possible pairs.
@@ -259,8 +262,9 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
     image_num_peaks, sig_image_peaks_mask = get_number_of_peaks(image_stack, image_params, image_peaks_mask, 
                             distribution = distribution, only_mus = only_mus, 
-                            gof_threshold = gof_threshold, 
-                            amplitude_threshold = amplitude_threshold)
+                            amplitude_threshold = amplitude_threshold,
+                            rel_amplitude_threshold = rel_amplitude_threshold,
+                            gof_threshold = gof_threshold)
 
     direction_found_mask = pymp.shared.array((n_rows, n_cols), dtype = np.bool_)
 
@@ -784,7 +788,8 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
 
 def get_image_direction_significances(image_stack, image_peak_pairs, image_params, image_peaks_mask, 
                             distribution = "wrapped_cauchy", 
-                            gof_threshold = 0, amplitude_threshold = 0, 
+                            amplitude_threshold = 0, rel_amplitude_threshold = 0,
+                            gof_threshold = 0,
                             weights = [1, 1], only_mus = False):
     """
     Returns the direction significances for every pixel.
@@ -806,14 +811,17 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
+    - amplitude_threshold: float
+        Peaks with a amplitude below this threshold will not be evaluated.
+        Unnecessary if already used in peak pairs calculation.
+    - rel_amplitude_threshold: float
+        Value between 0 and 1.
+        Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+        this threshold will not be evaluated.
+        Unnecessary if already used in peak pairs calculation.
     - gof_threshold: float
         Value between 0 and 1.
-        Peak-Pairs with a goodness-of-fit value below this threshold will not be counted.
-        Unnecessary if already used in peak pairs calculation.
-    - amplitude_threshold: float
-        Value between 0 and 1.
-        Peak-Pairs with a relative amplitude (to maximum - minimum intensity of the pixel) below
-        this threshold will not be counted.
+        Peaks with a goodness-of-fit value below this threshold will not be evaluated.
         Unnecessary if already used in peak pairs calculation.
     - weights: list (2, )
         The weights for the amplitude and for the goodnes-of-fit, when calculating the significance.
@@ -845,14 +853,17 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
 
         # Filtering with threshold kinda unnecessary since it is already done in
         # the calculation of image_peak_pairs
-        image_valid_peaks_mask = ((image_rel_amplitudes > amplitude_threshold)
-                                            & (image_peaks_gof > gof_threshold))
+        image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
+                                    & (image_rel_amplitudes > rel_amplitude_threshold)
+                                    & (image_peaks_gof > gof_threshold))
     else:
         image_intensities = np.expand_dims(image_stack, axis = 2)
         image_intensities = np.where(image_peaks_mask, image_intensities, 0)
-        image_amplitudes = np.max(image_intensities, axis = -1)
+        image_amplitudes = (np.max(image_intensities, axis = -1)
+                                - np.min(image_stack, axis = -1)[..., np.newaxis])
         image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
-        image_valid_peaks_mask = (image_rel_amplitudes > amplitude_threshold)
+        image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
+                                    & (image_rel_amplitudes > rel_amplitude_threshold))
     
     # Set unvalid values to -1, so the calculated mean later cant be greater than 0
     image_rel_amplitudes[~image_valid_peaks_mask] = -1
@@ -930,7 +941,8 @@ def peak_significances(intensities, angles, params, peaks_mask, distribution, on
 
 #@njit(cache = True, fastmath = True)
 def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            gof_threshold = 0.5, amplitude_threshold = 0.1, only_mus = False):
+                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.1, 
+                            gof_threshold = 0.5, only_mus = False):
     """
     Returns the number of peaks for every pixel.
 
@@ -946,13 +958,15 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
-    - gof_threshold: float
-        Value between 0 and 1.
-        Peaks with a goodness-of-fit value below this threshold will not be counted.
     - amplitude_threshold: float
+        Peaks with a amplitude below this threshold will not be evaluated.
+    - rel_amplitude_threshold: float
         Value between 0 and 1.
         Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
-        this threshold will not be counted.
+        this threshold will not be evaluated.
+    - gof_threshold: float
+        Value between 0 and 1.
+        Peaks with a goodness-of-fit value below this threshold will not be evaluated.
     - only_mus: boolean
         Whether only the mus (peak centers) are provided in the image_params.
         If so only amplitude_threshold will be used.
@@ -965,7 +979,7 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
     """
     print("Calculating image number of peaks...")
 
-    if gof_threshold == 0 and amplitude_threshold == 0:
+    if gof_threshold == 0 and amplitude_threshold == 0 and rel_amplitude_threshold == 0:
         # Get the number of peaks for every pixel
         image_num_peaks = np.sum(np.any(image_peaks_mask, axis=-1), axis = -1)
         image_valid_peaks_mask = np.ones(image_peaks_mask.shape[:-1], dtype = np.bool_)
@@ -979,19 +993,22 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
             image_scales = image_params[:, :, 2::3]
             image_amplitudes = image_heights * \
                                 distribution_pdf(0, 0, image_scales, distribution)[..., 0]
-            image_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
+            image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
             image_model_y = full_fitfunction(angles, image_params, distribution)
             image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, image_peaks_mask, method = "r2")
 
             image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
-                                            & (image_peaks_gof > gof_threshold))
+                                        & (image_rel_amplitudes > rel_amplitude_threshold)
+                                        & (image_peaks_gof > gof_threshold))
         else:
             image_intensities = np.expand_dims(image_stack, axis = 2)
             image_intensities = np.where(image_peaks_mask, image_intensities, 0)
-            image_amplitudes = np.max(image_intensities, axis = -1)
-            image_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
+            image_amplitudes = (np.max(image_intensities, axis = -1)
+                                - np.min(image_stack, axis = -1)[..., np.newaxis])
+            image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
             
-            image_valid_peaks_mask = (image_amplitudes > amplitude_threshold)
+            image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
+                                        & (image_rel_amplitudes > rel_amplitude_threshold))
 
         image_num_peaks = np.sum(image_valid_peaks_mask, axis = -1)
 
@@ -999,8 +1016,9 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
 
     return image_num_peaks, image_valid_peaks_mask
     
-def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            gof_threshold = 0.5, amplitude_threshold = 0.1, only_mus = False,
+def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy",
+                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.1, 
+                            gof_threshold = 0.5, only_mus = False,
                             only_peaks_count = 2):
     """
     Returns the number of peaks for every pixel.
@@ -1017,13 +1035,15 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
-    - gof_threshold: float
-        Value between 0 and 1.
-        Peaks with a goodness-of-fit value below this threshold will not be counted.
     - amplitude_threshold: float
+        Peaks with a amplitude below this threshold will not be evaluated.
+    - rel_amplitude_threshold: float
         Value between 0 and 1.
         Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
-        this threshold will not be counted.
+        this threshold will not be evaluated.
+    - gof_threshold: float
+        Value between 0 and 1.
+        Peaks with a goodness-of-fit value below this threshold will not be evaluated.
     - only_mus: boolean
         Whether only the mus (peak centers) are provided in the image_params.
         If so only amplitude_threshold will be used.
@@ -1040,9 +1060,10 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
     image_mus = image_params[:, :, 1::3]
 
     image_num_peaks, sig_image_peaks_mask = get_number_of_peaks(image_stack, image_params, image_peaks_mask, 
-                            distribution = distribution, only_mus = only_mus, 
-                            gof_threshold = gof_threshold, 
-                            amplitude_threshold = amplitude_threshold)
+                            distribution = distribution, only_mus = only_mus,  
+                            amplitude_threshold = amplitude_threshold, 
+                            rel_amplitude_threshold = rel_amplitude_threshold,
+                            gof_threshold = gof_threshold)
 
     # Get the image mask where only defined peak counts are
     mask = (image_num_peaks == only_peaks_count)
@@ -1063,7 +1084,8 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
     return image_distances
 
 def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            gof_threshold = 0.5, amplitude_threshold = 0.1, only_mus = False):
+                        amplitude_threshold = 10000, rel_amplitude_threshold = 0.1,
+                        gof_threshold = 0.5, only_mus = False):
     """
     Returns the mean peak amplitude for every pixel.
 
@@ -1079,13 +1101,15 @@ def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
-    - gof_threshold: float
-        Value between 0 and 1.
-        Peaks with a goodness-of-fit value below this threshold will not be counted.
     - amplitude_threshold: float
+        Peaks with a amplitude below this threshold will not be evaluated.
+    - rel_amplitude_threshold: float
         Value between 0 and 1.
         Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
-        this threshold will not be counted.
+        this threshold will not be evaluated.
+    - gof_threshold: float
+        Value between 0 and 1.
+        Peaks with a goodness-of-fit value below this threshold will not be evaluated.
     - only_mus: boolean
         Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
 
@@ -1108,14 +1132,17 @@ def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
         image_model_y = full_fitfunction(angles, image_params, distribution)
         image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, image_peaks_mask, method = "r2")
 
-        image_valid_peaks_mask = ((image_rel_amplitudes > amplitude_threshold)
-                                            & (image_peaks_gof > gof_threshold))
+        image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
+                                    & (image_rel_amplitudes > rel_amplitude_threshold)
+                                    & (image_peaks_gof > gof_threshold))
     else:
         image_intensities = np.expand_dims(image_stack, axis = 2)
         image_intensities = np.where(image_peaks_mask, image_intensities, 0)
-        image_amplitudes = np.max(image_intensities, axis = -1)
+        image_amplitudes = (np.max(image_intensities, axis = -1)
+                                - np.min(image_stack, axis = -1)[..., np.newaxis])
         image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
-        image_valid_peaks_mask = (image_rel_amplitudes > amplitude_threshold)
+        image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
+                                    & (image_rel_amplitudes > rel_amplitude_threshold))
 
 
     image_amplitudes = np.where(image_valid_peaks_mask, image_amplitudes, np.nan)
@@ -1128,7 +1155,8 @@ def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
     return image_amplitudes
 
 def get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            gof_threshold = 0.5, amplitude_threshold = 0.1):
+                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.1,
+                            gof_threshold = 0.5):
     """
     Returns the mean peak width for every pixel.
 
@@ -1144,13 +1172,15 @@ def get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
-    - gof_threshold: float
-        Value between 0 and 1.
-        Peaks with a goodness-of-fit value below this threshold will not be counted.
     - amplitude_threshold: float
+        Peaks with a amplitude below this threshold will not be evaluated.
+    - rel_amplitude_threshold: float
         Value between 0 and 1.
         Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
-        this threshold will not be counted.
+        this threshold will not be evaluated.
+    - gof_threshold: float
+        Value between 0 and 1.
+        Peaks with a goodness-of-fit value below this threshold will not be evaluated.
 
     Returns:
     - image_widths: np.ndarray (n, m)
@@ -1170,7 +1200,8 @@ def get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
     image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, image_peaks_mask, method = "r2")
 
     image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
-                                            & (image_peaks_gof > gof_threshold))
+                                & (image_rel_amplitudes > rel_amplitude_threshold)
+                                & (image_peaks_gof > gof_threshold))
 
     image_scales = np.where(image_valid_peaks_mask, image_scales, np.nan)
     all_nan_slices = np.all(~image_valid_peaks_mask, axis = -1)

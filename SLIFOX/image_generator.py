@@ -277,7 +277,8 @@ def plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs = No
             plt.clf()
             
 def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            gof_threshold = 0.5, amplitude_threshold = 0.1, only_mus = False,
+                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.1,
+                            gof_threshold = 0.5, only_mus = False,
                             colors = ["black", "green", "red", "yellow", "blue", "magenta", "cyan"],
                             directory = "maps"):
     """
@@ -295,13 +296,15 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
-    - gof_threshold: float
-        Value between 0 and 1.
-        Peaks with a goodness-of-fit value below this threshold will not be counted.
     - amplitude_threshold: float
+        Peaks with a amplitude below this threshold will not be evaluated.
+    - rel_amplitude_threshold: float
         Value between 0 and 1.
         Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
-        this threshold will not be counted.
+        this threshold will not be evaluated.
+    - gof_threshold: float
+        Value between 0 and 1.
+        Peaks with a goodness-of-fit value below this threshold will not be evaluated.
     - colors: list
         List of the color names that should be used for the colormap in the image.
         First color will be used for zero peaks, second for 1 peaks, third for 2 peaks, ...
@@ -316,7 +319,9 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
 
     image_num_peaks, image_valid_peaks_mask = get_number_of_peaks(image_stack, 
                             image_params, image_peaks_mask, distribution = distribution, 
-                            gof_threshold = gof_threshold, amplitude_threshold = amplitude_threshold, 
+                            amplitude_threshold = amplitude_threshold, 
+                            rel_amplitude_threshold = rel_amplitude_threshold, 
+                            gof_threshold = gof_threshold
                             only_mus = only_mus)
 
     if directory != None:
@@ -347,7 +352,8 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
     return image_num_peaks
     
 def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            gof_threshold = 0.5, amplitude_threshold = 0.1, only_mus = False,
+                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.1,
+                            gof_threshold = 0.5, only_mus = False,
                             only_peaks_count = 2, directory = "maps"):
     """
     Maps the distance between two paired peaks for every pixel.
@@ -364,13 +370,15 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
-    - gof_threshold: float
-        Value between 0 and 1.
-        Peaks with a goodness-of-fit value below this threshold will not be counted.
     - amplitude_threshold: float
+        Peaks with a amplitude below this threshold will not be evaluated.
+    - rel_amplitude_threshold: float
         Value between 0 and 1.
         Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
-        this threshold will not be counted.
+        this threshold will not be evaluated.
+    - gof_threshold: float
+        Value between 0 and 1.
+        Peaks with a goodness-of-fit value below this threshold will not be evaluated.
     - only_mus: boolean
         Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
     - only_peaks_count: int or list of ints
@@ -385,8 +393,11 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
     """
     
     image_distances = get_peak_distances(image_stack, image_params, image_peaks_mask, 
-                            distribution = distribution, gof_threshold = gof_threshold, 
-                            amplitude_threshold = amplitude_threshold, only_mus = only_mus,
+                            distribution = distribution,
+                            amplitude_threshold = amplitude_threshold, 
+                            rel_amplitude_threshold = rel_amplitude_threshold, 
+                            gof_threshold = gof_threshold, 
+                            only_mus = only_mus,
                             only_peaks_count = only_peaks_count)
 
     image_distances[image_distances != -1] = image_distances[image_distances != -1] * 180 / np.pi
@@ -396,7 +407,8 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
     return image_distances
 
 def map_peak_amplitudes(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            gof_threshold = 0.5, amplitude_threshold = 0.1, only_mus = False,
+                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.1,
+                            gof_threshold = 0.5, only_mus = False,
                             directory = "maps"):
     """
     Maps the mean peak amplitude for every pixel.
@@ -413,13 +425,15 @@ def map_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
-    - gof_threshold: float
-        Value between 0 and 1.
-        Peaks with a goodness-of-fit value below this threshold will not be counted.
     - amplitude_threshold: float
+        Peaks with a amplitude below this threshold will not be evaluated.
+    - rel_amplitude_threshold: float
         Value between 0 and 1.
         Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
-        this threshold will not be counted.
+        this threshold will not be evaluated.
+    - gof_threshold: float
+        Value between 0 and 1.
+        Peaks with a goodness-of-fit value below this threshold will not be evaluated.
     - only_mus: boolean
         Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
     - directory: string
@@ -432,15 +446,19 @@ def map_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
     """
 
     image_amplitudes = get_peak_amplitudes(image_stack, image_params, image_peaks_mask, 
-                        distribution = distribution, gof_threshold = gof_threshold, 
-                        amplitude_threshold = amplitude_threshold, only_mus = only_mus)
+                        distribution = distribution,
+                        amplitude_threshold = amplitude_threshold, 
+                        rel_amplitude_threshold = rel_amplitude_threshold, 
+                        gof_threshold = gof_threshold
+                        only_mus = only_mus)
 
     imageio.imwrite(f'{directory}/peak_amplitudes.tiff', np.swapaxes(image_amplitudes, 0, 1), format = 'tiff')
 
     return image_amplitudes
 
 def map_peak_widths(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            gof_threshold = 0.5, amplitude_threshold = 0.1, directory = "maps"):
+                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.1,
+                            gof_threshold = 0.5, directory = "maps"):
     """
     Maps the mean peak width for every pixel.
 
@@ -456,13 +474,15 @@ def map_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
-    - gof_threshold: float
-        Value between 0 and 1.
-        Peaks with a goodness-of-fit value below this threshold will not be counted.
     - amplitude_threshold: float
+        Peaks with a amplitude below this threshold will not be evaluated.
+    - rel_amplitude_threshold: float
         Value between 0 and 1.
         Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
-        this threshold will not be counted.
+        this threshold will not be evaluated.
+    - gof_threshold: float
+        Value between 0 and 1.
+        Peaks with a goodness-of-fit value below this threshold will not be evaluated.
     - directory: string
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
@@ -472,8 +492,10 @@ def map_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
         The mean amplitude for every pixel.
     """
 
-    image_scales = get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = distribution, 
-                            gof_threshold = gof_threshold, amplitude_threshold = amplitude_threshold)
+    image_scales = get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = distribution,
+                            amplitude_threshold = amplitude_threshold, 
+                            rel_amplitude_threshold = rel_amplitude_threshold, 
+                            gof_threshold = gof_threshold)
 
     # scale = hwhm for wrapped cauchy distribution
     image_scales = image_scales * 180 / np.pi * 2
@@ -520,8 +542,9 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, directory
 
 def map_direction_significances(image_stack, image_peak_pairs, image_params, 
                                 image_peaks_mask, distribution = "wrapped_cauchy", 
-                                gof_threshold = 0, amplitude_threshold = 0,
-                                weights = [1, 1], only_mus = False, directory = "maps"):
+                                amplitude_threshold = 0, rel_amplitude_threshold = 0,
+                                gof_threshold = 0, weights = [1, 1], 
+                                only_mus = False, directory = "maps"):
     """
     Maps the significance of the directions for every pixel.
     -Old function that could be updated without need for multi processing and in similar manner
@@ -544,15 +567,15 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
+    - amplitude_threshold: float
+        Peaks with a amplitude below this threshold will not be evaluated.
+    - rel_amplitude_threshold: float
+        Value between 0 and 1.
+        Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+        this threshold will not be evaluated.
     - gof_threshold: float
         Value between 0 and 1.
-        Peak-Pairs with a goodness-of-fit value below this threshold will not be counted.
-        Unnecessary if already used in peak pairs calculation.
-    - amplitude_threshold: float
-        Value between 0 and 1.
-        Peak-Pairs with a relative amplitude (to maximum - minimum intensity of the pixel) below
-        this threshold will not be counted.
-        Unnecessary if already used in peak pairs calculation.
+        Peaks with a goodness-of-fit value below this threshold will not be evaluated.
     - weights: list (2, )
         The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
     - only_mus: boolean
@@ -569,7 +592,8 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
 
     image_significances = get_image_direction_significances(image_stack, image_peak_pairs, image_params, 
                                 image_peaks_mask, distribution = distribution, 
-                                amplitude_threshold = amplitude_threshold, 
+                                amplitude_threshold = amplitude_threshold,
+                                rel_amplitude_threshold = rel_amplitude_threshold, 
                                 gof_threshold = gof_threshold,
                                 weights = weights, only_mus = only_mus)
     

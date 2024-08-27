@@ -52,10 +52,10 @@ with h5py.File(output_file_path, "w") as h5f:
 # Find the peak pairs (directions)
 image_peak_pairs = get_image_peak_pairs(data, image_params, image_peaks_mask, min_distance = 20,
                             distribution = distribution, only_mus = False, num_processes = num_processes,
-                            amplitude_threshold = 0.2, gof_threshold = 0.8,
-                            significance_threshold = 0.5, significance_weights = [1, 1],
-                            angle_threshold = 30, num_attempts = 100000, 
-                            search_radius = 100)
+                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.2, 
+                            gof_threshold = 0.8, significance_threshold = 0.5, 
+                            significance_weights = [1, 1], angle_threshold = 30, 
+                            num_attempts = 100000, search_radius = 100)
 
 # Use best pairs of all possible pairs
 best_image_peak_pairs = image_peak_pairs[:, :, 0, :, :]
@@ -71,7 +71,7 @@ image_directions = map_directions(best_image_peak_pairs, image_mus, directory = 
 # Map the significance of the directions
 map_direction_significances(data, best_image_peak_pairs, image_params, 
                                 image_peaks_mask, distribution = distribution, 
-                                amplitude_threshold = 0.2, gof_threshold = 0.8, weights = [1, 1])
+                                weights = [1, 1])
 
 # Create the fiber orientation map (fom) using the two direction files (for max 4 peaks)
 direction_files = ["maps/dir_1.tiff", "maps/dir_2.tiff"]
@@ -79,16 +79,20 @@ write_fom(direction_files, "direction_maps")
 
 # Create map for the number of peaks
 map_number_of_peaks(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            gof_threshold = 0.8, amplitude_threshold = 0.2, only_mus = False)
+                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.2, 
+                            gof_threshold = 0.8, only_mus = False)
 
 # Create map for the distance between two paired peaks (of 2 peak pixels)
 map_peak_distances(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            gof_threshold = 0.8, amplitude_threshold = 0.2, only_mus = False)
+                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.2, 
+                            gof_threshold = 0.8, only_mus = False)
 
 # Create map for the mean amplitudes
 map_peak_amplitudes(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            gof_threshold = 0.8, amplitude_threshold = 0.2, only_mus = False)
+                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.2, 
+                            gof_threshold = 0.8, only_mus = False)
 
 # Create map for the mean peak widths
 map_peak_widths(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            gof_threshold = 0.8, amplitude_threshold = 0.2)  
+                            amplitude_threshold = 10000, rel_amplitude_threshold = 0.2, 
+                            gof_threshold = 0.8)  
