@@ -346,18 +346,20 @@ Maps the significances of all found directions from given "image_peak_pairs".
     The name of the distribution.
 - `gof_threshold`: float
     Value between 0 and 1.  
-    Peaks with a goodness-of-fit value below this threshold will not be counted.
+    Peak-Pairs with a goodness-of-fit value below this threshold will not be counted.  
+    Unnecessary if already used in peak pairs calculation.  
 - `amplitude_threshold`: float
     Value between 0 and 1.  
-    Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
-    this threshold will not be counted.
+    Peak-Pairs with a relative amplitude (to maximum - minimum intensity of the pixel) below  
+    this threshold will not be counted.  
+    Unnecessary if already used in peak pairs calculation.  
 - `weights`: list (2, )
     The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
 - `only_mus`: boolean
     Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
 
 ##### Returns
-- `image_significances`: (n, m, np.ceil(max_peaks / 2))
+- `image_direction_sig`: (n, m, np.ceil(max_peaks / 2))
         The calculated significances (ranging from 0 to 1) for everyoe of the (n * m) pixels.
         Max 3 significances (shape like directions). 
 
