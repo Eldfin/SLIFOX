@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from .fitter import full_fitfunction
-from .peaks_evaluator import calculate_peaks_gof, get_number_of_peaks, get_direction_significances, \
+from .peaks_evaluator import calculate_peaks_gof, get_number_of_peaks, get_image_direction_significances, \
                                 get_peak_distances, get_peak_amplitudes, get_peak_widths, \
                                     calculate_directions
 from .wrapped_distributions import distribution_pdf
@@ -389,10 +389,9 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
                             amplitude_threshold = amplitude_threshold, only_mus = only_mus,
                             only_peaks_count = only_peaks_count)
 
-    image_distances = np.swapaxes(image_distances, 0, 1)
     image_distances[image_distances != -1] = image_distances[image_distances != -1] * 180 / np.pi
 
-    imageio.imwrite(f'{directory}/peak_distances.tiff', image_distances, format = 'tiff')
+    imageio.imwrite(f'{directory}/peak_distances.tiff', np.swapaxes(image_distances, 0, 1), format = 'tiff')
 
     return image_distances
 
@@ -512,16 +511,17 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, directory
         if not os.path.exists(directory):
                 os.makedirs(directory)
 
+        image_directions[image_directions != -1] = image_directions[image_directions != -1] * 180 / np.pi
         for dir_n in range(image_directions.shape[-1]):
-            image_directions = np.swapaxes(image_directions[:, :, dir_n], 0, 1)
-            image_directions[image_directions != -1] = image_directions[image_directions != -1] * 180 / np.pi
-            imageio.imwrite(f'{directory}/dir_{dir_n + 1}.tiff', image_directions)
+            imageio.imwrite(f'{directory}/dir_{dir_n + 1}.tiff', 
+                                np.swapaxes(image_directions[:, :, dir_n], 0, 1))
 
     return image_directions
 
 def map_direction_significances(image_stack, image_peak_pairs, image_params, 
-                                image_peaks_mask, distribution = "wrapped_cauchy", weights = [1, 1], 
-                                num_processes = 2, directory = "maps"):
+                                image_peaks_mask, distribution = "wrapped_cauchy", 
+                                gof_threshold = 0.5, amplitude_threshold = 0.1,
+                                weights = [1, 1], only_mus = False, directory = "maps"):
     """
     Maps the significance of the directions for every pixel.
     -Old function that could be updated without need for multi processing and in similar manner
@@ -544,10 +544,17 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
+    - gof_threshold: float
+        Value between 0 and 1.
+        Peaks with a goodness-of-fit value below this threshold will not be counted.
+    - amplitude_threshold: float
+        Value between 0 and 1.
+        Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+        this threshold will not be counted.
     - weights: list (2, )
         The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
-    - num_processes: int
-        The number of processes to use for calculation.
+    - only_mus: boolean
+        Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
     - directory: string
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
@@ -558,9 +565,11 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
     """
 
 
-    image_significances = get_direction_significances(image_stack, image_peak_pairs, image_params, 
-                                image_peaks_mask, distribution = distribution, weights = weights, 
-                                num_processes = num_processes)
+    image_significances = get_image_direction_significances(image_stack, image_peak_pairs, image_params, 
+                                image_peaks_mask, distribution = distribution, 
+                                amplitude_threshold = amplitude_threshold, 
+                                gof_threshold = gof_threshold,
+                                weights = weights, only_mus = only_mus)
     
     if directory != None:
         if not os.path.exists(directory):

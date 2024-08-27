@@ -70,8 +70,8 @@ image_directions = map_directions(best_image_peak_pairs, image_mus, directory = 
 
 # Map the significance of the directions
 map_direction_significances(data, best_image_peak_pairs, image_params, 
-                                image_peaks_mask, distribution = distribution, weights = [1, 1], 
-                                num_processes = num_processes)
+                                image_peaks_mask, distribution = distribution, 
+                                amplitude_threshold = 0.2, gof_threshold = 0.8, weights = [1, 1])
 
 # Create the fiber orientation map (fom) using the two direction files (for max 4 peaks)
 direction_files = ["maps/dir_1.tiff", "maps/dir_2.tiff"]

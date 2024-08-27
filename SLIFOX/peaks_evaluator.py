@@ -386,6 +386,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                     else:
                         neighbour_mus = neighbour_params
 
+                    #To-Do: Filter neighbour peaks with amplitude and gof threshold
+
                     neighbour_directions = peak_pairs_to_directions(neighbour_peak_pairs, neighbour_mus)
 
                     neighbour_significances = direction_significances(neighbour_peak_pairs, 
@@ -698,12 +700,12 @@ def get_possible_pairs(num_peaks):
     pair_combinations = np.array(all_index_pairs)
     return pair_combinations
 
-#@njit(cache = True, fastmath = True)
+@njit(cache = True, fastmath = True)
 def direction_significances(peak_pairs, params, peaks_mask, intensities, angles, weights = [1, 1],
                             distribution = "wrapped_cauchy", only_mus = False):
     """
     Calculates the significances of the directions for one (fitted) pixel.
-    (Old function, performance can be improved similar to get_peak_amplitudes).
+    (Old function, performance can be improved similar to get_image_direction_significances).
 
     Parameters:
     - peak_pairs: np.ndarray (np.ceil(m / 2), 2)
@@ -777,11 +779,12 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
 
     return image_significances
 
-def get_direction_significances(image_stack, image_peak_pairs, image_params, image_peaks_mask,
-                                 distribution = "wrapped_cauchy", weights = [1, 1], num_processes = 2):
+def get_image_direction_significances(image_stack, image_peak_pairs, image_params, image_peaks_mask, 
+                            distribution = "wrapped_cauchy", 
+                            gof_threshold = 0.5, amplitude_threshold = 0.1, 
+                            weights = [1, 1], only_mus = False):
     """
-    Calculates the significances of all found directions from given "image_peak_pairs".
-    (Old function, performance can be improved similar to get_peak_amplitudes).
+    Returns the mean peak amplitude for every pixel.
 
     Parameters:
     - image_stack: np.ndarray (n, m, p)
@@ -798,54 +801,84 @@ def get_direction_significances(image_stack, image_peak_pairs, image_params, ima
     - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
-    - directory: string
-        The directory path defining where the significance image should be writen to.
-        If None, no image will be writen.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
+    - gof_threshold: float
+        Value between 0 and 1.
+        Peaks with a goodness-of-fit value below this threshold will not be counted.
+    - amplitude_threshold: float
+        Value between 0 and 1.
+        Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+        this threshold will not be counted.
     - weights: list (2, )
-        The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
+        The weights for the amplitude and for the goodnes-of-fit, when calculating the significance.
+        First weight is for amplitude, second for goodness-of-fit.
+    - only_mus: boolean
+        Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
 
     Returns:
-    - image_significances: (n, m, np.ceil(max_peaks / 2))
+    - image_direction_sig: (n, m, np.ceil(max_peaks / 2))
         The calculated significances (ranging from 0 to 1) for everyoe of the (n * m) pixels.
         Max 3 significances (shape like directions).
     """
 
     angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)
-    x_range = image_peak_pairs.shape[0]
-    y_range = image_peak_pairs.shape[1]
-    max_significances = image_peak_pairs.shape[2]
-    total_pixels = x_range * y_range
-    image_significances = pymp.shared.array((total_pixels, max_significances), dtype = np.float64)
-    image_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))
-    image_params = image_params.reshape((total_pixels, image_params.shape[2]))
-    image_peaks_mask = image_peaks_mask.reshape((total_pixels, *image_peaks_mask.shape[2:]))
-    image_peak_pairs = image_peak_pairs.reshape((total_pixels, *image_peak_pairs.shape[2:]))
+    image_global_amplitudes = np.max(image_stack, axis = -1) - np.min(image_stack, axis = -1)
+    n_rows = image_stack.shape[0]
+    n_cols = image_stack.shape[1]
 
-    # Initialize the progress bar
-    pbar = tqdm(total = total_pixels, desc = "Calculating direction significances", smoothing = 0)
-    shared_counter = pymp.shared.array((num_processes, ), dtype = int)
+    if not only_mus:
+        image_heights = image_params[:, :, 0:-1:3]
+        image_scales = image_params[:, :, 2::3]
+        image_amplitudes = image_heights * \
+                                distribution_pdf(0, 0, image_scales, distribution)[..., 0]
+        image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
+        image_model_y = full_fitfunction(angles, image_params, distribution)
+        image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, image_peaks_mask, method = "r2")
 
-    with pymp.Parallel(num_processes) as p:
-        for i in p.range(total_pixels):
-            peak_pairs = image_peak_pairs[i]
-            params = image_params[i]
-            peaks_mask = image_peaks_mask[i]
-            intensities = image_stack[i]
-            
-            image_significances[i] = direction_significances(peak_pairs, params, peaks_mask, 
-                                    intensities, angles, weights = weights,
-                                    distribution = distribution)
+        image_valid_peaks_mask = ((image_rel_amplitudes > amplitude_threshold)
+                                            & (image_peaks_gof > gof_threshold))
+    else:
+        image_intensities = np.expand_dims(image_stack, axis = 2)
+        image_intensities = np.where(image_peaks_mask, image_intensities, 0)
+        image_amplitudes = np.max(image_intensities, axis = -1)
+        image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
+        image_valid_peaks_mask = (image_rel_amplitudes > amplitude_threshold)
+    
+    # Set unvalid values to -1, so the calculated mean later cant be greater than 0
+    image_rel_amplitudes[~image_valid_peaks_mask] = -1
+    image_peaks_gof[~image_valid_peaks_mask] = -1
 
-            # Update progress bar
-            shared_counter[p.thread_num] += 1
-            status = np.sum(shared_counter)
-            pbar.update(status - pbar.n)
+    # Replace -1 values in the peak pairs array with duplicates of the other index
+    # e.g. [2, -1] is replaced with [2, 2]
+    image_peak_pairs_copy = np.copy(image_peak_pairs)
+    mask = (image_peak_pairs_copy != -1)
+    image_peak_pairs_copy[mask] = image_peak_pairs_copy[mask[:, :, :, ::-1]]
 
-    image_significances = image_significances.reshape((x_range, y_range, image_significances.shape[1]))
+    # Convert image_peak_pars array values into relative amplitude values
+    image_rel_amplitudes = image_rel_amplitudes[np.arange(n_rows)[:, None, None, None], 
+                                            np.arange(n_cols)[None, :, None, None], 
+                                            image_peak_pairs_copy]
 
-    return image_significances
+    # Set all relative amplitudes to zero where no peak is paired
+    mask = np.all(image_peak_pairs_copy == -1, axis = -1)
+    image_rel_amplitudes[mask] = 0
+
+    # Calculate mean relative amplitude for every pair
+    image_rel_amplitudes = np.mean(image_rel_amplitudes, axis = -1)
+    image_rel_amplitudes[image_rel_amplitudes < 0] = 0
+
+    # Do the same for gof
+    image_peaks_gof = image_peaks_gof[np.arange(n_rows)[:, None, None, None], 
+                                            np.arange(n_cols)[None, :, None, None], 
+                                            image_peak_pairs_copy]
+    image_peaks_gof[mask] = 0
+    image_peaks_gof = np.mean(image_peaks_gof, axis = -1)
+    image_peaks_gof[image_peaks_gof < 0] = 0
+
+    image_direction_sig = (image_rel_amplitudes * weights[0] + image_peaks_gof * weights[1]) / 2
+
+    return image_direction_sig
 
 @njit(cache = True, fastmath = True)
 def peak_significances(intensities, angles, params, peaks_mask, distribution, only_mus,
@@ -1057,16 +1090,15 @@ def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
 
         image_valid_peaks_mask = ((image_rel_amplitudes > amplitude_threshold)
                                             & (image_peaks_gof > gof_threshold))
-
-        image_amplitudes = np.where(image_valid_peaks_mask, image_amplitudes, np.nan)
     else:
         image_intensities = np.expand_dims(image_stack, axis = 2)
         image_intensities = np.where(image_peaks_mask, image_intensities, 0)
         image_amplitudes = np.max(image_intensities, axis = -1)
         image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
         image_valid_peaks_mask = (image_rel_amplitudes > amplitude_threshold)
-        image_amplitudes = np.where(image_valid_peaks_mask, image_amplitudes, np.nan)
 
+
+    image_amplitudes = np.where(image_valid_peaks_mask, image_amplitudes, np.nan)
     all_nan_slices = np.all(~image_valid_peaks_mask, axis = -1)
     image_amplitudes[all_nan_slices] = 0
     image_amplitudes = np.nanmean(image_amplitudes, axis = -1)

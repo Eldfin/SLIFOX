@@ -344,10 +344,17 @@ Maps the significances of all found directions from given "image_peak_pairs".
     If None, no image will be writen.
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
     The name of the distribution.
+- `gof_threshold`: float
+    Value between 0 and 1.  
+    Peaks with a goodness-of-fit value below this threshold will not be counted.
+- `amplitude_threshold`: float
+    Value between 0 and 1.  
+    Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+    this threshold will not be counted.
 - `weights`: list (2, )
     The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
-- `num_processes`: int
-    Defines the number of processes to split the task into.
+- `only_mus`: boolean
+    Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
 
 ##### Returns
 - `image_significances`: (n, m, np.ceil(max_peaks / 2))
@@ -621,7 +628,7 @@ import h5py
 import matplotlib.pyplot as plt
 from SLIFOX import fit_image_stack, get_image_peak_pairs, pick_data, plot_data_pixels,\
                     map_number_of_peaks, map_peak_distances, map_peak_amplitudes, \
-                    map_peak_widths, map_directions, map_direction_significances
+                    map_peak_widths, map_directions, map_direction_significances, write_fom
 from SLIFOX.filters import apply_filter
 import os
 
@@ -665,10 +672,8 @@ with h5py.File(output_file_path, "w") as h5f:
     group.create_dataset("indices", data=indices)
 
 # Optional: Pick SLIF output data (if already fitted)
-#image_params, _ = pick_data(output_file_path, 
-#                                dataset_path + "/params")
-#image_peaks_mask, _ = pick_data(output_file_path, 
-#                               dataset_path + "/peaks_mask")
+#image_params, _ = pick_data(output_file_path, dataset_path + "/params")
+#image_peaks_mask, _ = pick_data(output_file_path, dataset_path + "/peaks_mask")
     
 # Find the peak pairs (directions)
 image_peak_pairs = get_image_peak_pairs(data, image_params, image_peaks_mask, min_distance = 20,
@@ -691,8 +696,8 @@ image_directions = map_directions(best_image_peak_pairs, image_mus, directory = 
 
 # Map the significance of the directions
 map_direction_significances(data, best_image_peak_pairs, image_params, 
-                                image_peaks_mask, distribution = distribution, weights = [1, 1], 
-                                num_processes = num_processes)
+                                image_peaks_mask, distribution = distribution, 
+                                amplitude_threshold = 0.2, gof_threshold = 0.8, weights = [1, 1])
 
 # Create the fiber orientation map (fom) using the two direction files (for max 4 peaks)
 direction_files = ["maps/dir_1.tiff", "maps/dir_2.tiff"]
