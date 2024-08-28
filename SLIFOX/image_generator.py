@@ -540,8 +540,8 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1,
 
     # Apply significance threshold filter if given
     filtered = False
-    if isinstance(significance_map, np.ndarray) and significance_threshold > 0:
-        image_directions[significance_map < significance_threshold] = -1
+    if isinstance(image_direction_sig, np.ndarray) and significance_threshold > 0:
+        image_directions[image_direction_sig < significance_threshold] = -1
         filtered = True
 
     if directory != None:
