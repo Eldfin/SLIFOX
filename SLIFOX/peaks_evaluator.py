@@ -1128,6 +1128,9 @@ def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
         image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
         image_model_y = full_fitfunction(angles, image_params, distribution)
         image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, image_peaks_mask, method = "r2")
+        image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
+                                & (image_rel_amplitudes > rel_amplitude_threshold)
+                                & (image_peaks_gof > gof_threshold))
 
     else:
         image_intensities = np.expand_dims(image_stack, axis = 2)
@@ -1135,10 +1138,18 @@ def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
         image_amplitudes = (np.max(image_intensities, axis = -1)
                                 - np.min(image_stack, axis = -1)[..., np.newaxis])
         image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
+        image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
+                                & (image_rel_amplitudes > rel_amplitude_threshold))
 
-    image_amplitudes = _process_image_amplitudes(image_amplitudes, image_rel_amplitudes, 
-                            image_peaks_gof, amplitude_threshold, 
-                            rel_amplitude_threshold, gof_threshold, only_mus)
+    #image_amplitudes = _process_image_amplitudes(image_amplitudes, image_rel_amplitudes, 
+    #                        image_peaks_gof, amplitude_threshold, 
+    #                        rel_amplitude_threshold, gof_threshold, only_mus)
+
+    
+    image_amplitudes = np.where(image_valid_peaks_mask, image_amplitudes, np.nan)
+    all_nan_slices = np.all(~image_valid_peaks_mask, axis = -1)
+    image_amplitudes[all_nan_slices] = 0
+    image_amplitudes = np.nanmean(image_amplitudes, axis = -1)
 
     print("Done")
 
@@ -1147,7 +1158,8 @@ def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
 @njit(cache = True, fastmath = True, parallel = True)
 def _process_image_amplitudes(image_amplitudes, image_rel_amplitudes, image_peaks_gof,
                             amplitude_threshold, rel_amplitude_threshold, gof_threshold, only_mus):
-    
+    # Not implemented, because numba (with parallelization) for map creation not implemented yet
+
     n, m = image_amplitudes.shape[:2]
     mean_amplitudes = np.zeros((n, m))
 
