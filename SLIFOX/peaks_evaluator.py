@@ -812,17 +812,14 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
     - amplitude_threshold: float
-        Peaks with a amplitude below this threshold will not be evaluated.
-        Unnecessary if already used in peak pairs calculation.
+        Peak-Pairs with a amplitude below this threshold will not be evaluated.
     - rel_amplitude_threshold: float
         Value between 0 and 1.
-        Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+        Peak-Pairs with a relative amplitude (to maximum - minimum intensity of the pixel) below
         this threshold will not be evaluated.
-        Unnecessary if already used in peak pairs calculation.
     - gof_threshold: float
         Value between 0 and 1.
-        Peaks with a goodness-of-fit value below this threshold will not be evaluated.
-        Unnecessary if already used in peak pairs calculation.
+        Peak-Pairs with a goodness-of-fit value below this threshold will not be evaluated.
     - weights: list (2, )
         The weights for the amplitude and for the goodnes-of-fit, when calculating the significance.
         First weight is for amplitude, second for goodness-of-fit.
@@ -901,6 +898,8 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
     print("Done")
 
     return image_direction_sig
+
+def filter_image_directions(image_directions, image_direction_sig, significance_threshold)
 
 @njit(cache = True, fastmath = True)
 def peak_significances(intensities, angles, params, peaks_mask, distribution, only_mus,

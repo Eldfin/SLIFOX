@@ -326,7 +326,7 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
 
     if directory != None:
         if not os.path.exists(directory):
-                os.makedirs(directory)
+            os.makedirs(directory)
 
         colormap = np.empty((len(colors), 3), dtype = np.uint8)
         for i, color in enumerate(colors):
@@ -504,7 +504,9 @@ def map_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
 
     return image_scales
 
-def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, directory = "maps"):
+def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, 
+                    image_direction_sig = None, significance_threshold = 0,
+                    directory = "maps"):
     """
     Maps the directions for every pixel.
 
@@ -518,6 +520,13 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, directory
         The mus (peak centers) for every pixel.
     - only_peaks_count: int or list of ints
         Only use pixels where the number of peaks equals this number. -1 uses every number of peaks.
+    - image_direction_sig: np.ndarray (n, m, 3)
+        Image containing the significance of every direction for every pixel.
+        Can be created with "map_direction_significances" or "get_image_direction_significances".
+        Used for threshold filtering with significance_threshold.
+    - significance_threshold: float
+        Value between 0 and 1.
+        Directions with a significance below this threshold will not be mapped.
     - directory: string
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
@@ -529,14 +538,22 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, directory
 
     image_directions = calculate_directions(image_peak_pairs, image_mus, only_peaks_count = only_peaks_count)
 
+    # Apply significance threshold filter if given
+    filtered = False
+    if isinstance(significance_map, np.ndarray) and significance_threshold > 0:
+        image_directions[significance_map < significance_threshold] = -1
+        filtered = True
+
     if directory != None:
         if not os.path.exists(directory):
-                os.makedirs(directory)
+            os.makedirs(directory)
 
         image_directions[image_directions != -1] = image_directions[image_directions != -1] * 180 / np.pi
         for dir_n in range(image_directions.shape[-1]):
-            imageio.imwrite(f'{directory}/dir_{dir_n + 1}.tiff', 
-                                np.swapaxes(image_directions[:, :, dir_n], 0, 1))
+            filepath = f'{directory}/dir_{dir_n + 1}.tiff'
+            if filtered:
+                filepath = f'{directory}/dir_{dir_n + 1}_filtered.tiff'
+            imageio.imwrite(filepath, np.swapaxes(image_directions[:, :, dir_n], 0, 1))
 
     return image_directions
 
@@ -568,14 +585,14 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
     - amplitude_threshold: float
-        Peaks with a amplitude below this threshold will not be evaluated.
+        Peak-Pairs with a amplitude below this threshold will not be evaluated.
     - rel_amplitude_threshold: float
         Value between 0 and 1.
-        Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+        Peak-Pairs  with a relative amplitude (to maximum - minimum intensity of the pixel) below
         this threshold will not be evaluated.
     - gof_threshold: float
         Value between 0 and 1.
-        Peaks with a goodness-of-fit value below this threshold will not be evaluated.
+        Peak-Pairs with a goodness-of-fit value below this threshold will not be evaluated.
     - weights: list (2, )
         The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
     - only_mus: boolean
@@ -585,12 +602,12 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
         If None, no image will be writen.
 
     Returns:
-    - image_significances: np.ndarray (n, m, 3)
+    - image_direction_sig: np.ndarray (n, m, 3)
         The significances of the directions for every pixel.
     """
 
 
-    image_significances = get_image_direction_significances(image_stack, image_peak_pairs, image_params, 
+    image_direction_sig = get_image_direction_significances(image_stack, image_peak_pairs, image_params, 
                                 image_peaks_mask, distribution = distribution, 
                                 amplitude_threshold = amplitude_threshold,
                                 rel_amplitude_threshold = rel_amplitude_threshold, 
@@ -599,10 +616,10 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
     
     if directory != None:
         if not os.path.exists(directory):
-                os.makedirs(directory)
+            os.makedirs(directory)
 
-        for dir_n in range(image_significances.shape[-1]):
+        for dir_n in range(image_direction_sig.shape[-1]):
             imageio.imwrite(f'{directory}/dir_{dir_n + 1}_sig.tiff', 
-                                np.swapaxes(image_significances[:, :, dir_n], 0, 1))
+                                np.swapaxes(image_direction_sig[:, :, dir_n], 0, 1))
 
-    return image_significances
+    return image_direction_sig

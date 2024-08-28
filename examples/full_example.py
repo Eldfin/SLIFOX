@@ -69,9 +69,15 @@ image_mus = image_params[:, :, 1::3]
 image_directions = map_directions(best_image_peak_pairs, image_mus, directory = "maps")
 
 # Map the significance of the directions
-map_direction_significances(data, best_image_peak_pairs, image_params, 
+image_direction_sig = map_direction_significances(data, best_image_peak_pairs, image_params, 
                                 image_peaks_mask, distribution = distribution, 
                                 weights = [1, 1])
+
+# Optional: Map the threshold filtered direction images 
+# map_direction_significance can also be called with specific amplitude / gof thresholds beforehand
+#map_directions(best_image_peak_pairs, image_mus, directiory = "maps", 
+#                image_direction_sig = image_direction_sig, significance_threshold = 0.8)
+
 
 # Create the fiber orientation map (fom) using the two direction files (for max 4 peaks)
 direction_files = ["maps/dir_1.tiff", "maps/dir_2.tiff"]

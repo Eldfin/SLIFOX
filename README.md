@@ -311,6 +311,13 @@ Calculates the directions from given peak_pairs.
     The mus (centers) of the found (max_peaks) peaks for everyone of the (n * m) pixels.  
 - `only_peaks_count`: int or list of ints   
     Only use pixels where the number of peaks equals this number. -1 uses every number of peaks.
+- `image_direction_sig`: np.ndarray (n, m, 3)
+    Image containing the significance of every direction for every pixel.  
+    Can be created with "map_direction_significances" or "get_image_direction_significances".  
+    Used for threshold filtering with significance_threshold.
+- `significance_threshold`: float
+    Value between 0 and 1.  
+    Directions with a significance below this threshold will not be mapped.
 - `directory`: string  
     The directory path defining where direction images should be writen to.  
     If None, no images will be writen.  
@@ -346,16 +353,13 @@ Maps the significances of all found directions from given "image_peak_pairs".
     The name of the distribution.
 - `amplitude_threshold`: float
     Peaks with a amplitude below this threshold will not be evaluated.  
-    Unnecessary if already used in peak pairs calculation. 
 - `rel_amplitude_threshold`: float
     Value between 0 and 1.  
     Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below  
     this threshold will not be evaluated.  
-    Unnecessary if already used in peak pairs calculation. 
 - `gof_threshold`: float
     Value between 0 and 1.  
     Peaks with a goodness-of-fit value below this threshold will not be evaluated.  
-    Unnecessary if already used in peak pairs calculation.  
 - `weights`: list (2, )
     The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
 - `only_mus`: boolean
@@ -708,9 +712,15 @@ image_mus = image_params[:, :, 1::3]
 image_directions = map_directions(best_image_peak_pairs, image_mus, directory = "maps")
 
 # Map the significance of the directions
-map_direction_significances(data, best_image_peak_pairs, image_params, 
+image_direction_sig = map_direction_significances(data, best_image_peak_pairs, image_params, 
                                 image_peaks_mask, distribution = distribution, 
                                 weights = [1, 1])
+
+# Optional: Map the threshold filtered direction images 
+# map_direction_significance can also be called with specific amplitude / gof thresholds beforehand
+#map_directions(best_image_peak_pairs, image_mus, directiory = "maps", 
+#                image_direction_sig = image_direction_sig, significance_threshold = 0.8)
+
 
 # Create the fiber orientation map (fom) using the two direction files (for max 4 peaks)
 direction_files = ["maps/dir_1.tiff", "maps/dir_2.tiff"]
