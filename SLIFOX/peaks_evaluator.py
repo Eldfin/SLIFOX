@@ -899,8 +899,6 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
 
     return image_direction_sig
 
-def filter_image_directions(image_directions, image_direction_sig, significance_threshold)
-
 @njit(cache = True, fastmath = True)
 def peak_significances(intensities, angles, params, peaks_mask, distribution, only_mus,
                         significance_weights):
