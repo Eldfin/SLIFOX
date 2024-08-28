@@ -1,6 +1,6 @@
 import numpy as np
 import h5py
-from numba import njit
+from numba import njit, prange
 from .fitter import full_fitfunction, angle_distance
 from .wrapped_distributions import distribution_pdf, wrapped_cauchy_pdf
 from collections import deque
@@ -1129,27 +1129,45 @@ def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
         image_model_y = full_fitfunction(angles, image_params, distribution)
         image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, image_peaks_mask, method = "r2")
 
-        image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
-                                    & (image_rel_amplitudes > rel_amplitude_threshold)
-                                    & (image_peaks_gof > gof_threshold))
     else:
         image_intensities = np.expand_dims(image_stack, axis = 2)
         image_intensities = np.where(image_peaks_mask, image_intensities, 0)
         image_amplitudes = (np.max(image_intensities, axis = -1)
                                 - np.min(image_stack, axis = -1)[..., np.newaxis])
         image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
-        image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
-                                    & (image_rel_amplitudes > rel_amplitude_threshold))
 
-
-    image_amplitudes = np.where(image_valid_peaks_mask, image_amplitudes, np.nan)
-    all_nan_slices = np.all(~image_valid_peaks_mask, axis = -1)
-    image_amplitudes[all_nan_slices] = 0
-    image_amplitudes = np.nanmean(image_amplitudes, axis = -1)
+    image_amplitudes = _process_image_amplitudes(image_amplitudes, image_rel_amplitudes, 
+                            image_peaks_gof, amplitude_threshold, 
+                            rel_amplitude_threshold, gof_threshold, only_mus)
 
     print("Done")
 
     return image_amplitudes
+
+@njit(cache = True, fastmath = True, parallel = True)
+def _process_image_amplitudes(image_amplitudes, image_rel_amplitudes, image_peaks_gof,
+                            amplitude_threshold, rel_amplitude_threshold, gof_threshold, only_mus):
+    
+    n, m = image_amplitudes.shape[:2]
+    mean_amplitudes = np.zeros((n, m))
+
+    for i in prange(n):
+        for j in prange(m):
+            if only_mus:
+                valid_peaks_mask = ((image_amplitudes[i, j] > amplitude_threshold)
+                                    & (image_rel_amplitudes[i, j] > rel_amplitude_threshold)
+                                    & (image_peaks_gof[i, j] > gof_threshold))
+            else:
+                valid_peaks_mask = ((image_amplitudes[i, j] > amplitude_threshold)
+                                    & (image_rel_amplitudes[i, j] > rel_amplitude_threshold))
+                
+            valid_amplitudes = image_amplitudes[i,j][valid_peaks_mask]
+            if valid_amplitudes.size == 0:
+                mean_amplitudes[i, j] = 0
+            else:
+                mean_amplitudes[i, j] = np.mean(valid_amplitudes)
+
+    return mean_amplitudes
 
 def get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
