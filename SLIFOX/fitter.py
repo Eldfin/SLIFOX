@@ -245,9 +245,10 @@ def create_bounds(angles, intensities, intensities_err, distribution,
         
         pdf_value1 = distribution_pdf(0, 0, min_scale, distribution)
         pdf_value2 = distribution_pdf(0, 0, max_scale, distribution)
+        pdf_values = np.concatenate((pdf_value1, pdf_value2))
 
-        min_I = 0.8 * amplitude / max(pdf_value1, pdf_value2)
-        max_I = 1.2 * amplitude / min(pdf_value1, pdf_value2)
+        min_I = 0.8 * amplitude / np.max(pdf_values)
+        max_I = 1.2 * amplitude / np.min(pdf_values)
 
         # Set bounds of mu around current maximum
         min_mu = peaks_mus[i] - mu_range / 2
