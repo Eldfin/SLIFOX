@@ -353,7 +353,7 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
     
 def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
-                            gof_threshold = 0.5, only_mus = False, deviation = False
+                            gof_threshold = 0.5, only_mus = False, deviation = False,
                             only_peaks_count = 2, directory = "maps"):
     """
     Maps the distance between two paired peaks for every pixel.
