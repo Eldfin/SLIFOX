@@ -433,6 +433,9 @@ Maps the distance between two paired peaks for every pixel.
     Peaks with a goodness-of-fit value below this threshold will not be evaluated.
 - `only_mus`: boolean
     Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
+- `deviation`: boolean
+    If true, the distance deviation to 180 degrees will be mapped, so that values of 0  
+    represent peak distances of 180 degrees.
 - `only_peaks_count`: int
     Only use pixels where the number of peaks equals this number. -1 for use of every number of peaks.
 - `directory`: string

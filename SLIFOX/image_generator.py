@@ -353,7 +353,7 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
     
 def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
-                            gof_threshold = 0.5, only_mus = False,
+                            gof_threshold = 0.5, only_mus = False, deviation = False
                             only_peaks_count = 2, directory = "maps"):
     """
     Maps the distance between two paired peaks for every pixel.
@@ -381,6 +381,9 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
         Peaks with a goodness-of-fit value below this threshold will not be evaluated.
     - only_mus: boolean
         Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
+    - deviation: boolean
+        If true, the distance deviation to 180 degrees will be mapped, so that values of 0
+        represent peak distances of 180 degrees.
     - only_peaks_count: int or list of ints
         Only use pixels where the number of peaks equals this number. -1 for use of every number of peaks.
     - directory: string
@@ -401,6 +404,8 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
                             only_peaks_count = only_peaks_count)
 
     image_distances[image_distances != -1] = image_distances[image_distances != -1] * 180 / np.pi
+    if deviation:
+        image_distances[image_distances != -1] = 180 - image_distances[image_distances != -1]
 
     imageio.imwrite(f'{directory}/peak_distances.tiff', np.swapaxes(image_distances, 0, 1), format = 'tiff')
 
