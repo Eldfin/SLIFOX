@@ -984,6 +984,7 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
     else:
         angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False) 
         image_global_amplitudes = np.max(image_stack, axis = -1) - np.min(image_stack, axis = -1)
+        image_global_amplitudes[image_global_amplitudes == 0] = 1
 
         if not only_mus:
             image_heights = image_params[:, :, 0:-1:3]
@@ -1054,7 +1055,10 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
 
     print("Calculating image peak distances...")
     
-    image_mus = image_params[:, :, 1::3]
+    if not only_mus:
+        image_mus = image_params[:, :, 1::3]
+    else:
+        image_mus = image_params[:, :]
 
     image_num_peaks, sig_image_peaks_mask = get_number_of_peaks(image_stack, image_params, image_peaks_mask, 
                             distribution = distribution, only_mus = only_mus,  
