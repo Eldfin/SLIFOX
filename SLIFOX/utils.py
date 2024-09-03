@@ -1,6 +1,7 @@
 import numpy as np
 import h5py
 from numba import njit
+import nibabel as nib
 
 @njit(cache = True, fastmath = True)
 def angle_distance(angle1, angle2):
@@ -431,9 +432,9 @@ def mean_angle(angles):
     
     return mean_angle
 
-def pick_data(filepath, dataset_path, area = None, randoms = 0, indices = None):
+def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = None):
     """
-    Picks data from a HDF5 file.
+    Picks data from a HDF5 or nii file.
 
     Parameters:
     - filepath: string
@@ -457,42 +458,64 @@ def pick_data(filepath, dataset_path, area = None, randoms = 0, indices = None):
         which are the picked indices from the data.
     """
 
-    with h5py.File(filepath, "r") as h5f:
+    if filepath.endswith(".nii"):
+        nii_file = nib.load(filepath)
+        data_shape = nii_file.shape
+        data_dtype = nii_file.get_data_dtype()
+        data_proxy = nii_file.dataobj
 
-        data_shape = h5f[dataset_path].shape
+        if data_shape[-1] == 1:
+            data_shape = data_shape[:-1]
+            data_proxy = data_proxy[..., 0]
+    else:
+        with h5py.File(filepath, "r") as h5f:
+            data_shape = h5f[dataset_path].shape
+            data_dtype = h5f[dataset_path].dtype
 
-        if area == None:
-            x_indices, y_indices = np.indices((data_shape[0], data_shape[1]))
+    if area == None:
+        x_indices, y_indices = np.indices((data_shape[0], data_shape[1]))
 
-        elif not isinstance(indices, np.ndarray):
-            x_indices, y_indices = np.indices((area[1] - area[0], area[3] - area[2]))
-            x_indices += area[0]
-            y_indices += area[2]
+    elif not isinstance(indices, np.ndarray):
+        x_indices, y_indices = np.indices((area[1] - area[0], area[3] - area[2]))
+        x_indices += area[0]
+        y_indices += area[2]
 
-        if randoms > 0 and not isinstance(indices, np.ndarray):
-            random_x_indices = np.random.choice(x_indices[:, 0], randoms)
-            random_y_indices = np.random.choice(y_indices[0, :], randoms)
+    if randoms > 0 and not isinstance(indices, np.ndarray):
+        random_x_indices = np.random.choice(x_indices[:, 0], randoms)
+        random_y_indices = np.random.choice(y_indices[0, :], randoms)
 
-            data = np.empty((randoms, 1) + (data_shape[2:]), dtype = h5f[dataset_path].dtype)
-            indices = np.empty((randoms, 1, 2), dtype = int)
-            for i in range(randoms):
+        data = np.empty((randoms, 1) + (data_shape[2:]), dtype = data_dtype)
+        indices = np.empty((randoms, 1, 2), dtype = int)
+        for i in range(randoms):
+            if filepath.endswith(".nii"):
+                data[i, 0, ...] = data_proxy[random_x_indices[i], random_y_indices[i], ...]
+            else:
                 data[i, 0, ...] = h5f[dataset_path][random_x_indices[i], random_y_indices[i], ...]
-                indices[i, 0, 0] = random_x_indices[i]
-                indices[i, 0, 1] = random_y_indices[i]
+            indices[i, 0, 0] = random_x_indices[i]
+            indices[i, 0, 1] = random_y_indices[i]
 
-        else:
-            if isinstance(indices, np.ndarray):
-                flat_indices = indices.reshape(-1, indices.shape[-1])
-                num_pixels = len(flat_indices)
-                data = np.empty((num_pixels, 1) + (data_shape[2:]), dtype = h5f[dataset_path].dtype)
-                for i in range(num_pixels):
+    else:
+        if isinstance(indices, np.ndarray):
+            flat_indices = indices.reshape(-1, indices.shape[-1])
+            num_pixels = len(flat_indices)
+            data = np.empty((num_pixels, 1) + (data_shape[2:]), dtype = data_dtype)
+            for i in range(num_pixels):
+                if filepath.endswith(".nii"):
+                    data[i, 0, ...] = data_proxy[flat_indices[i, 0], flat_indices[i, 1], ...]
+                else:
                     data[i, 0, ...] = h5f[dataset_path][flat_indices[i, 0], flat_indices[i, 1], ...]
-                return data, indices
-            elif area == None:
+            return data, indices
+        elif area == None:
+            if filepath.endswith(".nii"):
+                data = data_proxy[:]
+            else:
                 data = h5f[dataset_path][:]
+        else:
+            if filepath.endswith(".nii"):
+                data = data_proxy[area[0]:area[1], area[2]:area[3], ...]
             else:
                 data = h5f[dataset_path][area[0]:area[1], area[2]:area[3], ...]
 
-            indices = np.stack((x_indices, y_indices), axis = -1, dtype = np.int64)
+        indices = np.stack((x_indices, y_indices), axis = -1, dtype = np.int64)
 
     return data, indices

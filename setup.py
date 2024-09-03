@@ -36,5 +36,6 @@ setup(
         "PyQt5>=5.15.10",
         "tqdm>=4.66.4",
         "tifffile>=2024.7.2",
+        "nibabel>=5.2.1"
     ]
 )
