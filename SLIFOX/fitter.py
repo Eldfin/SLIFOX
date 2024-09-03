@@ -771,6 +771,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
             pixel = mask_pixels[i]
             intensities = flattened_stack[pixel]
             intensities_err = np.sqrt(intensities)
+            intensities_err[intensities_err == 0] = 1
             best_parameters, best_r_chi2, peaks_mask = fit_pixel_stack(angles, intensities, 
                                     intensities_err, 
                                     distribution, n_steps_height, n_steps_mu, n_steps_scale,
