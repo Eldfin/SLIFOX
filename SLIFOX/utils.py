@@ -490,7 +490,8 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
             if filepath.endswith(".nii"):
                 data[i, 0, ...] = data_proxy[random_x_indices[i], random_y_indices[i], ...]
             else:
-                data[i, 0, ...] = h5f[dataset_path][random_x_indices[i], random_y_indices[i], ...]
+                with h5py.File(filepath, "r") as h5f:
+                    data[i, 0, ...] = h5f[dataset_path][random_x_indices[i], random_y_indices[i], ...]
             indices[i, 0, 0] = random_x_indices[i]
             indices[i, 0, 1] = random_y_indices[i]
 
@@ -503,18 +504,21 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
                 if filepath.endswith(".nii"):
                     data[i, 0, ...] = data_proxy[flat_indices[i, 0], flat_indices[i, 1], ...]
                 else:
-                    data[i, 0, ...] = h5f[dataset_path][flat_indices[i, 0], flat_indices[i, 1], ...]
+                    with h5py.File(filepath, "r") as h5f:
+                        data[i, 0, ...] = h5f[dataset_path][flat_indices[i, 0], flat_indices[i, 1], ...]
             return data, indices
         elif area == None:
             if filepath.endswith(".nii"):
                 data = data_proxy[:]
             else:
-                data = h5f[dataset_path][:]
+                with h5py.File(filepath, "r") as h5f:
+                    data = h5f[dataset_path][:]
         else:
             if filepath.endswith(".nii"):
                 data = data_proxy[area[0]:area[1], area[2]:area[3], ...]
             else:
-                data = h5f[dataset_path][area[0]:area[1], area[2]:area[3], ...]
+                with h5py.File(filepath, "r") as h5f:
+                    data = h5f[dataset_path][area[0]:area[1], area[2]:area[3], ...]
 
         indices = np.stack((x_indices, y_indices), axis = -1, dtype = np.int64)
 
