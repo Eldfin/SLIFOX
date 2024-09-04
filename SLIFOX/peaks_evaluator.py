@@ -837,6 +837,7 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
 
     angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)
     image_global_amplitudes = np.max(image_stack, axis = -1) - np.min(image_stack, axis = -1)
+    image_global_amplitude[image_global_amplitude == 0] = 1
     n_rows = image_stack.shape[0]
     n_cols = image_stack.shape[1]
 
