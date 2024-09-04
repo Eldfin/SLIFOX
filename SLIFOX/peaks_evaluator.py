@@ -751,11 +751,12 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
         for i in range(num_peaks):
             peak_intensities = intensities[peaks_mask[i]]
             if len(peak_intensities) == 0: continue
-            amplitudes[i] = np.max(peak_intensities) - np.min(peak_intensities)
+            amplitudes[i] = np.max(peak_intensities) - np.min(intensities)
 
         for i in range(num_directions):
             peak_pair = peak_pairs[i]
             indices = peak_pair[peak_pair != -1]
+            if len(indices) == 0: continue
             image_significances[i] = np.mean(amplitudes[indices] / global_amplitude)
         
         return image_significances
@@ -864,7 +865,8 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
     
     # Set unvalid values to -1, so the calculated mean later cant be greater than 0
     image_rel_amplitudes[~image_valid_peaks_mask] = -1
-    image_peaks_gof[~image_valid_peaks_mask] = -1
+    if not only_mus:
+        image_peaks_gof[~image_valid_peaks_mask] = -1
 
     # Replace -1 values in the peak pairs array with duplicates of the other index
     # e.g. [2, -1] is replaced with [2, 2]
@@ -886,14 +888,17 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
     image_rel_amplitudes[image_rel_amplitudes < 0] = 0
 
     # Do the same for gof
-    image_peaks_gof = image_peaks_gof[np.arange(n_rows)[:, None, None, None], 
-                                            np.arange(n_cols)[None, :, None, None], 
-                                            image_peak_pairs_copy]
-    image_peaks_gof[mask] = 0
-    image_peaks_gof = np.mean(image_peaks_gof, axis = -1)
-    image_peaks_gof[image_peaks_gof < 0] = 0
+    if not only_mus:
+        image_peaks_gof = image_peaks_gof[np.arange(n_rows)[:, None, None, None], 
+                                                np.arange(n_cols)[None, :, None, None], 
+                                                image_peak_pairs_copy]
+        image_peaks_gof[mask] = 0
+        image_peaks_gof = np.mean(image_peaks_gof, axis = -1)
+        image_peaks_gof[image_peaks_gof < 0] = 0
 
-    image_direction_sig = (image_rel_amplitudes * weights[0] + image_peaks_gof * weights[1]) / 2
+        image_direction_sig = (image_rel_amplitudes * weights[0] + image_peaks_gof * weights[1]) / 2
+    else:
+        image_direction_sig = image_rel_amplitudes
 
     print("Done")
 
