@@ -179,7 +179,7 @@ def show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distri
 
 
 def plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs = None, only_mus = False,
-                distribution = "wrapped_cauchy", indices = None, data_err = "sqrt(data)"
+                distribution = "wrapped_cauchy", indices = None, data_err = "sqrt(data)",
                 directory = "plots"):
     """
     Plots all the intensity profiles of the pixels of given data.
