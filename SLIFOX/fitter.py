@@ -518,6 +518,7 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
 
     # Ensure no overflow in (subtract) operations happen:
     intensities = intensities.astype(np.int32)
+    intensities_err = intensities_err.astype(np.int32)
 
     min_int = np.min(intensities)
     max_int = np.max(intensities)
@@ -679,7 +680,7 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
     return best_parameters, best_redchi, peaks_mask
 
 def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_nonlinear = True,
-                    threshold = 1000,
+                    threshold = 1000, image_stack_err = "sqrt(image_stack)",
                     n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 5,
                         n_steps_fit = 10, refit_steps = 1,
                         init_fit_filter = None, method = "leastsq", 
@@ -701,6 +702,9 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
     - threshold: int
         Threshold value. If the mean intensity of one pixel is lower than that threshold value,
         the pixel will not be evaluated.
+    - image_stack_err: np.ndarray (n, m, p)
+        The standard deviation (error) of the measured intensities in the image stack.
+        Default options is the sqrt of the intensities.
     - n_steps_height: int
         Number of variations in height to search for best initial guess.
     - n_steps_mu: int
@@ -753,6 +757,8 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
     flattened_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))
     mask = np.mean(flattened_stack, axis = 1) > threshold
     mask_pixels, = mask.nonzero()
+    if isinstance(image_stack_err, np.ndarray):
+        flattened_image_stack_err = image_stack_err.reshape((total_pixels, image_stack_err.shape[2]))
 
     angles = np.linspace(0, 2*np.pi, num=image_stack.shape[2], endpoint = False)
 
@@ -770,8 +776,13 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
         for i in p.range(len(mask_pixels)):
             pixel = mask_pixels[i]
             intensities = flattened_stack[pixel]
-            intensities_err = np.sqrt(intensities)
-            intensities_err[intensities_err == 0] = 1
+            if isinstance(image_stack_err, np.ndarray):
+                intensities_err = flattened_image_stack_err[pixel]
+            elif isinstance(image_stack_err, (int, float)):
+                intensities_err = image_stack_err
+            else:
+                intensities_err = np.ceil(np.sqrt(intensities)).astype(intensities.dtype)
+                intensities_err[intensities_err == 0] = 1
             best_parameters, best_r_chi2, peaks_mask = fit_pixel_stack(angles, intensities, 
                                     intensities_err, 
                                     distribution, n_steps_height, n_steps_mu, n_steps_scale,
@@ -797,8 +808,8 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
     return deflattened_params, deflattened_peaks_mask
 
 
-def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None, 
-                        only_peaks_count = -1, max_peaks = 4,
+def find_image_peaks(image_stack, threshold = 1000, , image_stack_err = "sqrt(image_stack)",
+                        init_fit_filter = None, only_peaks_count = -1, max_peaks = 4,
                         max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
                         num_processes = 2):
@@ -812,6 +823,9 @@ def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None,
     - threshold: int
         Threshold value. If the mean intensity of one pixel is lower than that threshold value,
         the pixel will not be evaluated.
+    - image_stack_err: np.ndarray (n, m, p)
+        The standard deviation (error) of the measured intensities in the image stack.
+        Default options is the sqrt of the intensities.
     - init_fit_filter: None or list
         List that defines which filter to apply before the first fit. 
         This filter will be applied on the intensities before doing anything and
@@ -850,6 +864,8 @@ def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None,
     flattened_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))
     mask = np.mean(flattened_stack, axis = 1) > threshold
     mask_pixels, = mask.nonzero()
+    if isinstance(image_stack_err, np.ndarray):
+        flattened_image_stack_err = image_stack_err.reshape((total_pixels, image_stack_err.shape[2]))
 
     angles = np.linspace(0, 2*np.pi, num=image_stack.shape[2], endpoint=False)
 
@@ -866,7 +882,13 @@ def find_image_peaks(image_stack, threshold = 1000, init_fit_filter = None,
             pixel = mask_pixels[i]
 
             intensities = flattened_stack[pixel]
-            intensities_err = np.sqrt(intensities)
+            if isinstance(image_stack_err, np.ndarray):
+                intensities_err = flattened_image_stack_err[pixel]
+            elif isinstance(image_stack_err, (int, float)):
+                intensities_err = image_stack_err
+            else:
+                intensities_err = np.ceil(np.sqrt(intensities)).astype(intensities.dtype)
+                intensities_err[intensities_err == 0] = 1
 
             peaks_mask, peaks_mus = find_peaks(angles, intensities, intensities_err, 
                             only_peaks_count = only_peaks_count, max_peaks = max_peaks,

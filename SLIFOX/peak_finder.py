@@ -1106,6 +1106,7 @@ def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1, max_
 
     # Ensure no overflow in (subtract) operations happen:
     intensities = intensities.astype(np.int32)
+    intensities_err = intensities_err.astype(np.int32)
 
     min_int = np.min(intensities)
     max_int = np.max(intensities)

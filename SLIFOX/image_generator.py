@@ -179,7 +179,7 @@ def show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distri
 
 
 def plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs = None, only_mus = False,
-                distribution = "wrapped_cauchy", indices = None,
+                distribution = "wrapped_cauchy", indices = None, data_err = "sqrt(data)"
                 directory = "plots"):
     """
     Plots all the intensity profiles of the pixels of given data.
@@ -205,6 +205,9 @@ def plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs = No
         The name of the distribution.
     - indices: np.ndarray (n, m, 2)
         The array storing the x- and y-coordinate of one pixel (if plotted data != full data).
+    - data_err: np.ndarray (n, m, p)
+        The standard deviation (error) of the measured intensities in the image stack.
+        Default options is the sqrt of the intensities.
     - directory: string
         The directory path where the plots should be written to.
     """
@@ -215,10 +218,16 @@ def plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs = No
         for j in range(data.shape[1]):
 
             intensities = data[i, j]
-            intensities_err = np.sqrt(intensities)
+            if isinstance(data_err, np.ndarray):
+                intensities_err = data_err[i, j]
+            elif isinstance(data_err, (int, float)):
+                intensities_err = data_err
+            else:
+                intensities_err = np.ceil(np.sqrt(intensities)).astype(intensities.dtype)
+                intensities_err[intensities_err == 0] = 1
             peaks_mask = image_peaks_mask[i, j]
             num_peaks = np.count_nonzero(np.any(peaks_mask, axis = -1), axis = -1)
-            if num_peaks == 0: continue
+            #if num_peaks == 0: continue
 
             plt.errorbar(angles*180/np.pi, intensities, yerr=intensities_err, marker = "o", 
                             linestyle="", capsize=5, color="black")

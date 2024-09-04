@@ -128,6 +128,9 @@ Fits the data of a full image stack.
 - `threshold`: int  
     Threshold value. If the mean intensity of one pixel is lower than that threshold value,  
     the pixel will not be evaluated.  
+- `image_stack_err`: np.ndarray (n, m, p)
+    The standard deviation (error) of the measured intensities in the image stack.
+    Default options is the sqrt of the intensities.  
 - `n_steps_height`: int  
     Number of variations in height to search for best initial guess.  
 - `n_steps_mu`: int  
@@ -184,6 +187,9 @@ Finds the peaks of an image stack using only the peak finder (no fitting).
 - `threshold`: int  
     Threshold value. If the mean intensity of one pixel is lower than that threshold value,  
     the pixel will not be evaluated.  
+- `image_stack_err`: np.ndarray (n, m, p)
+    The standard deviation (error) of the measured intensities in the image stack.
+    Default options is the sqrt of the intensities. 
 - `init_fit_filter`: None or list  
     List that defines which filter to apply before the first fit.   
     This filter will be applied on the intensities before doing anything and  
