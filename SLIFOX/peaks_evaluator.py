@@ -1077,7 +1077,8 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
     image_distances = -np.ones(mask.shape, dtype = np.float32)
     flat_mask = mask.flatten()
     image_distances = image_distances.flatten()
-    image_distances[flat_mask] = np.abs(angle_distance(sig_image_mus[::2], sig_image_mus[1::2]))
+    sig_image_mus = sig_image_mus.reshape(-1, sig_image_mus.shape[-1])
+    image_distances[flat_mask] = np.abs(angle_distance(sig_image_mus[:, 0], sig_image_mus[:, 1]))
     image_distances = image_distances.reshape(mask.shape)
 
     print("Done")
