@@ -808,7 +808,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
     return deflattened_params, deflattened_peaks_mask
 
 
-def find_image_peaks(image_stack, threshold = 1000, , image_stack_err = "sqrt(image_stack)",
+def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(image_stack)",
                         init_fit_filter = None, only_peaks_count = -1, max_peaks = 4,
                         max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
