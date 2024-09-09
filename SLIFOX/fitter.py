@@ -772,9 +772,13 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
     pbar = tqdm(total = num_tasks, desc = "Processing Pixels", smoothing = 0)
     shared_counter = pymp.shared.array((num_processes, ), dtype = int)
 
+    # Create shuffled indices for evenly distributing the work
+    indices = np.arange(len(mask_pixels))
+    np.random.shuffle(indices)
+
     with pymp.Parallel(num_processes) as p:
         for i in p.range(len(mask_pixels)):
-            pixel = mask_pixels[i]
+            pixel = mask_pixels[indices[i]]
             intensities = flattened_stack[pixel]
             if isinstance(image_stack_err, np.ndarray):
                 intensities_err = flattened_image_stack_err[pixel]
@@ -877,9 +881,13 @@ def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(imag
     pbar = tqdm(total = num_tasks, desc = "Processing Pixels", smoothing = 0)
     shared_counter = pymp.shared.array((num_processes, ), dtype=int)
 
+    # Create shuffled indices for evenly distributing the work
+    indices = np.arange(len(mask_pixels))
+    np.random.shuffle(indices)
+
     with pymp.Parallel(num_processes) as p:
         for i in p.range(len(mask_pixels)):
-            pixel = mask_pixels[i]
+            pixel = mask_pixels[indices[i]]
 
             intensities = flattened_stack[pixel]
             if isinstance(image_stack_err, np.ndarray):
