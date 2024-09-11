@@ -223,7 +223,8 @@ def create_bounds(angles, intensities, intensities_err, distribution,
             intensities_right = peak_intensities[relative_angles >= 0]
             angles_right = peak_angles[relative_angles >= 0]
 
-        local_max_int = peak_intensities[np.argmin(np.abs(relative_angles))]
+        #local_max_int = peak_intensities[np.argmin(np.abs(relative_angles))]
+        local_max_int = np.max(peak_intensities[np.argsort(np.abs(relative_angles))[:2]])
         amplitude = local_max_int - min_int
 
         # Calculate estimate of scale parameter with Half Width at Half Maximum (HWHM)
