@@ -8,7 +8,8 @@ from time import time
 from tqdm import tqdm
 from .filters import apply_filter
 from .wrapped_distributions import distribution_pdf
-from .utils import angle_distance, calculate_chi2, numba_repeat_last_axis, numba_sum_second_last_axis
+from .utils import angle_distance, calculate_chi2, numba_repeat_last_axis, \
+                    numba_sum_second_last_axis, cartesian_product
 from .peak_finder import find_peaks
 
 @njit(cache = True, fastmath = True)
@@ -224,6 +225,7 @@ def create_bounds(angles, intensities, intensities_err, distribution,
             angles_right = peak_angles[relative_angles >= 0]
 
         #local_max_int = peak_intensities[np.argmin(np.abs(relative_angles))]
+        # Use maximum intensity from neighbouring mus around the peak mu
         local_max_int = np.max(peak_intensities[np.argsort(np.abs(relative_angles))[:2]])
         amplitude = local_max_int - min_int
 
@@ -349,8 +351,8 @@ def create_init_guesses(angles, intensities, intensities_err, bounds_min, bounds
             for index_scale, init_scale in enumerate(scale_tests[0]):
                 initial_guess = np.empty(num_parameters)
                 for i in range(n_peaks):
-                    initial_guess[i*3:(i*3+3)] = [height_tests[i][index_height],
-                     mu_tests[i][index_mu], scale_tests[i][index_scale]]
+                    initial_guess[i*3:(i*3+3)] = [height_tests[i, index_height],
+                     mu_tests[i, index_mu], scale_tests[i, index_scale]]
                 initial_guess[num_parameters - 1] = np.min(intensities)
 
                 model_y = full_fitfunction(angles, initial_guess, distribution)
@@ -364,6 +366,74 @@ def create_init_guesses(angles, intensities, intensities_err, bounds_min, bounds
 
     # Pick the best n_steps_fit initial_guesses
     initial_guesses = initial_guesses[:n_steps_fit]
+
+    return initial_guesses
+
+@njit(cache = True, fastmath = True)
+def brute_init_guesses(angles, intensities, intensities_err, 
+                    peaks_mask, bounds_min, bounds_max, distribution,
+                    n_steps_height = 10,  n_steps_mu = 10, n_steps_scale = 5, n_steps_fit = 10,
+                    merged_sum_threshold = 0.2):
+    """
+    Brute force the best initial guess for the fitting process.
+    Old function, normal init creation usually better. 
+    """
+    n_peaks = len(bounds_min) // 3
+
+    num_parameters = len(bounds_min)
+
+    height_tests = np.empty((n_peaks, n_steps_height))
+    mu_tests = np.empty((n_peaks, n_steps_mu))
+    scale_tests = np.empty((n_peaks, n_steps_scale))
+    initial_guesses = np.zeros((n_steps_fit, num_parameters + 1))
+    initial_guesses[:, -1] = np.min(intensities)
+    initial_guesses[:, 0] = np.inf
+    num_inits = 0
+    for i in range(n_peaks):
+        if n_steps_height == 1: 
+            height_tests[i] = np.array([bounds_min[3 * i], bounds_max[3 * i]]).mean()
+        else: 
+            height_tests[i] = np.linspace(bounds_min[3 * i], bounds_max[3 * i], n_steps_height)
+        if n_steps_mu == 1: 
+            mu_tests[i] = np.array([bounds_min[3 * i + 1], bounds_max[3 * i + 1]]).mean()
+        else: 
+            mu_tests[i] = np.linspace(bounds_min[3 * i + 1], bounds_max[3 * i + 1], n_steps_mu)
+        if n_steps_scale == 1: 
+            scale_tests[i] = np.array([bounds_min[3 * i + 2], bounds_max[3 * i + 2]]).mean()
+        else: 
+            scale_tests[i] = np.linspace(bounds_min[3 * i + 2], bounds_max[3 * i + 2], n_steps_scale)
+
+        peak_intensities = intensities[peaks_mask[i]]
+        peak_angles = angles[peaks_mask[i]]
+        highest_chi2_index = np.argmax(initial_guesses[:, 0])
+        highest_chi2 = initial_guesses[highest_chi2_index, 0]
+        lowest_chi2_index = np.argmin(initial_guesses[:, 0])
+        best_guess = np.zeros(num_parameters + 1)
+        best_guess[-1] = np.min(intensities)
+        for init_height in height_tests[i]:
+            for init_mu in mu_tests[i]:
+                for init_scale in scale_tests[i]:
+                    initial_guess = initial_guesses[lowest_chi2_index, 1:]
+                    initial_guess[(3 * i) : (3 * i + 3)] = [init_height, init_mu, init_scale]
+                    model_y = full_fitfunction(peak_angles, initial_guess, distribution)
+                    chi2 = calculate_chi2(model_y, peak_intensities, peak_angles, 
+                                    intensities_err[peaks_mask[i]])
+                    if num_inits < n_steps_fit:
+                        initial_guesses[num_inits, 1:] = initial_guess
+                        initial_guesses[num_inits, 0] = chi2
+                        num_inits += 1
+                        lowest_chi2_index = np.argmin(initial_guesses[:, 0])
+                    elif chi2 < highest_chi2:
+                        initial_guesses[highest_chi2_index, 1:] = initial_guess
+                        initial_guesses[highest_chi2_index, 0] = chi2
+                        highest_chi2_index = np.argmax(initial_guesses[:, 0])
+                        highest_chi2 = initial_guesses[highest_chi2_index, 0]
+                        lowest_chi2_index = np.argmin(initial_guesses[:, 0])
+
+    initial_guesses = initial_guesses[:(num_inits + 1), :]
+
+    # Sort the initial guesses starting with the lowest chi2
+    initial_guesses = initial_guesses[initial_guesses[:, 0].argsort()]
 
     return initial_guesses
 
@@ -449,7 +519,8 @@ def fit_heights_linear(angles, intensities, intensities_err, best_parameters, di
 
 def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrapped_cauchy", 
                     n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 5, 
-                    n_steps_fit = 10, fit_height_nonlinear = True, 
+                    n_steps_fit = 10,
+                    fit_height_nonlinear = True, 
                     refit_steps = 1, init_fit_filter = None,
                     method = "leastsq", only_peaks_count = -1, max_peaks = 4,
                     max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
@@ -551,7 +622,8 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
         else:
             bounds = Bounds(bounds_min, bounds_max)
 
-    initial_guesses = create_init_guesses(angles, intensities, intensities_err, bounds_min, bounds_max,
+    initial_guesses = create_init_guesses(angles, intensities, intensities_err, 
+                                            bounds_min, bounds_max,
                                             distribution, n_steps_height, n_steps_mu, 
                                             n_steps_scale, n_steps_fit)
 
@@ -791,8 +863,10 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
             best_parameters, best_r_chi2, peaks_mask = fit_pixel_stack(angles, intensities, 
                                     intensities_err, 
                                     distribution, n_steps_height, n_steps_mu, n_steps_scale,
-                                    fit_height_nonlinear = fit_height_nonlinear, refit_steps = refit_steps,
-                                    n_steps_fit = n_steps_fit, init_fit_filter = init_fit_filter, 
+                                    fit_height_nonlinear = fit_height_nonlinear, 
+                                    refit_steps = refit_steps,
+                                    n_steps_fit = n_steps_fit,
+                                    init_fit_filter = init_fit_filter, 
                                     method = method, only_peaks_count = only_peaks_count, 
                                     max_peaks = max_peaks,
                                     max_peak_hwhm = max_peak_hwhm, min_peak_hwhm = min_peak_hwhm, 
