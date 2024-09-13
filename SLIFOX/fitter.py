@@ -308,57 +308,44 @@ def create_init_guesses(angles, intensities, intensities_err, bounds_min, bounds
     height_tests = np.empty((n_peaks, n_steps_height))
     mu_tests = np.empty((n_peaks, n_steps_mu))
     scale_tests = np.empty((n_peaks, n_steps_scale))
-    if n_steps_height == 1: 
-        height_tests[0] = np.array([bounds_min[0], bounds_max[0]]).mean()
-    else: 
-        height_tests[0] = np.linspace(bounds_min[0], bounds_max[0], n_steps_height)
-        # Sort the test arrays from the distance of the mean
-        # height_tests[0] = height_tests[0][np.argsort(np.abs(height_tests[0] - height_tests[0].mean()))]
-    if n_steps_mu == 1: 
-        mu_tests[0] = np.array([bounds_min[1], bounds_max[1]]).mean()
-    else: 
-        mu_tests[0] = np.linspace(bounds_min[1], bounds_max[1], n_steps_mu)
-    if n_steps_scale == 1: 
-        scale_tests[0] = np.array([bounds_min[2], bounds_max[2]]).mean()
-    else: 
-        scale_tests[0] = np.linspace(bounds_min[2], bounds_max[2], n_steps_scale)
-
-    # Calculate the relative height between init height and bounds
-    relative_height = (height_tests[0] - bounds_min[0]) / (bounds_max[0] - bounds_min[0])
-    # Calculate the relative mu between init mu and bounds
-    relative_mu = (mu_tests[0] - bounds_min[1]) / (bounds_max[1] - bounds_min[1])
-
-    relative_scale = (scale_tests[0] - bounds_min[2]) / (bounds_max[2] - bounds_min[2])
-
-    # Set other inits (height and mu) regarding the first peak relatives (0.99 to take care of bounds)
-    for i in range(1, n_peaks):
-        height_tests[i] = bounds_min[i*3] + 0.99 * relative_height * (bounds_max[i*3] - bounds_min[i*3])
-        mu_tests[i] = bounds_min[i*3+1] + 0.99 * relative_mu * (bounds_max[i*3+1] - bounds_min[i*3+1])
-        scale_tests[i] = bounds_min[i*3+2] + 0.99 * relative_scale * (bounds_max[i*3+2] - bounds_min[i*3+2])
+    for i in range(n_peaks):
+        if n_steps_height == 1: 
+            height_tests[i] = np.array([bounds_min[3 * i], bounds_max[3 * i]]).mean()
+        else: 
+            height_tests[i] = np.linspace(bounds_min[3 * i], bounds_max[3 * i], n_steps_height)
+            # Sort the test arrays from the distance of the mean
+            # height_tests[0] = height_tests[0][np.argsort(np.abs(height_tests[0] - height_tests[0].mean()))]
+        if n_steps_mu == 1: 
+            mu_tests[i] = np.array([bounds_min[3 * i + 1], bounds_max[3 * i + 1]]).mean()
+        else: 
+            mu_tests[i] = np.linspace(bounds_min[3 * i + 1], bounds_max[3 * i + 1], n_steps_mu)
+        if n_steps_scale == 1: 
+            scale_tests[i] = np.array([bounds_min[3 * i + 2], bounds_max[3 * i + 2]]).mean()
+        else: 
+            scale_tests[i] = np.linspace(bounds_min[3 * i + 2], bounds_max[3 * i + 2], n_steps_scale)
 
     num_parameters = len(bounds_min)
 
     # Create a numpy nd-array
     # First entry of rows are the redchis and the following entries are the params
-    initial_guesses = np.empty((len(height_tests[0]) * len(mu_tests[0]) * len(scale_tests[0]),
-                                     num_parameters + 1))
+    initial_guesses = np.empty((n_steps_height * n_steps_mu * n_steps_scale, num_parameters + 1))
 
     # first index of tests arrays equals the peak index: 0 is the first peak
     # second index of tests arrays indexes the specific init guess
     index = 0
-    for index_height, init_height in enumerate(height_tests[0]):
-        for index_mu, init_mu in enumerate(mu_tests[0]):
-            for index_scale, init_scale in enumerate(scale_tests[0]):
+    for index_height in range(n_steps_height):
+        for index_mu in range(n_steps_mu):
+            for index_scale in range(n_steps_scale):
                 initial_guess = np.empty(num_parameters)
                 for i in range(n_peaks):
                     initial_guess[i*3:(i*3+3)] = [height_tests[i, index_height],
-                     mu_tests[i, index_mu], scale_tests[i, index_scale]]
+                        mu_tests[i, index_mu], scale_tests[i, index_scale]]
                 initial_guess[num_parameters - 1] = np.min(intensities)
 
                 model_y = full_fitfunction(angles, initial_guess, distribution)
-                initial_guesses[index][0] = calculate_chi2(model_y, intensities, angles, 
+                initial_guesses[index, 0] = calculate_chi2(model_y, intensities, angles, 
                                 intensities_err, len(initial_guess))
-                initial_guesses[index][1:] = initial_guess
+                initial_guesses[index, 1:] = initial_guess
                 index += 1
 
     # Sort the initial guesses starting with the lowest chi2
@@ -370,25 +357,23 @@ def create_init_guesses(angles, intensities, intensities_err, bounds_min, bounds
     return initial_guesses
 
 @njit(cache = True, fastmath = True)
-def brute_init_guesses(angles, intensities, intensities_err, 
+def _create_init_guesses_individual(angles, intensities, intensities_err, 
                     peaks_mask, bounds_min, bounds_max, distribution,
                     n_steps_height = 10,  n_steps_mu = 10, n_steps_scale = 5, n_steps_fit = 10,
                     merged_sum_threshold = 0.2):
     """
-    Brute force the best initial guess for the fitting process.
-    Old function, normal init creation usually better. 
+    Create the best initial guess for the fitting process base on individual peak chi2.
+    Not finished function, sometimes buggy. Normal init creation usually enough.
     """
     n_peaks = len(bounds_min) // 3
 
     num_parameters = len(bounds_min)
+    min_int = np.min(intensities)
 
     height_tests = np.empty((n_peaks, n_steps_height))
     mu_tests = np.empty((n_peaks, n_steps_mu))
     scale_tests = np.empty((n_peaks, n_steps_scale))
-    initial_guesses = np.zeros((n_steps_fit, num_parameters + 1))
-    initial_guesses[:, -1] = np.min(intensities)
-    initial_guesses[:, 0] = np.inf
-    num_inits = 0
+    peak_guesses = np.zeros((n_peaks, 3))
     for i in range(n_peaks):
         if n_steps_height == 1: 
             height_tests[i] = np.array([bounds_min[3 * i], bounds_max[3 * i]]).mean()
@@ -405,35 +390,29 @@ def brute_init_guesses(angles, intensities, intensities_err,
 
         peak_intensities = intensities[peaks_mask[i]]
         peak_angles = angles[peaks_mask[i]]
-        highest_chi2_index = np.argmax(initial_guesses[:, 0])
-        highest_chi2 = initial_guesses[highest_chi2_index, 0]
-        lowest_chi2_index = np.argmin(initial_guesses[:, 0])
-        best_guess = np.zeros(num_parameters + 1)
-        best_guess[-1] = np.min(intensities)
+        best_chi2 = np.inf
         for init_height in height_tests[i]:
             for init_mu in mu_tests[i]:
                 for init_scale in scale_tests[i]:
-                    initial_guess = initial_guesses[lowest_chi2_index, 1:]
-                    initial_guess[(3 * i) : (3 * i + 3)] = [init_height, init_mu, init_scale]
+                    #initial_guess = initial_guesses[lowest_chi2_index, 1:]
+                    #initial_guess[(3 * i) : (3 * i + 3)] = [init_height, init_mu, init_scale]
+                    initial_guess = np.array([init_height, init_mu, init_scale])
+                    for j in range(i):
+                        initial_guess = np.concatenate((initial_guess, peak_guesses[j]))
+                    initial_guess = np.append(initial_guess, min_int)
                     model_y = full_fitfunction(peak_angles, initial_guess, distribution)
                     chi2 = calculate_chi2(model_y, peak_intensities, peak_angles, 
                                     intensities_err[peaks_mask[i]])
-                    if num_inits < n_steps_fit:
-                        initial_guesses[num_inits, 1:] = initial_guess
-                        initial_guesses[num_inits, 0] = chi2
-                        num_inits += 1
-                        lowest_chi2_index = np.argmin(initial_guesses[:, 0])
-                    elif chi2 < highest_chi2:
-                        initial_guesses[highest_chi2_index, 1:] = initial_guess
-                        initial_guesses[highest_chi2_index, 0] = chi2
-                        highest_chi2_index = np.argmax(initial_guesses[:, 0])
-                        highest_chi2 = initial_guesses[highest_chi2_index, 0]
-                        lowest_chi2_index = np.argmin(initial_guesses[:, 0])
+                    if chi2 < best_chi2:
+                        best_chi2 = chi2
+                        peak_guesses[i] = [init_height, init_mu, init_scale]
 
-    initial_guesses = initial_guesses[:(num_inits + 1), :]
-
-    # Sort the initial guesses starting with the lowest chi2
-    initial_guesses = initial_guesses[initial_guesses[:, 0].argsort()]
+    initial_guesses = np.empty((n_steps_fit, num_parameters + 1))
+    initial_guesses[:, 1:-1] = peak_guesses.ravel()
+    initial_guesses[:, -1] = min_int
+    model_y = full_fitfunction(angles, initial_guesses[0, 1:], distribution)
+    chi2 = calculate_chi2(model_y, intensities, angles, intensities_err)
+    initial_guesses[:, 0] = chi2
 
     return initial_guesses
 
@@ -622,7 +601,7 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
         else:
             bounds = Bounds(bounds_min, bounds_max)
 
-    initial_guesses = create_init_guesses(angles, intensities, intensities_err, 
+    initial_guesses = create_init_guesses(angles, intensities, intensities_err,
                                             bounds_min, bounds_max,
                                             distribution, n_steps_height, n_steps_mu, 
                                             n_steps_scale, n_steps_fit)
