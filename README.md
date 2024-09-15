@@ -74,6 +74,8 @@ Fits the data of one pixel.
     Number of variations in scale to search for best initial guess.  
 - `n_steps_fit`: int  
     Number of initial guesses to pick for fitting (starting from best inital guesses).  
+- `min_steps_diff`: int
+    Number of the minimum difference between any step (height, mu, scale) of the initial guesses.  
 - `fit_height_nonlinear`: boolean  
     Whether to include the heights in the nonlinear fitting or not.  
 - `refit_steps`: int  
@@ -139,6 +141,8 @@ Fits the data of a full image stack.
     Number of variations in scale to search for best initial guess.  
 - `n_steps_fit`: int  
     Number of initial guesses to pick for fitting (starting from best inital guesses).  
+- `min_steps_diff`: int
+    Number of the minimum difference between any step (height, mu, scale) of the initial guesses.  
 - `refit_steps`: int  
     Number that defines how often the fitting process should be repeated with the result  
     as new initial guess.  
@@ -553,9 +557,10 @@ angles = np.linspace(0, 2*np.pi, num=len(intensities), endpoint=False)
 
 # Fit the pixel
 best_parameters, r_chi2, peaks_mask = fit_pixel_stack(angles, intensities, intensities_err, 
-                                                fit_height_nonlinear = True, refit_steps = 1,
-                                                n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 10,
-                                                n_steps_fit = 10, init_fit_filter = None, 
+                                                fit_height_nonlinear = True,
+                                                n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 10, 
+                                                n_steps_fit = 3, min_steps_diff = 5,
+                                                refit_steps = 0, init_fit_filter = None, 
                                                 method="leastsq", distribution = distribution)
 
 print("Optimized parameters:", best_parameters)
@@ -593,8 +598,9 @@ data, indices = pick_data(data_file_path, dataset_path, area = area, randoms = r
 # Fit the picked data
 image_params, image_peaks_mask = fit_image_stack(data, fit_height_nonlinear = True, 
                                 threshold = 1000, distribution = distribution,
-                                n_steps_fit = 5, n_steps_height = 10, n_steps_mu = 10, 
-                                n_steps_scale = 10, refit_steps = 0, init_fit_filter = None, 
+                                n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 10, 
+                                n_steps_fit = 3, min_steps_diff = 5,
+                                refit_steps = 0, init_fit_filter = None, 
                                 method="leastsq", num_processes = 2)
 
 # Write the output to a HDF5 file
@@ -683,8 +689,9 @@ data, indices = pick_data(data_file_path, dataset_path, area = area, randoms = r
 # Fit the picked data
 image_params, image_peaks_mask = fit_image_stack(data, fit_height_nonlinear = True, 
                                 threshold = 1000, distribution = distribution,
-                                n_steps_fit = 5, n_steps_height = 10, n_steps_mu = 10, 
-                                n_steps_scale = 10, refit_steps = 0, init_fit_filter = None, 
+                                n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 10, 
+                                n_steps_fit = 3, min_steps_diff = 5,
+                                refit_steps = 0, init_fit_filter = None, 
                                 method="leastsq", num_processes = num_processes)
 
 # Optional: Write the output to a HDF5 file

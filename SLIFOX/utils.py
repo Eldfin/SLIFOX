@@ -381,6 +381,84 @@ def set_diff(arr1, arr2):
     result = arr1[mask]
     return result
 
+@njit(cache = True, fastmath = True)
+def merge_similar_rows(array, threshold):
+    """
+    Merged the rows of a two dimensional array if their deviations are below threshold.
+    - Function not used yet, but probably could be used to merge similar init parameters - 
+
+    Parameters:
+    - array: np.ndarray (n, m)
+        The array containing the rows that should be merged
+    - threshold: float (between 0 and 1)
+        Threshold value defining the relative deviation at which rows should be merged.
+
+    Returns:
+    - merged_array: np.ndarray (q, m)
+        The array with the merged rows.
+    """
+    n_rows, n_cols = array.shape
+    merged = np.zeros(n_rows, dtype=np.bool_)
+    merged_array = np.zeros((n_rows, n_cols), dtype=np.float64)
+    count = 0
+
+    for i in range(n_rows):
+        if merged[i]:
+            continue
+        
+        # Initialize the row to be merged
+        current_group = [array[i]]
+        
+        for j in range(i + 1, n_rows):
+            if merged[j]:
+                continue
+            
+            # Check if all deviations are below threshold
+            is_below_threshold = True
+            for k in range(n_cols):
+                deviation = abs(array[i, k] - array[j, k]) / array[i, k]
+                if deviation >= threshold:
+                    is_below_threshold = False
+                    break
+            
+            if is_below_threshold:
+                current_group.append(array[j])
+                merged[j] = True
+        
+        # Compute the mean of the group
+        mean_row = np.zeros(n_cols)
+        for row in current_group:
+            for col in range(n_cols):
+                mean_row[col] += row[col]
+        mean_row /= len(current_group)
+        
+        merged_array[count] = mean_row
+        count += 1
+    
+    return merged_array[:count]
+
+
+@njit(cache = True, fastmath = True)
+def cartesian_product(arrays):
+    # Determine the total number of combinations (like itertools.product but with numba)
+    n = 1
+    for arr in arrays:
+        n *= len(arr)
+    result = np.empty((n, len(arrays)), dtype = arrays.dtype)
+    
+    # Generate the Cartesian product
+    repeats = 1
+    for i, arr in enumerate(arrays):
+        n_elements = len(arr)
+        block_size = n // (n_elements * repeats)
+        
+        for j in range(repeats):
+            for k in range(n_elements):
+                start = j * block_size * n_elements + k * block_size
+                result[start:start + block_size, i] = arr[k]
+        repeats *= n_elements
+    return result
+
 @njit(cache=True, fastmath = True)
 def calculate_chi2(model_y, ydata, xdata, ydata_err, num_params = 0):
     """

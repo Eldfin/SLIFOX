@@ -23,8 +23,9 @@ data, indices = pick_data(data_file_path, dataset_path, area = area, randoms = r
 # Fit the picked data
 image_params, image_peaks_mask = fit_image_stack(data, fit_height_nonlinear = True, 
                                 threshold = 1000, distribution = distribution,
-                                n_steps_fit = 5, n_steps_height = 10, n_steps_mu = 10, 
-                                n_steps_scale = 10, refit_steps = 0, init_fit_filter = None, 
+                                n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 10, 
+                                n_steps_fit = 3, min_steps_diff = 5,
+                                refit_steps = 0, init_fit_filter = None, 
                                 method="leastsq", num_processes = 2)
 
 # Write the output to a HDF5 file

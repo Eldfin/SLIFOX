@@ -27,9 +27,10 @@ angles = np.linspace(0, 2*np.pi, num=len(intensities), endpoint=False)
 
 # Fit the pixel
 best_parameters, r_chi2, peaks_mask = fit_pixel_stack(angles, intensities, intensities_err, 
-                                                fit_height_nonlinear = True, refit_steps = 1,
-                                                n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 10,
-                                                n_steps_fit = 10, init_fit_filter = None, 
+                                                fit_height_nonlinear = True,
+                                                n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 10, 
+                                                n_steps_fit = 3, min_steps_diff = 5,
+                                                refit_steps = 0, init_fit_filter = None, 
                                                 method="leastsq", distribution = distribution)
 
 print("Optimized parameters:", best_parameters)
