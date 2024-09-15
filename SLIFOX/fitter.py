@@ -591,8 +591,6 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
     -------
     - best_parameters: np.ndarray (m, )
         Array which stores the best found parameters.
-    - best_redchi: float
-        Calculated Chi2 of the model with the found parameters and given data.
     - peaks_mask: np.ndarray (n_peaks, n)
         Array that stores the indices of the measurements that corresponds (mainly) to a peak.
     
@@ -706,6 +704,9 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
 
     # Maybe To-Do Idea: If chi2 of peak is bad, add one peak to that peak and fit again
     
+    if refit_steps == 0:
+        return best_parameters, peaks_mask
+
     # Refit mu and scale with updated heights (not refitting height leads to better results)
     best_heights = best_parameters[0:-1:3]
     zero_heights = np.asarray(best_heights < 1).nonzero()[0]
@@ -757,10 +758,10 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
                                                 best_parameters, distribution)
         best_parameters[0::3] = corrected_heights
     
-    model_y = full_fitfunction(angles, best_parameters, distribution)
-    best_redchi = calculate_chi2(model_y, intensities, angles, intensities_err, len(best_parameters))
+    #model_y = full_fitfunction(angles, best_parameters, distribution)
+    #best_redchi = calculate_chi2(model_y, intensities, angles, intensities_err, len(best_parameters))
 
-    return best_parameters, best_redchi, peaks_mask
+    return best_parameters, peaks_mask
 
 def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_nonlinear = True,
                     threshold = 1000, image_stack_err = "sqrt(image_stack)",
@@ -872,7 +873,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
             else:
                 intensities_err = np.ceil(np.sqrt(intensities)).astype(intensities.dtype)
                 intensities_err[intensities_err == 0] = 1
-            best_parameters, best_r_chi2, peaks_mask = fit_pixel_stack(angles, intensities, 
+            best_parameters, peaks_mask = fit_pixel_stack(angles, intensities, 
                                     intensities_err, 
                                     distribution, n_steps_height, n_steps_mu, n_steps_scale,
                                     fit_height_nonlinear = fit_height_nonlinear, 

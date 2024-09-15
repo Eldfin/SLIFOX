@@ -111,8 +111,6 @@ Fits the data of one pixel.
 ##### Returns
 - `best_parameters`: np.ndarray (m, )  
     Array which stores the best found parameters.  
-- `best_redchi`: float  
-    Calculated Chi2 of the model with the found parameters and given data.  
 - `peaks_mask`: np.ndarray (n_peaks, n)  
     Array that stores the indices of the measurements that corresponds (mainly) to a peak.  
 
