@@ -3,6 +3,7 @@ import imageio as io
 from numba import njit, prange
 from matplotlib.colors import hsv_to_rgb, rgb_to_hsv
 import tifffile
+from .utils import imread
 
 # Generate fom in same manner as SLIX
 
@@ -42,7 +43,7 @@ class Colormap:
 def _merge_direction_images(direction_files):
     direction_image = None
     for direction_file in direction_files:
-        single_direction_image = io.imread(direction_file)
+        single_direction_image = imread(direction_file)
         if direction_image is None:
             direction_image = single_direction_image
         else:

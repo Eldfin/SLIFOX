@@ -601,3 +601,23 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
         indices = np.stack((x_indices, y_indices), axis = -1, dtype = np.int64)
 
     return data, indices
+
+
+# Following function is copied from SLIX software:
+# https://github.com/3d-pli/SLIX
+def imread(filepath, dataset="/Image"):
+    # Load NIfTI dataset
+    if filepath.endswith('.nii') or filepath.endswith('.nii.gz'):
+        data = nib.load(filepath).get_fdata()
+        data = np.squeeze(np.swapaxes(data, 0, 1))
+    elif filepath.endswith('.tiff') or filepath.endswith('.tif'):
+        data = tifffile.imread(filepath)
+        #if len(data.shape) == 3:
+        #    data = np.squeeze(np.moveaxis(data, 0, -1))
+    elif filepath.endswith('.h5'):
+        with h5py.File(filepath, "r") as h5f:
+            data = h5f[dataset][:]
+        #if len(data.shape) == 3:
+        #    data = np.squeeze(np.moveaxis(data, 0, -1))
+    
+    return data
