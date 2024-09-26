@@ -616,9 +616,9 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
                     max_peak_hwhm = max_peak_hwhm, min_peak_hwhm = min_peak_hwhm, 
                     mu_range = mu_range, scale_range = scale_range)
 
-    # if no peaks found return params of zeros, np.nan as chi2, zeros as peaks_mask
+    # if no peaks found return params of zeros, zeros as peaks_mask
     if not np.any(peaks_mask):
-        return np.zeros(4), np.nan, np.zeros((1, len(angles)), dtype = np.bool_)
+        return np.zeros(4), np.zeros((1, len(angles)), dtype = np.bool_)
 
     bounds_min, bounds_max = create_bounds(angles, intensities, intensities_err, distribution,
                     peaks_mask, peaks_mus, mu_range, scale_range,
