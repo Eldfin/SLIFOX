@@ -26,7 +26,7 @@ with h5py.File(data_file_path, "r") as h5f:
 angles = np.linspace(0, 2*np.pi, num=len(intensities), endpoint=False)
 
 # Fit the pixel
-best_parameters, r_chi2, peaks_mask = fit_pixel_stack(angles, intensities, intensities_err, 
+best_parameters, peaks_mask = fit_pixel_stack(angles, intensities, intensities_err, 
                                                 fit_height_nonlinear = True,
                                                 n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 10, 
                                                 n_steps_fit = 3, min_steps_diff = 5,
@@ -34,7 +34,6 @@ best_parameters, r_chi2, peaks_mask = fit_pixel_stack(angles, intensities, inten
                                                 method="leastsq", distribution = distribution)
 
 print("Optimized parameters:", best_parameters)
-print("r_chi2: ", r_chi2)
 
 # Show the pixel
 show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distribution)
