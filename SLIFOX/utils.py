@@ -2,6 +2,7 @@ import numpy as np
 import h5py
 from numba import njit
 import nibabel as nib
+import tifffile
 
 @njit(cache = True, fastmath = True)
 def angle_distance(angle1, angle2):
