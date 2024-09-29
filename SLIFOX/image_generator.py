@@ -161,7 +161,7 @@ def show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distri
     peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
 
     plt.errorbar(angles*180/np.pi, intensities, yerr=intensities_err, marker = "o", linestyle="", capsize=5)
-    plt.xlabel("Angle")
+    plt.xlabel("Angle / $\degree$")
     plt.ylabel("Intensity")
 
     x_f = np.linspace(0, 2*np.pi, 2000, endpoint=False)

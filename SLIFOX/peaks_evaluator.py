@@ -48,6 +48,7 @@ def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2"):
         # replace zeros in ss_tot with np.inf for division
         #ss_tot = np.where(ss_tot == 0, np.inf, ss_tot)
         #peaks_gof = np.where(valid_peaks, 1 - ss_res / ss_tot, 0)
+        ss_tot[ss_tot == 0] = 1
         
         peaks_gof[valid_peaks] = 1 - ss_res[valid_peaks] / ss_tot[valid_peaks]
         peaks_gof = np.where(peaks_gof < 0, 0, peaks_gof)
