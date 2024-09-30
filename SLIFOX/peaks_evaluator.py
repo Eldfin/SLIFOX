@@ -127,82 +127,6 @@ def calculate_image_peaks_gof(image_stack, image_model_y, peaks_mask, method = "
 
     return peaks_gof
 
-def _find_closest_true_pixel_new(mask, start_pixel, radius):
-    """
-    Finds the closest true pixel for a given 2D-mask and a start_pixel, within a given radius.
-
-    Parameters:
-    - mask: np.ndarray (n, m)
-        The boolean mask defining which pixels are False or True.
-    - start_pixel: tuple
-        The x- and y-coordinates of the start_pixel.
-    - radius: int
-        The radius within which to search for the closest true pixel.
-
-    Returns:
-    - closest_true_pixel: tuple
-        The x- and y-coordinates of the closest true pixel, 
-        or (-1, -1) if no true pixel is found within the radius.
-    """
-    # Step 1: Get the coordinates of all True pixels in the mask
-    true_pixel_coords = np.argwhere(mask)
-    
-    # If there are no true pixels, return (-1, -1)
-    if true_pixel_coords.size == 0:
-        return (-1, -1)
-
-    # Step 2: Build KDTree for the True pixels
-    tree = KDTree(true_pixel_coords)
-
-    # Step 3: Query the tree for the closest pixel within the radius
-    dist, idx = tree.query(start_pixel, distance_upper_bound=radius)
-    
-    # Step 4: If a valid pixel is found (distance is finite), return its coordinates
-    if np.isinf(dist):
-        return (-1, -1)
-    else:
-        return tuple(true_pixel_coords[idx])
-
-def _find_closest_true_pixel(mask, start_pixel, radius):
-    """
-    Finds the closest true pixel for a given 2d-mask and a start_pixel within a given radius.
-
-    Parameters:
-    - mask: np.ndarray (n, m)
-        The boolean mask defining which pixels are False or True.
-    - start_pixel: tuple
-        The x- and y-coordinates of the start_pixel.
-    - radius: int
-        The radius within which to search for the closest true pixel.
-
-    Returns:
-    - closest_true_pixel: tuple
-        The x- and y-coordinates of the closest true pixel, or (-1, -1) if no true pixel is found.
-    """
-    rows, cols = mask.shape
-    sr, sc = start_pixel
-
-    visited = np.zeros_like(mask, dtype=bool)
-    queue = deque([(sr, sc)])
-    visited[sr, sc] = True
-
-    while queue:
-        r, c = queue.popleft()
-
-        if mask[r, c]:
-            return (r, c)
-
-        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            nr, nc = r + dr, c + dc
-
-            if 0 <= nr < rows and 0 <= nc < cols and not visited[nr, nc]:
-                if abs(nr - sr) <= radius and abs(nc - sc) <= radius:
-                    visited[nr, nc] = True
-                    queue.append((nr, nc))
-
-    # When no true pixel in the mask within the radius, return (-1, -1)
-    return (-1, -1)
-
 def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distance = 20,
                             distribution = "wrapped_cauchy", only_mus = False, num_processes = 2,
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
@@ -318,7 +242,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
         if indices.size == 0: continue
         no_processed = True
         if i != 2:
-            processed_mask = (image_num_peaks in iteration_list[:iteration_index])
+            processed_mask = np.isin(image_num_peaks, iteration_list[:iteration_index])
             processed_indices = np.argwhere(processed_mask)
             if processed_indices.size != 0:
                 tree = KDTree(processed_indices)
@@ -430,11 +354,19 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                     direction_found_mask[x, y] = True
                     continue
 
-                check_pixels = np.copy(direction_found_mask)
+                current_pixel = np.array([x, y])
+                neighbour_pixels = np.argwhere(direction_found_mask)
+                tree = KDTree(neighbour_pixels)
                 num_best_combs = num_sig_combs
                 matched_dir_mask = np.zeros(direction_combs.shape, dtype = np.bool_)
-                for attempt in range(num_attempts):
-                    neighbour_x, neighbour_y = _find_closest_true_pixel(check_pixels, (x, y), search_radius)
+
+                neighbour_distances, neighbour_indices = tree.query(np.array([x, y]), num_attempts, 
+                                                    distance_upper_bound = search_radius)
+
+                for neighbour_index in neighbour_indices:
+                    neighbour_pixel = neighbour_pixels[neighbour_index]
+                    neighbour_x, neighbour_y = neighbour_pixel
+
                     if neighbour_x == -1 and neighbour_y == -1:
                         # When no true pixel within radius: return no pairs
                         #image_peak_pair_combs[x, y] = np.array([[[-1, -1]]])
@@ -463,8 +395,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                                                     > significance_threshold]
 
                     if len(neighbour_directions) == 0:
-                        check_pixels[neighbour_x, neighbour_y] = False
-                        if attempt == num_attempts - 1 or not np.any(check_pixels):
+                        if neighbour_index == neighbour_indices[-1]:
                             # When no neighbouring pixel within num_attempts had
                             # a direction difference below the threshold
                             # return no peak pairs
@@ -523,8 +454,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                         else:
                             continue
                     else:
-                        check_pixels[neighbour_x, neighbour_y] = False
-                        if attempt == num_attempts - 1 or not np.any(check_pixels):
+                        if neighbour_index == neighbour_indices[-1]:
                             # When no neighbouring pixel within num_attempts had
                             # a direction difference below the threshold
                             # return no peak pairs
