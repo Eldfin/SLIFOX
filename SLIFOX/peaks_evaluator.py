@@ -363,11 +363,11 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                 neighbour_distances, neighbour_indices = tree.query(np.array([x, y]), max_attempts, 
                                                     distance_upper_bound = search_radius)
 
-                for neighbour_index in neighbour_indices:
+                for attempt, neighbour_index in enumerate(neighbour_indices):
                     neighbour_pixel = neighbour_pixels[neighbour_index]
                     neighbour_x, neighbour_y = neighbour_pixel
 
-                    if neighbour_x == -1 and neighbour_y == -1:
+                    if np.isinf(neighbour_distances[attempt]):
                         # When no true pixel within radius: return no pairs
                         #image_peak_pair_combs[x, y] = np.array([[[-1, -1]]])
                         break
