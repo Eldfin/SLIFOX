@@ -5,7 +5,7 @@ import nibabel as nib
 import tifffile
 
 @njit(cache = True, fastmath = True)
-def angle_distance(angle1, angle2):
+def angle_distance(angle1, angle2, wrap = 2*np.pi):
     """
     Calculates the circular distance between two angles.
 
@@ -23,10 +23,10 @@ def angle_distance(angle1, angle2):
     diff = angle2 - angle1
     
     # Calculate the shortest distance considering the cyclic nature
-    distance = (diff + np.pi) % (2*np.pi) - np.pi
+    distance = (diff + wrap / 2) % wrap - wrap / 2
     
     return distance
-
+    
 # Define function like numpy.sum with parameter axis = -1 for use with numba
 @njit(cache = True, fastmath = True)
 def numba_sum_last_axis(arr):

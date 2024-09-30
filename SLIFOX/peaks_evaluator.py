@@ -345,17 +345,22 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                     directions = peak_pairs_to_directions(peak_pairs, mus)
                     # Filter directions with low significance out
                     directions = directions[significances > significance_threshold]
-                    direction_combs[k, :len(directions)] = directions
-
+                
                     # If any differences between directions are below 30 degree,
                     # its not a valid peak pair combination
                     #differences = np.abs(directions[:, np.newaxis] - directions)
                     #differences = differences[differences != 0]
                     if len(directions) > 1:
-                        differences = np.abs(np.diff(directions, append = directions[0]))
+                        # Calculate the differences between every directions
+                        differences = np.abs(angle_distance(directions[:, np.newaxis], 
+                                                directions[np.newaxis, :], wrap = np.pi))
+                        differences = differences[np.triu_indices(len(directions), k=1)]
+
                         if np.any(differences < min_directions_diff * np.pi / 180):
                             valid_combs[k] = False
                             continue
+
+                    direction_combs[k, :len(directions)] = directions
 
                 if not np.any(valid_combs):
                     continue
@@ -851,8 +856,6 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
         image_model_y = full_fitfunction(angles, image_params, distribution)
         image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, image_peaks_mask, method = "r2")
 
-        # Filtering with threshold kinda unnecessary since it is already done in
-        # the calculation of image_peak_pairs
         image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
                                     & (image_rel_amplitudes > rel_amplitude_threshold)
                                     & (image_peaks_gof > gof_threshold))
