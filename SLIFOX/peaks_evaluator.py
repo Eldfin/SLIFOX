@@ -130,7 +130,7 @@ def calculate_image_peaks_gof(image_stack, image_model_y, peaks_mask, method = "
 import numpy as np
 from scipy.spatial import KDTree
 
-def find_closest_true_pixel(mask, start_pixel, radius):
+def _find_closest_true_pixel(mask, start_pixel, radius):
     """
     Finds the closest true pixel for a given 2D-mask and a start_pixel, within a given radius.
 
