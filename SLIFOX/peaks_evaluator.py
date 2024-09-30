@@ -132,7 +132,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, significance_threshold = 0.3, 
                             significance_weights = [1, 1],
-                            angle_threshold = 20, num_attempts = 10000, 
+                            angle_threshold = 20, max_attempts = 1000, 
                             search_radius = 50, min_directions_diff = 20):
     """
     Finds all the peak_pairs for a whole image stack and sorts them by comparing with neighbour pixels.
@@ -176,7 +176,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
         See also "direction_significance" function for more info.
     - angle_threshold: float
         Threshold in degrees defining when a neighbouring pixel direction is considered as same nerve fiber.
-    - num_attempts: int
+    - max_attempts: int
         Number defining how many times it should be attempted to find a neighbouring pixel within
         the given "angle_threshold".
     - search_radius: int
@@ -360,7 +360,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                 num_best_combs = num_sig_combs
                 matched_dir_mask = np.zeros(direction_combs.shape, dtype = np.bool_)
 
-                neighbour_distances, neighbour_indices = tree.query(np.array([x, y]), num_attempts, 
+                neighbour_distances, neighbour_indices = tree.query(np.array([x, y]), max_attempts, 
                                                     distance_upper_bound = search_radius)
 
                 for neighbour_index in neighbour_indices:
@@ -396,7 +396,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
                     if len(neighbour_directions) == 0:
                         if neighbour_index == neighbour_indices[-1]:
-                            # When no neighbouring pixel within num_attempts had
+                            # When no neighbouring pixel within max_attempts had
                             # a direction difference below the threshold
                             # return no peak pairs
                             image_peak_pair_combs[x, y] = np.array([[[-1, -1]]])
@@ -455,7 +455,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             continue
                     else:
                         if neighbour_index == neighbour_indices[-1]:
-                            # When no neighbouring pixel within num_attempts had
+                            # When no neighbouring pixel within max_attempts had
                             # a direction difference below the threshold
                             # return no peak pairs
                             image_peak_pair_combs[x, y] = np.array([[[-1, -1]]])

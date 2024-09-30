@@ -287,7 +287,7 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
     See also "direction_significance" function for more info.
 - `angle_threshold`: float
     Threshold defining when a neighbouring pixel direction is considered as same nerve fiber.
-- `num_attempts`: int
+- `max_attempts`: int
     Number defining how many times it should be attempted to find a neighbouring pixel within
     the given "angle_threshold".
 - `search_radius`: int
@@ -711,7 +711,7 @@ image_peak_pairs = get_image_peak_pairs(data, image_params, image_peaks_mask, mi
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
                             gof_threshold = 0.5, significance_threshold = 0.3, 
                             significance_weights = [1, 1], angle_threshold = 20, 
-                            num_attempts = 100000, search_radius = 50)
+                            max_attempts = 1000, search_radius = 50)
 
 # Use best pairs of all possible pairs
 best_image_peak_pairs = image_peak_pairs[:, :, 0, :, :]
