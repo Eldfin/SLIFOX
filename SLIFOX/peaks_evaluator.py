@@ -4,6 +4,7 @@ from numba import njit, prange
 from .fitter import full_fitfunction, angle_distance
 from .wrapped_distributions import distribution_pdf, wrapped_cauchy_pdf
 from collections import deque
+from scipy.spatial import KDTree
 import os
 import imageio
 import pymp
@@ -126,7 +127,46 @@ def calculate_image_peaks_gof(image_stack, image_model_y, peaks_mask, method = "
 
     return peaks_gof
 
-def _find_closest_true_pixel(mask, start_pixel, radius):
+import numpy as np
+from scipy.spatial import KDTree
+
+def find_closest_true_pixel(mask, start_pixel, radius):
+    """
+    Finds the closest true pixel for a given 2D-mask and a start_pixel, within a given radius.
+
+    Parameters:
+    - mask: np.ndarray (n, m)
+        The boolean mask defining which pixels are False or True.
+    - start_pixel: tuple
+        The x- and y-coordinates of the start_pixel.
+    - radius: int
+        The radius within which to search for the closest true pixel.
+
+    Returns:
+    - closest_true_pixel: tuple
+        The x- and y-coordinates of the closest true pixel, 
+        or (-1, -1) if no true pixel is found within the radius.
+    """
+    # Step 1: Get the coordinates of all True pixels in the mask
+    true_pixel_coords = np.argwhere(mask)
+    
+    # If there are no true pixels, return (-1, -1)
+    if true_pixel_coords.size == 0:
+        return (-1, -1)
+
+    # Step 2: Build KDTree for the True pixels
+    tree = KDTree(true_pixel_coords)
+
+    # Step 3: Query the tree for the closest pixel within the radius
+    dist, idx = tree.query(start_pixel, distance_upper_bound=radius)
+    
+    # Step 4: If a valid pixel is found (distance is finite), return its coordinates
+    if np.isinf(dist):
+        return (-1, -1)
+    else:
+        return tuple(true_pixel_coords[idx])
+
+def _find_closest_true_pixel_old(mask, start_pixel, radius):
     """
     Finds the closest true pixel for a given 2d-mask and a start_pixel within a given radius.
 
@@ -271,15 +311,26 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
     # iterate from 2 to max_peaks and 1, 0 at last
     iteration_list = np.append(np.arange(2, max_peaks + 1), [1, 0])
-    for i in iteration_list:
+    for iteration_index, i in enumerate(iteration_list):
         mask = (image_num_peaks == i)
         peak_pairs_combinations = possible_pairs(i)
         num_combs = peak_pairs_combinations.shape[0]
-        indices = mask.nonzero()
+        indices = np.argwhere(mask)
         num_pixels_iteration = np.count_nonzero(mask)
-        # Initialize the progress bar
+
+        if indices.size == 0: continue
+        no_processed = True
         if i != 2:
+            processed_mask = (image_num_peaks in iteration_list[:iteration_index])
+            processed_indices = np.argwhere(processed_mask)
+            if processed_indices.size != 0:
+                tree = KDTree(processed_indices)
+                distances, _ = tree.query(indices)
+                sorted_indices = np.argsort(distances)
+                no_processed = False
             pbar.close()
+
+        # Initialize the progress bar
         pbar = tqdm(total = num_pixels_iteration, 
                     desc = f'Calculating Peak pairs for {i} Peaks',
                     smoothing = 0)
@@ -287,7 +338,12 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
         with pymp.Parallel(num_processes) as p:
             for j in p.range(num_pixels_iteration):
-                x, y = indices[0][j], indices[1][j]
+                if i == 2 or no_processed:
+                    index = j
+                else:
+                    index = sorted_indices[j]
+                
+                x, y = indices[index, 0], indices[index, 1]
                 sig_peak_indices = sig_image_peaks_mask[x, y].nonzero()[0]
 
                 # Update progress bar
