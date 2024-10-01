@@ -402,7 +402,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                         # Filter directions with low significance out
                         directions = directions[significances > significance_threshold]
                     
-                        # If any differences between directions are below 30 degree,
+                        # If any differences between directions are below min_directions_diff,
                         # its not a valid peak pair combination
                         #differences = np.abs(directions[:, np.newaxis] - directions)
                         #differences = differences[differences != 0]
@@ -435,7 +435,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
                     check_mask = np.copy(direction_found_mask)
                     num_best_combs = num_sig_combs
-                    matched_dir_mask = np.zeros(direction_combs.shape, dtype = np.bool_)
+                    unmatched_dir_mask = np.ones(direction_combs.shape, dtype = np.bool_)
                     for attempt in range(max_attempts):
                         neighbour_x, neighbour_y = _find_closest_true_pixel(check_mask, (x, y), search_radius)
                         if neighbour_x == -1 and neighbour_y == -1:
@@ -480,7 +480,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                         no_directions = False
                         for k in range(num_best_combs):
                             directions = direction_combs[k]
-                            directions = directions[matched_dir_mask[k]]
+                            directions = directions[unmatched_dir_mask[k]]
                             directions = directions[directions != -1]
 
                             if len(directions) == 0:
@@ -509,12 +509,12 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             sort_indices = np.argsort(direction_diffs)
                             sig_peak_pair_combs[:num_best_combs] = sig_peak_pair_combs[sort_indices]
                             direction_combs[:num_best_combs] = direction_combs[sort_indices]
-                            matched_dir_mask[:num_best_combs] = matched_dir_mask[sort_indices]
+                            unmatched_dir_mask[:num_best_combs] = unmatched_dir_mask[sort_indices]
                             old_num_best_combs = num_best_combs
                             num_best_combs = np.sum(direction_diffs == np.min(direction_diffs))
                             best_dir_indices = dir_diff_indices[sort_indices[:num_best_combs]]
                             for k in range(num_best_combs):
-                                matched_dir_mask[k, best_dir_indices[k]] = True
+                                unmatched_dir_mask[k, best_dir_indices[k]] = False
 
                             direction_combs = direction_combs[:num_best_combs]
                             if num_best_combs == 1 or num_best_combs == old_num_best_combs:
@@ -799,12 +799,12 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
         Defines if only the mus are given in the params.
 
     Returns:
-    - image_significances: np.ndarray (np.ceil(m / 2), )
+    - significances: np.ndarray (np.ceil(m / 2), )
         The calculated significance for every direction (peak-pair) ranging from 0 to 1.
     """
     global_amplitude = np.max(intensities) - np.min(intensities)
     num_directions = peak_pairs.shape[0]
-    image_significances = np.zeros(num_directions)
+    significances = np.zeros(num_directions)
 
     if only_mus:
         # If only mus are provided, just use amplitude significance
@@ -819,9 +819,9 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
             peak_pair = peak_pairs[i]
             indices = peak_pair[peak_pair != -1]
             if len(indices) == 0: continue
-            image_significances[i] = np.mean(amplitudes[indices] / global_amplitude)
+            significances[i] = np.mean(amplitudes[indices] / global_amplitude)
         
-        return image_significances
+        return significances
     
     model_y = full_fitfunction(angles, params, distribution)
     peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
@@ -845,9 +845,9 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
             amplitude_significance = np.mean(amplitudes / global_amplitude)
             gof_significance = np.mean(peaks_gof[peak_pair])
 
-        image_significances[i] = (amplitude_significance * weights[0] + gof_significance * weights[1]) / 2
+        significances[i] = (amplitude_significance * weights[0] + gof_significance * weights[1]) / 2
 
-    return image_significances
+    return significances
 
 def get_image_direction_significances(image_stack, image_peak_pairs, image_params, image_peaks_mask, 
                             distribution = "wrapped_cauchy", 
@@ -935,7 +935,7 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
     mask = (image_peak_pairs_copy != -1)
     image_peak_pairs_copy[mask] = image_peak_pairs_copy[mask[:, :, :, ::-1]]
 
-    # Convert image_peak_pars array values into relative amplitude values
+    # Convert image_peak_pairs array values into relative amplitude values
     image_rel_amplitudes = image_rel_amplitudes[np.arange(n_rows)[:, None, None, None], 
                                             np.arange(n_cols)[None, :, None, None], 
                                             image_peak_pairs_copy]
@@ -999,8 +999,6 @@ def peak_significances(intensities, angles, params, peaks_mask, distribution, on
     significances = (rel_amplitudes * significance_weights[0] + peaks_gof * significance_weights[1]) / 2
 
     return significances
-
-    return image_num_peaks, image_used_peaks_mask
 
 #@njit(cache = True, fastmath = True)
 def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
