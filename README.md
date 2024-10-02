@@ -278,6 +278,15 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
     Defines if only the mus (for every pixel) are given in the image_params.
 - `num_processes`: int
     Defines the number of processes to split the task into.
+- `amplitude_threshold`: float
+    Peaks with a amplitude below this threshold will not be evaluated.
+- `rel_amplitude_threshold`: float
+    Value between 0 and 1.
+    Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
+    this threshold will not be evaluated.
+- `gof_threshold`: float
+    Value between 0 and 1.
+    Peaks with a goodness-of-fit value below this threshold will not be evaluated.
 - `significance_threshold`: float
     Value between 0 and 1. Peak Pairs with peaks that have a (mean) significance
     lower than this threshold are not considered for possible pairs.
@@ -292,6 +301,16 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
     the given "angle_threshold".
 - `search_radius`: int
     The radius within which to search for the closest pixel with a defined direction.
+- `min_directions_diff`: float
+    Value between 0 and 180.
+    If any difference between directions of a peak pair is lower than this value,
+    then this peak pair combination is not considered.
+- `exclude_lone_peaks`: bool
+    Whether to exclude lone peaks when calculating the directions for comparison.
+    Since lone peak directions have a high probability to be incorrect, due to an 
+    unfound peak, this value should normally stay True. This is just for the 
+    comparing process, so lone peaks will still be visible in the returned peak pairs 
+    with with a pair like e.g. [2, -1] for the second peak index.
 
 ##### Returns
 - `image_peak_pairs`: np.ndarray (n, m, p, np.ceil(max_peaks / 2), 2)

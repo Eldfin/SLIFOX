@@ -209,7 +209,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             gof_threshold = 0.5, significance_threshold = 0.3, 
                             significance_weights = [1, 1],
                             angle_threshold = 20, max_attempts = 10000, 
-                            search_radius = 50, min_directions_diff = 20):
+                            search_radius = 50, min_directions_diff = 20, exclude_lone_peaks = True):
     """
     Finds all the peak_pairs for a whole image stack and sorts them by comparing with neighbour pixels.
 
@@ -261,6 +261,12 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
         Value between 0 and 180.
         If any difference between directions of a peak pair is lower than this value,
         then this peak pair combination is not considered.
+    - exclude_lone_peaks: bool
+        Whether to exclude lone peaks when calculating the directions for comparison.
+        Since lone peak directions have a high probability to be incorrect, due to an 
+        unfound peak, this value should normally stay True. This is just for the 
+        comparing process, so lone peaks will still be visible in the returned peak pairs 
+        with with a pair like e.g. [2, -1] for the second peak index.
 
     Returns:
     - image_peak_pair_combs: np.ndarray (n, m, p, np.ceil(max_peaks / 2), 2)
@@ -398,7 +404,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             valid_combs[k] = False
                             continue
 
-                        directions = peak_pairs_to_directions(peak_pairs, mus)
+                        directions = peak_pairs_to_directions(peak_pairs, mus, 
+                                                            exclude_lone_peaks = exclude_lone_peaks)
                         # Filter directions with low significance out
                         directions = directions[significances > significance_threshold]
                     
@@ -454,7 +461,9 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
                         #To-Do: Filter neighbour peaks with amplitude and gof threshold
 
-                        neighbour_directions = peak_pairs_to_directions(neighbour_peak_pairs, neighbour_mus)
+                        neighbour_directions = peak_pairs_to_directions(neighbour_peak_pairs, 
+                                            neighbour_mus, 
+                                            exclude_lone_peaks = exclude_lone_peaks)
 
                         neighbour_significances = direction_significances(neighbour_peak_pairs, 
                                     neighbour_params, neighbour_peaks_mask, 
