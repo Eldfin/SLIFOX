@@ -161,8 +161,8 @@ def show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distri
     peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
 
     plt.errorbar(angles*180/np.pi, intensities, yerr=intensities_err, marker = "o", linestyle="", capsize=5)
-    plt.xlabel("Angle / $\degree$")
-    plt.ylabel("Intensity")
+    plt.xlabel("Angle / $^\\circ$", fontsize = 12)
+    plt.ylabel("Intensity", fontsize = 12)
 
     x_f = np.linspace(0, 2*np.pi, 2000, endpoint=False)
     y_f = full_fitfunction(x_f, best_parameters, distribution)
@@ -555,10 +555,8 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1,
     image_directions = calculate_directions(image_peak_pairs, image_mus, only_peaks_count = only_peaks_count)
 
     # Apply significance threshold filter if given
-    filtered = False
     if isinstance(image_direction_sig, np.ndarray) and significance_threshold > 0:
         image_directions[image_direction_sig < significance_threshold] = -1
-        filtered = True
 
     if directory != None:
         if not os.path.exists(directory):
@@ -567,8 +565,6 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1,
         image_directions[image_directions != -1] = image_directions[image_directions != -1] * 180 / np.pi
         for dir_n in range(image_directions.shape[-1]):
             filepath = f'{directory}/dir_{dir_n + 1}.tiff'
-            if filtered:
-                filepath = f'{directory}/dir_{dir_n + 1}_filtered.tiff'
             imageio.imwrite(filepath, np.swapaxes(image_directions[:, :, dir_n], 0, 1))
 
     return image_directions
