@@ -924,15 +924,15 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
         image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
                                     & (image_rel_amplitudes > rel_amplitude_threshold))
     
-    # Set unvalid values to -1, so the calculated mean later cant be greater than 0
-    image_rel_amplitudes[~image_valid_peaks_mask] = -1
+    # Set unvalid values to -2, so the calculated mean later cant be greater than 0
+    image_rel_amplitudes[~image_valid_peaks_mask] = -2
     if not only_mus:
-        image_peaks_gof[~image_valid_peaks_mask] = -1
+        image_peaks_gof[~image_valid_peaks_mask] = -2
 
     # Replace -1 values in the peak pairs array with duplicates of the other index
     # e.g. [2, -1] is replaced with [2, 2]
     image_peak_pairs_copy = np.copy(image_peak_pairs)
-    mask = (image_peak_pairs_copy != -1)
+    mask = (image_peak_pairs_copy == -1)
     image_peak_pairs_copy[mask] = image_peak_pairs_copy[mask[:, :, :, ::-1]]
 
     # Convert image_peak_pairs array values into relative amplitude values
