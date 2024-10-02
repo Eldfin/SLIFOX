@@ -408,6 +408,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                                             exclude_lone_peaks = exclude_lone_peaks)
                         # Filter directions with low significance out
                         directions = directions[significances > significance_threshold]
+
+                        directions = directions[directions != -1]
                     
                         # If any differences between directions are below min_directions_diff,
                         # its not a valid peak pair combination
@@ -422,6 +424,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             if np.any(differences < min_directions_diff * np.pi / 180):
                                 valid_combs[k] = False
                                 continue
+                        elif len(directions) == 0:
+                            valid_combs[k] = False
 
                         direction_combs[k, :len(directions)] = directions
 
@@ -444,7 +448,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                     num_best_combs = num_sig_combs
                     unmatched_dir_mask = np.ones(direction_combs.shape, dtype = np.bool_)
                     for attempt in range(max_attempts):
-                        neighbour_x, neighbour_y = _find_closest_true_pixel(check_mask, (x, y), search_radius)
+                        neighbour_x, neighbour_y = _find_closest_true_pixel(check_mask, (x, y), 
+                                                                        search_radius)
                         if neighbour_x == -1 and neighbour_y == -1:
                             # When no true pixel within radius: return no pairs
                             #image_peak_pair_combs[x, y] = np.array([[[-1, -1]]])
@@ -473,6 +478,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                         # Filter neighbour directions with low significance out
                         neighbour_directions = neighbour_directions[neighbour_significances
                                                                         > significance_threshold]
+
+                        neighbour_directions = neighbour_directions[neighbour_directions != -1]
 
                         if len(neighbour_directions) == 0:
                             check_mask[neighbour_x, neighbour_y] = False
