@@ -537,7 +537,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
     return image_peak_pair_combs
 
 @njit(cache = True, fastmath = True)
-def peak_pairs_to_directions(peak_pairs, mus):
+def peak_pairs_to_directions(peak_pairs, mus, exclude_lone_peaks = True):
     """
     Calculates the directions from given peak_pairs of a pixel.
 
@@ -549,6 +549,9 @@ def peak_pairs_to_directions(peak_pairs, mus):
         is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
     - mus: np.ndarray (m, )
         The center positions of the peaks.
+    - exclude_lone_peaks: bool
+        Whether to exclude the directions for lone peaks 
+        (for peak pairs with only one number unequal -1 e.g. [2, -1]).
 
     Returns:
     - directions: np.ndarray (m // 2, )
@@ -561,7 +564,10 @@ def peak_pairs_to_directions(peak_pairs, mus):
             direction = -1
         elif pair[0] == -1 or pair[1] == -1:
             # One peak direction
-            direction = mus[pair[pair != -1][0]] % (np.pi)
+            if exclude_lone_peaks:
+                direction = -1
+            else:
+                direction = mus[pair[pair != -1][0]] % (np.pi)
         else:
             # Two peak direction
             distance = angle_distance(mus[pair[0]], mus[pair[1]])
@@ -599,7 +605,7 @@ def peak_pairs_to_inclinations(peak_pairs, mus):
 
     return inclinations
 
-def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1):
+def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exclude_lone_peaks = True):
     """
     Calculates the directions from given image_peak_pairs.
 
@@ -617,6 +623,9 @@ def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1):
     - only_peaks_count: int (or list of ints)
         Defines a filter for the number of peaks, so that only pixels will be processed that have
         this number of peaks.
+    - exclude_lone_peaks: bool
+        Whether to exclude the directions for lone peaks 
+        (for peak pairs with only one number unequal -1 e.g. [2, -1]).
 
     Returns:
     - image_directions: (n, m, np.ceil(max_peaks / 2))
@@ -638,7 +647,8 @@ def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1):
                 else:
                     if num_peaks != only_peaks_count: continue
             
-            image_directions[x, y] = peak_pairs_to_directions(image_peak_pairs[x, y], image_mus[x, y])
+            image_directions[x, y] = peak_pairs_to_directions(image_peak_pairs[x, y], image_mus[x, y],
+                                                                exclude_lone_peaks = exclude_lone_peaks)
 
     print("Done")
 

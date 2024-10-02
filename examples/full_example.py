@@ -67,7 +67,8 @@ best_image_peak_pairs = image_peak_pairs[:, :, 0, :, :]
 
 # Calculate the nerve fiber directions and save direction map in directory
 image_mus = image_params[:, :, 1::3]
-image_directions = map_directions(best_image_peak_pairs, image_mus, directory = "maps")
+image_directions = map_directions(best_image_peak_pairs, image_mus, directory = "maps",
+                                    exclude_lone_peaks = True)
 
 # Map the significance of the directions
 image_direction_sig = map_direction_significances(data, best_image_peak_pairs, image_params, 
@@ -76,7 +77,7 @@ image_direction_sig = map_direction_significances(data, best_image_peak_pairs, i
 
 # Optional: Map the threshold filtered direction images 
 # map_direction_significance can also be called with specific amplitude / gof thresholds beforehand
-#map_directions(best_image_peak_pairs, image_mus, directiory = "maps", 
+#map_directions(best_image_peak_pairs, image_mus, directiory = "maps",  exclude_lone_peaks = True,
 #                image_direction_sig = image_direction_sig, significance_threshold = 0.8)
 
 
@@ -87,19 +88,19 @@ write_fom(direction_files, "direction_maps")
 # Create map for the number of peaks
 map_number_of_peaks(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, only_mus = False)
+                            gof_threshold = 0.5, only_mus = False, directory = "maps")
 
 # Create map for the distance between two paired peaks (of 2 peak pixels)
 map_peak_distances(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, only_mus = False)
+                            gof_threshold = 0.5, only_mus = False, directory = "maps")
 
 # Create map for the mean amplitudes
 map_peak_amplitudes(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, only_mus = False)
+                            gof_threshold = 0.5, only_mus = False, directory = "maps")
 
 # Create map for the mean peak widths
 map_peak_widths(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5)  
+                            gof_threshold = 0.5, directory = "maps")  

@@ -319,6 +319,9 @@ Calculates the directions from given peak_pairs.
     The mus (centers) of the found (max_peaks) peaks for everyone of the (n * m) pixels.  
 - `only_peaks_count`: int or list of ints   
     Only use pixels where the number of peaks equals this number. -1 uses every number of peaks.
+- `exclude_lone_peaks`: bool
+    Whether to exclude the directions for lone peaks 
+    (for peak pairs with only one number unequal -1 e.g. [2, -1]).
 - `image_direction_sig`: np.ndarray (n, m, 3)
     Image containing the significance of every direction for every pixel.  
     Can be created with "map_direction_significances" or "get_image_direction_significances".  
@@ -711,7 +714,7 @@ image_peak_pairs = get_image_peak_pairs(data, image_params, image_peaks_mask, mi
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
                             gof_threshold = 0.5, significance_threshold = 0.3, 
                             significance_weights = [1, 1], angle_threshold = 20, 
-                            max_attempts = 10000, search_radius = 50)
+                            max_attempts = 1000, search_radius = 50)
 
 # Use best pairs of all possible pairs
 best_image_peak_pairs = image_peak_pairs[:, :, 0, :, :]
@@ -722,7 +725,8 @@ best_image_peak_pairs = image_peak_pairs[:, :, 0, :, :]
 
 # Calculate the nerve fiber directions and save direction map in directory
 image_mus = image_params[:, :, 1::3]
-image_directions = map_directions(best_image_peak_pairs, image_mus, directory = "maps")
+image_directions = map_directions(best_image_peak_pairs, image_mus, directory = "maps",
+                                    exclude_lone_peaks = True)
 
 # Map the significance of the directions
 image_direction_sig = map_direction_significances(data, best_image_peak_pairs, image_params, 
@@ -731,7 +735,7 @@ image_direction_sig = map_direction_significances(data, best_image_peak_pairs, i
 
 # Optional: Map the threshold filtered direction images 
 # map_direction_significance can also be called with specific amplitude / gof thresholds beforehand
-#map_directions(best_image_peak_pairs, image_mus, directiory = "maps", 
+#map_directions(best_image_peak_pairs, image_mus, directiory = "maps",  exclude_lone_peaks = True,
 #                image_direction_sig = image_direction_sig, significance_threshold = 0.8)
 
 
@@ -742,22 +746,22 @@ write_fom(direction_files, "direction_maps")
 # Create map for the number of peaks
 map_number_of_peaks(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, only_mus = False)
+                            gof_threshold = 0.5, only_mus = False, directory = "maps")
 
 # Create map for the distance between two paired peaks (of 2 peak pixels)
 map_peak_distances(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, only_mus = False)
+                            gof_threshold = 0.5, only_mus = False, directory = "maps")
 
 # Create map for the mean amplitudes
 map_peak_amplitudes(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, only_mus = False)
+                            gof_threshold = 0.5, only_mus = False, directory = "maps")
 
 # Create map for the mean peak widths
 map_peak_widths(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5)  
+                            gof_threshold = 0.5, directory = "maps")  
 ```
 
 

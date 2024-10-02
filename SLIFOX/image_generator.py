@@ -520,7 +520,7 @@ def map_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
 
     return image_scales
 
-def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, 
+def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exclude_lone_peaks = True,
                     image_direction_sig = None, significance_threshold = 0,
                     directory = "maps"):
     """
@@ -536,6 +536,9 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1,
         The mus (peak centers) for every pixel.
     - only_peaks_count: int or list of ints
         Only use pixels where the number of peaks equals this number. -1 uses every number of peaks.
+    - exclude_lone_peaks: bool
+        Whether to exclude the directions for lone peaks 
+        (for peak pairs with only one number unequal -1 e.g. [2, -1]).
     - image_direction_sig: np.ndarray (n, m, 3)
         Image containing the significance of every direction for every pixel.
         Can be created with "map_direction_significances" or "get_image_direction_significances".
@@ -552,7 +555,8 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1,
         The directions for every pixel.
     """
 
-    image_directions = calculate_directions(image_peak_pairs, image_mus, only_peaks_count = only_peaks_count)
+    image_directions = calculate_directions(image_peak_pairs, image_mus, 
+                        only_peaks_count = only_peaks_count, exclude_lone_peaks = exclude_lone_peaks)
 
     # Apply significance threshold filter if given
     if isinstance(image_direction_sig, np.ndarray) and significance_threshold > 0:
