@@ -573,7 +573,7 @@ def map_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
 
 def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exclude_lone_peaks = True,
                     image_direction_sig = None, significance_threshold = 0,
-                    directory = "maps", normalize = False, normalize_to = [None, None]):
+                    directory = "maps", normalize = False, normalize_to = [0, 180]):
     """
     Maps the directions for every pixel.
 
