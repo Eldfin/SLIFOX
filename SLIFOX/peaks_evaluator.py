@@ -1196,7 +1196,7 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, image_peak_p
     shared_counter = pymp.shared.array((num_processes, ), dtype = int)
 
     with pymp.Parallel(num_processes) as p:
-        for i in p.range(len(total_pixels)):
+        for i in p.range(total_pixels):
 
             # Update progress bar
             shared_counter[p.thread_num] += 1
