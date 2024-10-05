@@ -1104,9 +1104,10 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
 
     return image_num_peaks, image_valid_peaks_mask
     
-def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy",
+def get_peak_distances(image_stack, image_params, image_peaks_mask, image_peak_pairs = None,
+                            distribution = "wrapped_cauchy",
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, only_mus = False, image_peak_pairs = None,
+                            gof_threshold = 0.5, only_mus = False, 
                             only_peaks_count = -1, num_processes = 2):
     """
     Returns the distance between (paired) peaks for every pixel (and every direction).
@@ -1121,6 +1122,12 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
     - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
+    - image_peak_pairs: np.ndarray (n, m, np.ceil(max_peaks / 2), 2)
+        The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
+        a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
+        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+        The first two dimensions are the image dimensions.
+        If image_peak_pairs is None, only_peaks_count is set to 2.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
     - amplitude_threshold: float
@@ -1135,12 +1142,6 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
     - only_mus: boolean
         Whether only the mus (peak centers) are provided in the image_params.
         If so only amplitude_threshold will be used.
-    - image_peak_pairs: np.ndarray (n, m, np.ceil(max_peaks / 2), 2)
-        The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
-        a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
-        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
-        The first two dimensions are the image dimensions.
-        If image_peak_pairs is None, only_peaks_count is set to 2.
     - only_peaks_count: int
         Only use pixels where the number of peaks equals this number.
     - num_processes: int
@@ -1165,12 +1166,16 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
                             gof_threshold = gof_threshold)
 
     total_pixels = image_stack.shape[0] * image_stack.shape[1]
-    if image_peak_pairs == None or only_peaks_count == 2:
+    if image_peak_pairs == None or only_peaks_count <= 2:
         only_peaks_count = 2
         image_distances = pymp.shared.array(total_pixels, dtype = np.float32)
-    else:
+    elif isinstance(image_peak_pairs, np.ndarray):
         image_distances = pymp.shared.array((total_pixels, image_peak_pairs.shape[2]), 
                                                 dtype = np.float32)
+        flat_image_peak_pairs = image_peak_pairs.reshape((total_pixels, image_peak_pairs.shape[2:]))
+    else:
+        raise Exception("Error: When you define only_peaks_count for more than 2 peaks, " \
+                        "you also have to input image_peak_pairs")
 
     with pymp.Parallel(num_processes) as p:
         for i in p.range(total_pixels):
@@ -1183,7 +1188,6 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
 
     sig_image_peaks_mask = sig_image_peaks_mask.reshape((total_pixels, sig_image_peaks_mask.shape[2]))
     image_mus = image_mus.reshape((total_pixels, image_mus.shape[2]))
-    flat_image_peak_pairs = image_peak_pairs.reshape((total_pixels, image_peak_pairs.shape[2:]))
 
     # Initialize the progress bar
     pbar = tqdm(total = total_pixels, 
@@ -1212,7 +1216,7 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
                     image_distances[i, j] = np.abs(angle_distance(image_mus[i, pair[0]], 
                                             image_mus[i, pair[1]]))
 
-    if only_peaks_count == 2:
+    if only_peaks_count <= 2:
         image_distances = image_distances.reshape((image_stack.shape[0], image_stack.shape[1]))
     else:
         image_distances = image_distances.reshape((image_stack.shape[0], image_stack.shape[1],

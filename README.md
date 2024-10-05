@@ -450,6 +450,12 @@ Maps the distance between two paired peaks for every pixel.
 - `image_peaks_mask`: np.ndarray (n, m, max_peaks, p)
     The mask defining which of the p-measurements corresponds to one of the peaks.
     The first two dimensions are the image dimensions.
+- `image_peak_pairs`: np.ndarray (n, m, np.ceil(max_peaks / 2), 2)
+    The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
+    a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
+    is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+    The first two dimensions are the image dimensions.  
+    If image_peak_pairs is None, only_peaks_count is set to 2.  
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
     The name of the distribution.
 - `amplitude_threshold`: float
@@ -463,12 +469,6 @@ Maps the distance between two paired peaks for every pixel.
     Peaks with a goodness-of-fit value below this threshold will not be evaluated.
 - `only_mus`: boolean
     Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
-- `image_peak_pairs`: np.ndarray (n, m, np.ceil(max_peaks / 2), 2)
-    The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
-    a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
-    is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
-    The first two dimensions are the image dimensions.
-    If image_peak_pairs is None, only_peaks_count is set to 2.
 - `deviation`: boolean
     If true, the distance deviation to 180 degrees will be mapped, so that values of 0  
     represent peak distances of 180 degrees.
