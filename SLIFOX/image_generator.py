@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import os
 from .fitter import full_fitfunction
 from .peaks_evaluator import calculate_peaks_gof, get_number_of_peaks, get_image_direction_significances, \
@@ -8,6 +9,24 @@ from .peaks_evaluator import calculate_peaks_gof, get_number_of_peaks, get_image
 from .wrapped_distributions import distribution_pdf
 from .utils import angle_distance
 import imageio
+
+def normalize_to_rgb(array, value_range = [None, None], colormap = "viridis"):
+    # Normalizes an 2d-array using a colormap
+    # if min (or max) in range is None, it will be the min (or max) of the image
+    
+    cmap = plt.get_cmap(colormap)
+    if value_range[0] = None:
+        value_range[0] = np.min(array)
+    if value_range[1] = None:
+        value_range[1] = np.max(array)
+    normalized_image = np.clip(array, value_range[0], value_range[1]) / (value_range[1] - value_range[0])
+    image = cmap(normalized_image)[:, :, :3] * 255  # Apply colormap and convert to 0-255 range
+    image = image.astype(np.uint8)
+    
+    # Set -1 values to black
+    image[aray == -1] = [0, 0, 0]
+
+    return image
 
 def alternating_vline(x, ax=None, colors=['blue', 'red'], num_segments=100, **kwargs):
     """
@@ -288,8 +307,7 @@ def plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs = No
 def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, only_mus = False,
-                            colors = ["black", "green", "red", "yellow", "blue", "magenta", "cyan"],
-                            directory = "maps"):
+                            directory = "maps", colormap = "viridis"):
     """
     Maps the number of peaks for every pixel.
 
@@ -314,12 +332,11 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
     - gof_threshold: float
         Value between 0 and 1.
         Peaks with a goodness-of-fit value below this threshold will not be evaluated.
-    - colors: list
-        List of the color names that should be used for the colormap in the image.
-        First color will be used for zero peaks, second for 1 peaks, third for 2 peaks, ...
     - directory: string
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
+    - colormap: list
+        Colormap used for the map generation. Default is viridis.
 
     Returns:
     - image_num_peaks: np.ndarray (n, m)
@@ -337,34 +354,19 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
         if not os.path.exists(directory):
             os.makedirs(directory)
 
-        colormap = np.empty((len(colors), 3), dtype = np.uint8)
-        for i, color in enumerate(colors):
-            if color == "black":
-                colormap[i] = [0, 0, 0]
-            elif color == "green":
-                colormap[i] = [0, 255, 0]
-            elif color == "red":
-                colormap[i] = [255, 0, 0]
-            elif color == "yellow":
-                colormap[i] = [255, 255, 0]
-            elif color == "blue":
-                colormap[i] = [0, 0, 255]
-            elif color == "magenta":
-                colormap[i] = [255, 0, 255]
-            elif color == "cyan":
-                colormap[i] = [0, 255, 255]
+        image = np.swapaxes(image_distances, 0, 1)
+        image = normalize_to_rgb(image, colormap = colormap)
 
-        image = colormap[image_num_peaks]
-
-        imageio.imwrite(f'{directory}/n_peaks_map.tiff', np.swapaxes(image, 0, 1), format = 'tiff')
+        imageio.imwrite(f'{directory}/n_peaks_map.tiff', image, format = 'tiff')
 
     return image_num_peaks
     
 def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, only_mus = False, deviation = False,
-                            image_peak_pairs = None, only_peaks_count = -1, directory = "maps",
-                            num_processes = 2):
+                            image_peak_pairs = None, only_peaks_count = -1, 
+                            normalize = False, normalize_to = [None, None],
+                            directory = "maps", num_processes = 2):
     """
     Maps the distance between two paired peaks for every pixel.
 
@@ -405,6 +407,11 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
     - directory: string
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
+    - normalize: bool
+        Whether the created image should be normalized (amd displayed with colors)
+    - normalize_to: list
+        List of min and max value that defines the range the image is normalized to.
+        If min (or max) is None, the minimum (or maximum) of the image will be used.
     - num_processes: int
         Defines the number of processes to split the task into.
 
@@ -430,18 +437,26 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
         file_name = "peak_distance_deviations"
 
     if len(image_distances.shape) == 3:
-        for dir_n in range(image_distances.shape[-1]):
+        for dir_n in range(image_distances.shape[-1]):    
+            image = np.swapaxes(image_distances[:, :, dir_n], 0, 1)
+            if normalize:
+                image = normalize_to_rgb(image, normalize_to)
             filepath = f'{directory}/{file_name}_{dir_n + 1}.tiff'
-            imageio.imwrite(filepath, np.swapaxes(image_distances[:, :, dir_n], 0, 1))
+            imageio.imwrite(filepath, image, format = 'tiff')
     else:
-        imageio.imwrite(f'{directory}/{file_name}', np.swapaxes(image_distances, 0, 1), format = 'tiff')
+        image = np.swapaxes(image_distances, 0, 1)
+        if normalize:
+            image = normalize_to_rgb(image, normalize_to)
+        filepath = f'{directory}/{file_name}'
+        imageio.imwrite(filepath, image, format = 'tiff')
+
 
     return image_distances
 
 def map_peak_amplitudes(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
-                            gof_threshold = 0.5, only_mus = False,
-                            directory = "maps"):
+                            gof_threshold = 0.5, only_mus = False, directory = "maps", 
+                            normalize = False, normalize_to = [None, None]):
     """
     Maps the mean peak amplitude for every pixel.
 
@@ -471,6 +486,11 @@ def map_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
     - directory: string
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
+    - normalize: bool
+        Whether the created image should be normalized (amd displayed with colors)
+    - normalize_to: list
+        List of min and max value that defines the range the image is normalized to.
+        If min (or max) is None, the minimum (or maximum) of the image will be used.
 
     Returns:
     - image_amplitudes: np.ndarray (n, m)
@@ -484,13 +504,19 @@ def map_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
                         gof_threshold = gof_threshold,
                         only_mus = only_mus)
 
-    imageio.imwrite(f'{directory}/peak_amplitudes.tiff', np.swapaxes(image_amplitudes, 0, 1), format = 'tiff')
+
+    image = np.swapaxes(image_amplitudes, 0, 1)
+    if normalize:
+        image = normalize_to_rgb(image, normalize_to)
+
+    imageio.imwrite(f'{directory}/peak_amplitudes.tiff', image, format = 'tiff')
 
     return image_amplitudes
 
 def map_peak_widths(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
-                            gof_threshold = 0.5, directory = "maps"):
+                            gof_threshold = 0.5, directory = "maps",
+                            normalize = False, normalize_to = [None, None]):
     """
     Maps the mean peak width for every pixel.
 
@@ -518,6 +544,11 @@ def map_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
     - directory: string
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
+    - normalize: bool
+        Whether the created image should be normalized (amd displayed with colors)
+    - normalize_to: list
+        List of min and max value that defines the range the image is normalized to.
+        If min (or max) is None, the minimum (or maximum) of the image will be used.
 
     Returns:
     - image_widths: np.ndarray (n, m)
@@ -532,13 +563,17 @@ def map_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
     # scale = hwhm for wrapped cauchy distribution
     image_scales = image_scales * 180 / np.pi * 2
 
-    imageio.imwrite(f'{directory}/peak_widths_map.tiff', np.swapaxes(image_scales, 0, 1), format = 'tiff')
+    image = np.swapaxes(image_scales, 0, 1)
+    if normalize:
+        image = normalize_to_rgb(image, normalize_to)
+
+    imageio.imwrite(f'{directory}/peak_widths_map.tiff', image, format = 'tiff')
 
     return image_scales
 
 def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exclude_lone_peaks = True,
                     image_direction_sig = None, significance_threshold = 0,
-                    directory = "maps"):
+                    directory = "maps", normalize = False, normalize_to = [None, None]):
     """
     Maps the directions for every pixel.
 
@@ -565,6 +600,11 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exclude_l
     - directory: string
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
+    - normalize: bool
+        Whether the created image should be normalized (amd displayed with colors)
+    - normalize_to: list
+        List of min and max value that defines the range the image is normalized to.
+        If min (or max) is None, the minimum (or maximum) of the image will be used.
 
     Returns:
     - image_directions: np.ndarray (n, m, 3)
@@ -584,8 +624,11 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exclude_l
 
         image_directions[image_directions != -1] = image_directions[image_directions != -1] * 180 / np.pi
         for dir_n in range(image_directions.shape[-1]):
+            image = np.swapaxes(image_directions[:, :, dir_n], 0, 1)
+            if normalize:
+                image = normalize_to_rgb(image, normalize_to)
             filepath = f'{directory}/dir_{dir_n + 1}.tiff'
-            imageio.imwrite(filepath, np.swapaxes(image_directions[:, :, dir_n], 0, 1))
+            imageio.imwrite(filepath, image, format = 'tiff')
 
     return image_directions
 
@@ -593,7 +636,8 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
                                 image_peaks_mask, distribution = "wrapped_cauchy", 
                                 amplitude_threshold = 0, rel_amplitude_threshold = 0,
                                 gof_threshold = 0, weights = [1, 1], 
-                                only_mus = False, directory = "maps"):
+                                only_mus = False, directory = "maps",
+                                normalize = False, normalize_to = [None, None]):
     """
     Maps the significance of the directions for every pixel.
     -Old function that could be updated without need for multi processing and in similar manner
@@ -632,6 +676,11 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
     - directory: string
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
+    - normalize: bool
+        Whether the created image should be normalized (amd displayed with colors)
+    - normalize_to: list
+        List of min and max value that defines the range the image is normalized to.
+        If min (or max) is None, the minimum (or maximum) of the image will be used.
 
     Returns:
     - image_direction_sig: np.ndarray (n, m, 3)
@@ -651,7 +700,10 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
             os.makedirs(directory)
 
         for dir_n in range(image_direction_sig.shape[-1]):
-            imageio.imwrite(f'{directory}/dir_{dir_n + 1}_sig.tiff', 
-                                np.swapaxes(image_direction_sig[:, :, dir_n], 0, 1))
+            image = np.swapaxes(image_direction_sig[:, :, dir_n], 0, 1)
+            if normalize:
+                image = normalize_to_rgb(image, normalize_to)
+            filepath = f'{directory}/dir_{dir_n + 1}_sig.tiff'
+            imageio.imwrite(filepath, image, format = 'tiff')
 
     return image_direction_sig

@@ -80,10 +80,8 @@ image_direction_sig = map_direction_significances(data, best_image_peak_pairs, i
 #map_directions(best_image_peak_pairs, image_mus, directiory = "maps",  exclude_lone_peaks = True,
 #                image_direction_sig = image_direction_sig, significance_threshold = 0.8)
 
-
 # Create the fiber orientation map (fom) using the two direction files (for max 4 peaks)
-direction_files = ["maps/dir_1.tiff", "maps/dir_2.tiff"]
-write_fom(direction_files, "direction_maps")
+write_fom(image_directions, output_path = "direction_maps")
 
 # Create map for the number of peaks
 map_number_of_peaks(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 

@@ -41,6 +41,11 @@ class Colormap:
         return np.clip(hsv_to_rgb(hsv_stack), 0, 1)
 
 def _merge_direction_images(direction_files):
+    # Could be simplified with:
+    #direction_images = [imread(file) for file in direction_files]
+    #direction_image = [img[:, :, np.newaxis] for img in direction_images]
+    #direction_image = np.concatenate(direction_image, axis=-1)
+
     direction_image = None
     for direction_file in direction_files:
         single_direction_image = imread(direction_file)
@@ -349,20 +354,33 @@ def imwrite_rgb(filepath, data):
         tifffile.imwrite(filepath, save_data, photometric='rgb',
                          compression=8)
 
-def write_fom(direction_files, output_path):
+def write_fom(image_directions = None, direction_files = None, output_path = None):
     """
-    Creates and writes the fiber orientation map (fom) from given direction files to a file.
+    Creates and writes the fiber orientation map (fom) from given direction (files) to a file.
 
-    Parameters
-    ----------
+    Parameters:
+    - image_directions: np.ndarray (n, m, p)
+        Directions for every pixel in the image. "p" is the number of directions per pixel.
+        If None, direction_files should be defined instead.
     - direction_files: list (of strings)
         List of the paths to the direction files that should be used to create the fom.
+        If None, image_directions should be used as input instead.
     - output_path: string
         Path to the output directory.
+
+    Returns:
+    - rgb_fom: np.ndarray (2*n, 2*m)
+        Fiber orientation map (fom) from the directions of the image.
     """
     
-    direction_image = _merge_direction_images(direction_files)
+    if not isinstance(image_directions, np.ndarray):
+        if isinstance(direction_files, list):
+            image_directions = _merge_direction_images(direction_files)
+        else:
+            raise Exception("You have to input image_directions array or direction_files list.")
 
-    rgb_fom = create_fom(direction_image)
+    rgb_fom = create_fom(image_directions)
     imwrite_rgb(f"{output_path}/fom.tiff", rgb_fom)
     imwrite_rgb(f"{output_path}/color_bubble.tiff", color_bubble(Colormap.hsv_black))
+
+    return rgb_fom

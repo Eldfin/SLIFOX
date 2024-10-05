@@ -351,6 +351,11 @@ Calculates the directions from given peak_pairs.
 - `directory`: string  
     The directory path defining where direction images should be writen to.  
     If None, no images will be writen.  
+- `normalize`: bool
+    Whether the created image should be normalized (amd displayed with colors)
+- `normalize_to`: list
+    List of min and max value that defines the range the image is normalized to.  
+    If min (or max) is None, the minimum (or maximum) of the image will be used.
 
 ##### Returns
 - `directions`: (n, m, np.ceil(max_peaks / 2))  
@@ -376,9 +381,6 @@ Maps the significances of all found directions from given "image_peak_pairs".
 - `image_peaks_mask`: np.ndarray (n, m, max_peaks, p)
     The mask defining which of the p-measurements corresponds to one of the peaks.
     The first two dimensions are the image dimensions.
-- `directory`: string
-    The directory path defining where the significance image should be writen to.
-    If None, no image will be writen.
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
     The name of the distribution.
 - `amplitude_threshold`: float
@@ -394,11 +396,37 @@ Maps the significances of all found directions from given "image_peak_pairs".
     The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
 - `only_mus`: boolean
     Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
+- `directory`: string
+    The directory path defining where the significance image should be writen to.
+    If None, no image will be writen.
+- `normalize`: bool
+    Whether the created image should be normalized (amd displayed with colors)
+- `normalize_to`: list
+    List of min and max value that defines the range the image is normalized to.  
+    If min (or max) is None, the minimum (or maximum) of the image will be used.
 
 ##### Returns
 - `image_direction_sig`: (n, m, np.ceil(max_peaks / 2))
         The calculated significances (ranging from 0 to 1) for everyoe of the (n * m) pixels.
         Max 3 significances (shape like directions). 
+
+#### Function: `write_fom`
+##### Description
+    Creates and writes the fiber orientation map (fom) from given direction (files) to a file.
+
+##### Parameters
+- `image_directions`: np.ndarray (n, m, p)
+    Directions for every pixel in the image. "p" is the number of directions per pixel.  
+    If None, direction_files should be defined instead.
+- `direction_files`: list (of strings)
+    List of the paths to the direction files that should be used to create the fom.  
+    If None, image_directions should be used as input instead.
+- `output_path`: string
+    Path to the output directory.
+
+##### Returns
+- `rgb_fom`: np.ndarray (2*n, 2*m)
+    Fiber orientation map (fom) from the directions of the image.
 
 #### Function: `map_number_of_peaks`
 ##### Description
@@ -425,12 +453,11 @@ Maps the number of peaks for every pixel.
 - `gof_threshold`: float
     Value between 0 and 1.  
     Peaks with a goodness-of-fit value below this threshold will not be evaluated.
-- `colors`: list
-    List of the color names that should be used for the colormap in the image.  
-    First color will be used for zero peaks, second for 1 peaks, third for 2 peaks, ...
 - `directory`: string
     The directory path defining where the significance image should be writen to.
     If None, no image will be writen.
+- `colormap`: list
+    Colormap used for the image generation. Default is viridis.
 
 ##### Returns
 - `image_num_peaks`: (n, m)
@@ -477,6 +504,11 @@ Maps the distance between two paired peaks for every pixel.
 - `directory`: string
     The directory path defining where the significance image should be writen to.
     If None, no image will be writen.
+- `normalize`: bool
+    Whether the created image should be normalized (amd displayed with colors)
+- `normalize_to`: list
+    List of min and max value that defines the range the image is normalized to.  
+    If min (or max) is None, the minimum (or maximum) of the image will be used.
 - `num_processes`: int
     Defines the number of processes to split the task into.
 
@@ -515,6 +547,11 @@ Maps the mean peak amplitude for every pixel.
 - `directory`: string
     The directory path defining where the significance image should be writen to.
     If None, no image will be writen.
+- `normalize`: bool
+    Whether the created image should be normalized (amd displayed with colors)
+- `normalize_to`: list
+    List of min and max value that defines the range the image is normalized to.  
+    If min (or max) is None, the minimum (or maximum) of the image will be used.
 
 ##### Returns
 - `image_amplitudes`: (n, m)
@@ -548,6 +585,11 @@ Maps the mean peak width for every pixel.
 - `directory`: string
     The directory path defining where the significance image should be writen to.
     If None, no image will be writen.
+- `normalize`: bool
+    Whether the created image should be normalized (amd displayed with colors)
+- `normalize_to`: list
+    List of min and max value that defines the range the image is normalized to.  
+    If min (or max) is None, the minimum (or maximum) of the image will be used.
 
 ##### Returns
 - `image_widths`: (n, m)
@@ -766,10 +808,8 @@ image_direction_sig = map_direction_significances(data, best_image_peak_pairs, i
 #map_directions(best_image_peak_pairs, image_mus, directiory = "maps",  exclude_lone_peaks = True,
 #                image_direction_sig = image_direction_sig, significance_threshold = 0.8)
 
-
-# Create the fiber orientation map (fom) using the two direction files (for max 4 peaks)
-direction_files = ["maps/dir_1.tiff", "maps/dir_2.tiff"]
-write_fom(direction_files, "direction_maps")
+# Create the fiber orientation map (fom)
+write_fom(image_directions, output_path = "direction_maps")
 
 # Create map for the number of peaks
 map_number_of_peaks(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
