@@ -1212,7 +1212,7 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, image_peak_p
 
             for j, pair in enumerate(flat_image_peak_pairs[i]):
                 if np.any(pair == -1): continue
-                if sig_image_peaks_mask[pair[0]] and sig_image_peaks_mask[pair[1]]:
+                if sig_image_peaks_mask[i, pair[0]] and sig_image_peaks_mask[i, pair[1]]:
                     image_distances[i, j] = np.abs(angle_distance(image_mus[i, pair[0]], 
                                             image_mus[i, pair[1]]))
 
