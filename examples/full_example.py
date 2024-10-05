@@ -90,10 +90,12 @@ map_number_of_peaks(data, image_params, image_peaks_mask, distribution = "wrappe
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
                             gof_threshold = 0.5, only_mus = False, directory = "maps")
 
-# Create map for the distance between two paired peaks (of 2 peak pixels)
+# Create map for the distance between two paired peaks
 map_peak_distances(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, only_mus = False, directory = "maps")
+                            gof_threshold = 0.5, only_mus = False, deviation = False,
+                            image_peak_pairs = best_image_peak_pairs, directory = "maps",
+                            num_processes = num_processes, only_peaks_count = -1)
 
 # Create map for the mean amplitudes
 map_peak_amplitudes(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 

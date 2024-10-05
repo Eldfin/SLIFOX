@@ -1106,10 +1106,10 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
     
 def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy",
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, only_mus = False,
-                            only_peaks_count = 2):
+                            gof_threshold = 0.5, only_mus = False, image_peak_pairs = None,
+                            only_peaks_count = -1, num_processes = 2):
     """
-    Returns the number of peaks for every pixel.
+    Returns the distance between (paired) peaks for every pixel (and every direction).
 
     Parameters:
     - image_stack: np.ndarray (n, m, p)
@@ -1135,8 +1135,16 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
     - only_mus: boolean
         Whether only the mus (peak centers) are provided in the image_params.
         If so only amplitude_threshold will be used.
-    - only_peaks_count: int or list of ints
+    - image_peak_pairs: np.ndarray (n, m, np.ceil(max_peaks / 2), 2)
+        The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
+        a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
+        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+        The first two dimensions are the image dimensions.
+        If image_peak_pairs is None, only_peaks_count is set to 2.
+    - only_peaks_count: int
         Only use pixels where the number of peaks equals this number.
+    - num_processes: int
+        Defines the number of processes to split the task into.
 
     Returns:
     - image_distances: np.ndarray (n, m)
@@ -1148,7 +1156,7 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
     if not only_mus:
         image_mus = image_params[:, :, 1::3]
     else:
-        image_mus = image_params[:, :]
+        image_mus = image_params
 
     image_num_peaks, sig_image_peaks_mask = get_number_of_peaks(image_stack, image_params, image_peaks_mask, 
                             distribution = distribution, only_mus = only_mus,  
@@ -1156,22 +1164,59 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
                             rel_amplitude_threshold = rel_amplitude_threshold,
                             gof_threshold = gof_threshold)
 
-    # Get the image mask where only defined peak counts are
-    mask = (image_num_peaks == only_peaks_count)
+    total_pixels = image_stack.shape[0] * image_stack.shape[1]
+    if image_peak_pairs == None or only_peaks_count == 2:
+        only_peaks_count = 2
+        image_distances = pymp.shared.array(total_pixels, dtype = np.float32)
+    else:
+        image_distances = pymp.shared.array((total_pixels, image_peak_pairs.shape[2]), 
+                                                dtype = np.float32)
 
-    # Get significant image mus for these pixels
-    sig_image_peaks_mask[~mask, :] = False
-    sig_image_mus = image_mus[sig_image_peaks_mask]
+    with pymp.Parallel(num_processes) as p:
+        for i in p.range(total_pixels):
+            image_distances[i, ...] = -1
 
-    # Get the distance between two neighbouring significant image mus and reshape into image
-    image_distances = -np.ones(mask.shape, dtype = np.float32)
-    flat_mask = mask.flatten()
-    image_distances = image_distances.flatten()
-    sig_image_mus = sig_image_mus.reshape(-1, sig_image_mus.shape[-1])
-    image_distances[flat_mask] = np.abs(angle_distance(sig_image_mus[:, 0], sig_image_mus[:, 1]))
-    image_distances = image_distances.reshape(mask.shape)
+    if only_peaks_count > 1:
+        # Get the image mask where only defined significant peak counts are
+        mask = (image_num_peaks == only_peaks_count)
+        sig_image_peaks_mask[~mask, :] = False
 
-    print("Done")
+    sig_image_peaks_mask = sig_image_peaks_mask.reshape((total_pixels, sig_image_peaks_mask[2]))
+    image_mus = image_mus.reshape((total_pixels, image_mus[2]))
+    flat_image_peak_pairs = image_peak_pairs.reshape((total_pixels, image_peak_pairs.shape[2:]))
+
+    # Initialize the progress bar
+    pbar = tqdm(total = total_pixels, 
+                desc = f'Calculating peak distances',
+                smoothing = 0)
+    shared_counter = pymp.shared.array((num_processes, ), dtype = int)
+
+    with pymp.Parallel(num_processes) as p:
+        for i in p.range(len(total_pixels)):
+
+            # Update progress bar
+            shared_counter[p.thread_num] += 1
+            status = np.sum(shared_counter)
+            pbar.update(status - pbar.n)
+
+            if not np.any(sig_image_peaks_mask[i]): continue
+            if only_peaks_count == 2:
+                sig_peak_indices = sig_image_peaks_mask[i].nonzero()[0]
+                image_distances[i] = np.abs(angle_distance(image_mus[i, sig_peak_indices[0]], 
+                                            image_mus[i, sig_peak_indices[1]]))
+                continue
+
+            for j, pair in enumerate(flat_image_peak_pairs[i]):
+                if np.any(pair == -1): continue
+                if sig_image_peaks_mask[pair[0]] and sig_image_peaks_mask[pair[1]]:
+                    image_distances[i, j] = np.abs(angle_distance(image_mus[i, pair[0]], 
+                                            image_mus[i, pair[1]]))
+
+    if only_peaks_count == 2:
+        image_distances = image_distances.reshape((image_stack.shape[0], image_stack.shape[1]))
+    else:
+        image_distances = image_distances.reshape((image_stack.shape[0], image_stack.shape[1],
+                                                *image_distances.shape[2:]))
 
     return image_distances
 

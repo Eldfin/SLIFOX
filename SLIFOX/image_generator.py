@@ -363,7 +363,8 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
 def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, only_mus = False, deviation = False,
-                            only_peaks_count = 2, directory = "maps"):
+                            image_peak_pairs = None, only_peaks_count = -1, directory = "maps",
+                            num_processes = 2):
     """
     Maps the distance between two paired peaks for every pixel.
 
@@ -390,14 +391,22 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
         Peaks with a goodness-of-fit value below this threshold will not be evaluated.
     - only_mus: boolean
         Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
+    - image_peak_pairs: np.ndarray (n, m, np.ceil(max_peaks / 2), 2)
+        The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
+        a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
+        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+        The first two dimensions are the image dimensions.
+        If image_peak_pairs is None, only_peaks_count is set to 2.
     - deviation: boolean
         If true, the distance deviation to 180 degrees will be mapped, so that values of 0
         represent peak distances of 180 degrees.
-    - only_peaks_count: int or list of ints
+    - only_peaks_count: int
         Only use pixels where the number of peaks equals this number. -1 for use of every number of peaks.
     - directory: string
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
+    - num_processes: int
+        Defines the number of processes to split the task into.
 
     Returns:
     - image_distances: np.ndarray (n, m)
@@ -410,7 +419,9 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
                             rel_amplitude_threshold = rel_amplitude_threshold, 
                             gof_threshold = gof_threshold, 
                             only_mus = only_mus,
-                            only_peaks_count = only_peaks_count)
+                            image_peak_pairs = image_peak_pairs,
+                            only_peaks_count = only_peaks_count,
+                            num_processes = num_processes)
 
     image_distances[image_distances != -1] = image_distances[image_distances != -1] * 180 / np.pi
     file_name = "peak_distances.tiff"
