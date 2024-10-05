@@ -1172,7 +1172,7 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, image_peak_p
     elif isinstance(image_peak_pairs, np.ndarray):
         image_distances = pymp.shared.array((total_pixels, image_peak_pairs.shape[2]), 
                                                 dtype = np.float32)
-        flat_image_peak_pairs = image_peak_pairs.reshape((total_pixels, image_peak_pairs.shape[2:]))
+        flat_image_peak_pairs = image_peak_pairs.reshape((total_pixels, *image_peak_pairs.shape[2:]))
     else:
         raise Exception("Error: When you define only_peaks_count for more than 2 peaks, " \
                         "you also have to input image_peak_pairs")
@@ -1220,7 +1220,7 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, image_peak_p
         image_distances = image_distances.reshape((image_stack.shape[0], image_stack.shape[1]))
     else:
         image_distances = image_distances.reshape((image_stack.shape[0], image_stack.shape[1],
-                                                *image_distances.shape[2:]))
+                                                image_distances.shape[1]))
 
     return image_distances
 
