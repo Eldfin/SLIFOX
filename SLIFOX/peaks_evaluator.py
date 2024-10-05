@@ -1182,7 +1182,7 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, distribution
         sig_image_peaks_mask[~mask, :] = False
 
     sig_image_peaks_mask = sig_image_peaks_mask.reshape((total_pixels, sig_image_peaks_mask.shape[2]))
-    image_mus = image_mus.reshape((total_pixels, image_mus[2]))
+    image_mus = image_mus.reshape((total_pixels, image_mus.shape[2]))
     flat_image_peak_pairs = image_peak_pairs.reshape((total_pixels, image_peak_pairs.shape[2:]))
 
     # Initialize the progress bar
