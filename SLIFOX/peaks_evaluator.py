@@ -1166,7 +1166,7 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, image_peak_p
                             gof_threshold = gof_threshold)
 
     total_pixels = image_stack.shape[0] * image_stack.shape[1]
-    if image_peak_pairs == None or only_peaks_count == 2:
+    if not isinstance(image_peak_pairs, np.ndarray) or only_peaks_count == 2:
         only_peaks_count = 2
         image_distances = pymp.shared.array(total_pixels, dtype = np.float32)
     elif isinstance(image_peak_pairs, np.ndarray):
