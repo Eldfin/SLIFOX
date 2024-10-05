@@ -431,7 +431,7 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
 
     if len(image_distances.shape) == 3:
         for dir_n in range(image_distances.shape[-1]):
-            filepath = f'{directory}/{file_name}_{dir_n}.tiff'
+            filepath = f'{directory}/{file_name}_{dir_n + 1}.tiff'
             imageio.imwrite(filepath, np.swapaxes(image_distances[:, :, dir_n], 0, 1))
     else:
         imageio.imwrite(f'{directory}/{file_name}', np.swapaxes(image_distances, 0, 1), format = 'tiff')
