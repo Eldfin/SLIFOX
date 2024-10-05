@@ -429,7 +429,12 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
         image_distances[image_distances != -1] = 180 - image_distances[image_distances != -1]
         file_name = "peak_distance_deviations.tiff"
 
-    imageio.imwrite(f'{directory}/{file_name}', np.swapaxes(image_distances, 0, 1), format = 'tiff')
+    if len(image_distances.shape) == 3:
+        for dir_n in range(image_distances.shape[-1]):
+            filepath = f'{directory}/{filename}_{dir_n}.tiff'
+            imageio.imwrite(filepath, np.swapaxes(image_distances[:, :, dir_n], 0, 1))
+    else:
+        imageio.imwrite(f'{directory}/{file_name}', np.swapaxes(image_distances, 0, 1), format = 'tiff')
 
     return image_distances
 
