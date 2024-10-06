@@ -457,7 +457,7 @@ Maps the number of peaks for every pixel.
     The directory path defining where the significance image should be writen to.
     If None, no image will be writen.
 - `colormap`: list
-    Colormap used for the image generation. Default is viridis.
+    Colormap used for the image generation.
 
 ##### Returns
 - `image_num_peaks`: (n, m)

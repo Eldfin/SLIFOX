@@ -307,7 +307,7 @@ def plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs = No
 def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, only_mus = False,
-                            directory = "maps", colormap = "viridis"):
+                            directory = "maps", colormap = None):
     """
     Maps the number of peaks for every pixel.
 
@@ -336,7 +336,7 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
     - colormap: list
-        Colormap used for the map generation. Default is viridis.
+        Colormap used for the map generation.
 
     Returns:
     - image_num_peaks: np.ndarray (n, m)
@@ -354,8 +354,19 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
         if not os.path.exists(directory):
             os.makedirs(directory)
 
+        if not isinstance(colormap, list):
+            colormap = [
+                (0.00000000, 0.00000000, 0.00000000),  # 0: Black
+                (0.12156863, 0.46666667, 0.70588235),  # 1: Blue
+                (1.00000000, 0.49803922, 0.00000000),  # 2: Bright Orange
+                (0.17254902, 0.62745098, 0.17254902),  # 3: Green
+                (0.83921569, 0.15294118, 0.15686275),  # 4: Bridht Red
+                (0.58039216, 0.40392157, 0.74117647),  # 5: Purple
+                (0.99607843, 0.99607843, 0.00000000)   # 6: Yellow
+            ]
+
         image = np.swapaxes(image_num_peaks, 0, 1)
-        image = normalize_to_rgb(image, colormap = colormap)
+        image = colors[image]
 
         imageio.imwrite(f'{directory}/n_peaks_map.tiff', image, format = 'tiff')
 
