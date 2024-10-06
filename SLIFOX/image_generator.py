@@ -522,7 +522,7 @@ def map_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
     if normalize:
         image = normalize_to_rgb(image, normalize_to)
 
-    imageio.imwrite(f'{directory}/peak_amplitudes.tiff', image, format = 'tiff')
+    imageio.imwrite(f'{directory}/peak_amplitudes_map.tiff', image, format = 'tiff')
 
     return image_amplitudes
 
