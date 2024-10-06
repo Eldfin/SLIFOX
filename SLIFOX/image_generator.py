@@ -15,9 +15,9 @@ def normalize_to_rgb(array, value_range = [None, None], colormap = "viridis"):
     # if min (or max) in range is None, it will be the min (or max) of the image
     
     cmap = plt.get_cmap(colormap)
-    if value_range[0] = None:
+    if value_range[0] == None:
         value_range[0] = np.min(array)
-    if value_range[1] = None:
+    if value_range[1] == None:
         value_range[1] = np.max(array)
     normalized_image = np.clip(array, value_range[0], value_range[1]) / (value_range[1] - value_range[0])
     image = cmap(normalized_image)[:, :, :3] * 255  # Apply colormap and convert to 0-255 range
