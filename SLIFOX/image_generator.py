@@ -335,7 +335,7 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
     - directory: string
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
-    - colormap: list
+    - colormap: np.ndarray (6, 3)
         Colormap used for the map generation.
 
     Returns:
@@ -354,16 +354,16 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
         if not os.path.exists(directory):
             os.makedirs(directory)
 
-        if not isinstance(colormap, list):
-            colormap = [
-                (0.00000000, 0.00000000, 0.00000000),  # 0: Black
-                (0.12156863, 0.46666667, 0.70588235),  # 1: Blue
-                (1.00000000, 0.49803922, 0.00000000),  # 2: Bright Orange
-                (0.17254902, 0.62745098, 0.17254902),  # 3: Green
-                (0.83921569, 0.15294118, 0.15686275),  # 4: Bridht Red
-                (0.58039216, 0.40392157, 0.74117647),  # 5: Purple
-                (0.99607843, 0.99607843, 0.00000000)   # 6: Yellow
-            ]
+        if not isinstance(colormap, np.ndarray):
+            colormap = np.array([
+                [0.00000000, 0.00000000, 0.00000000],  # 0: Black
+                [0.12156863, 0.46666667, 0.70588235],  # 1: Blue
+                [1.00000000, 0.49803922, 0.00000000],  # 2: Bright Orange
+                [0.17254902, 0.62745098, 0.17254902],  # 3: Green
+                [0.83921569, 0.15294118, 0.15686275],  # 4: Bridht Red
+                [0.58039216, 0.40392157, 0.74117647],  # 5: Purple
+                [0.99607843, 0.99607843, 0.00000000]   # 6: Yellow
+            ], dtype = np.uint8)
 
         image = np.swapaxes(image_num_peaks, 0, 1)
         image = colormap[image]

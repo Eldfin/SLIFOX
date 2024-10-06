@@ -456,7 +456,7 @@ Maps the number of peaks for every pixel.
 - `directory`: string
     The directory path defining where the significance image should be writen to.
     If None, no image will be writen.
-- `colormap`: list
+- `colormap`: np.ndarray (6, 3)
     Colormap used for the image generation.
 
 ##### Returns
