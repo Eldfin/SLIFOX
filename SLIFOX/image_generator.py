@@ -16,15 +16,16 @@ def normalize_to_rgb(array, value_range = [None, None], colormap = "viridis"):
     
     cmap = plt.get_cmap(colormap)
     if value_range[0] == None:
-        value_range[0] = np.min(array)
+        value_range[0] = np.min(array[array > 0])
     if value_range[1] == None:
         value_range[1] = np.max(array)
     normalized_image = np.clip(array, value_range[0], value_range[1]) / (value_range[1] - value_range[0])
     image = cmap(normalized_image)[:, :, :3] * 255  # Apply colormap and convert to 0-255 range
     image = image.astype(np.uint8)
     
-    # Set -1 values to black
+    # Set -1 and 0 values to black
     image[array == -1] = [0, 0, 0]
+    image[array == 0] = [0, 0, 0]
 
     return image
 
@@ -355,16 +356,16 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
             os.makedirs(directory)
 
         if not isinstance(colormap, np.ndarray):
+            # Using Paul Tols Muted Colorblind Palette
             colormap = np.array([
-                [0.00000000, 0.00000000, 0.00000000],  # 0: Black
-                [0.12156863, 0.46666667, 0.70588235],  # 1: Blue
-                [1.00000000, 0.49803922, 0.00000000],  # 2: Bright Orange
-                [0.17254902, 0.62745098, 0.17254902],  # 3: Green
-                [0.83921569, 0.15294118, 0.15686275],  # 4: Bridht Red
-                [0.58039216, 0.40392157, 0.74117647],  # 5: Purple
-                [0.99607843, 0.99607843, 0.00000000]   # 6: Yellow
-            ])
-            colormap = (colormap * 255).astype(np.uint8)
+                [0, 0, 0],  # 0: Black
+                [221, 221, 221],  # 1: Dark White
+                [126, 41, 84],  # 2: Dark Magenta
+                [220, 205, 125],  # 3: Bright Yellow
+                [51, 117, 56],  # 4: Green
+                [46, 37, 133],  # 5: Blue
+                [148, 203, 236]   # 6: Bright Blue
+            ], dtype = np.uint8)
         
         image = np.swapaxes(image_num_peaks, 0, 1)
         image = colormap[image]
