@@ -928,7 +928,7 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
                             angles, weights = weights, distribution = distribution, 
                             only_mus = only_mus)
 
-    image_direction_sig = image_direction_sig.rshape((n_rows, n_cols, image_direction_sig.shape[1]))
+    image_direction_sig = image_direction_sig.reshape((n_rows, n_cols, image_direction_sig.shape[1]))
 
     return image_direction_sig
 
@@ -1441,4 +1441,4 @@ def get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
 
     print("Done")
 
-    return image_scalesh
+    return image_scales
