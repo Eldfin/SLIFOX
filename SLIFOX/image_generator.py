@@ -354,7 +354,7 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
         if not os.path.exists(directory):
             os.makedirs(directory)
 
-        image = np.swapaxes(image_distances, 0, 1)
+        image = np.swapaxes(image_num_peaks, 0, 1)
         image = normalize_to_rgb(image, colormap = colormap)
 
         imageio.imwrite(f'{directory}/n_peaks_map.tiff', image, format = 'tiff')
