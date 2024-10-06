@@ -376,10 +376,12 @@ def write_fom(image_directions = None, direction_files = None, output_path = Non
     if not isinstance(image_directions, np.ndarray):
         if isinstance(direction_files, list):
             image_directions = _merge_direction_images(direction_files)
+            rgb_fom = create_fom(image_directions)
         else:
             raise Exception("You have to input image_directions array or direction_files list.")
-
-    rgb_fom = create_fom(image_directions)
+    else:
+        rgb_fom = create_fom(np.swapaxes(image_directions, 0, 1))
+        
     imwrite_rgb(f"{output_path}/fom.tiff", rgb_fom)
     imwrite_rgb(f"{output_path}/color_bubble.tiff", color_bubble(Colormap.hsv_black))
 
