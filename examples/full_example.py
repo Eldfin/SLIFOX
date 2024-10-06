@@ -73,7 +73,7 @@ image_directions = map_directions(best_image_peak_pairs, image_mus, directory = 
 # Map the significance of the directions
 image_direction_sig = map_direction_significances(data, best_image_peak_pairs, image_params, 
                                 image_peaks_mask, distribution = distribution, 
-                                weights = [1, 1])
+                                weights = [1, 1], num_processes = num_processes)
 
 # Optional: Map the threshold filtered direction images 
 # map_direction_significance can also be called with specific amplitude / gof thresholds beforehand
