@@ -14,8 +14,7 @@ PeakFinderParams = namedtuple('PeakFinderParams', [
 
 @njit(cache = True, fastmath = True)
 def _find_extremas(intensities, first_diff, second_diff, max_A, extrema_tolerance,
-                    turning_point_tolerance, turning_point_tolerance_2, turning_point_tolerance_3,
-                    reverse = False):
+                    turning_point_tolerance, turning_point_tolerance_2, turning_point_tolerance_3):
     """
     Finds extremas from array of intensities
 
@@ -53,19 +52,11 @@ def _find_extremas(intensities, first_diff, second_diff, max_A, extrema_toleranc
     turning_points = np.zeros(num_points, dtype = np.bool_)
     turning_points_directions = np.zeros(num_points, dtype = np.int64)
 
-    # Iterate in reverse order
-    indices = np.arange(num_points)
-    if reverse:
-        indices = np.flip(indices)
+    indices = np.argsort(intensities)
 
-    for i in indices:
-
-        if intensities[i] <= max_A:
-            # Handle underground values as local minima
-            local_minima[i] = True
-        # Check for maxima
-        elif first_diff[i - 1] >= 0 and first_diff[i] <= 0 and second_diff[i - 1] <= 0:
-
+    # Check for maxima by looping from highest to lowest
+    for i in indices[::-1]:
+        if first_diff[i -1] >= 0 and first_diff[i] <= 0 and second_diff[i -1] <= 0:
             left_condition = False
             right_condition = False
             for k in [-1, 1]:
@@ -75,13 +66,17 @@ def _find_extremas(intensities, first_diff, second_diff, max_A, extrema_toleranc
                         if k == -1: left_condition = True
                         elif k == 1: right_condition = True
                         break
-                    # For indices that are exremas break
-                    if local_minima[index] or local_maxima[index] or turning_points[index]:
+                    # Stop at other maxima
+                    if local_maxima[index]:
                         break
             if left_condition and right_condition:
                 local_maxima[i] = True
 
-        # Check for minima
+    # Check for minima by looping from lowest to highest
+    for i in indices:
+        if intensities[i] <= max_A:
+            # Handle underground values as local minima
+            local_minima[i] = True
         elif first_diff[i - 1] <= 0 and first_diff[i] >= 0 and second_diff[i - 1] >= 0:
 
             left_condition = False
@@ -93,12 +88,13 @@ def _find_extremas(intensities, first_diff, second_diff, max_A, extrema_toleranc
                         if k == -1: left_condition = True
                         elif k == 1: right_condition = True
                         break
-                    if local_minima[index] or local_maxima[index] or turning_points[index]:
+                    if local_minima[index] or local_maxima[index]:
                         break
             if left_condition and right_condition:
                 local_minima[i] = True
 
-    for i in indices:
+    # Check for turning points by looping from highest to lowest
+    for i in indices[::-1]:
         # Check for (right/left) turning points
         if (second_diff[i-2] <= turning_point_tolerance_3 \
                 and second_diff[i-1] >= turning_point_tolerance \
@@ -630,7 +626,7 @@ def _is_real_peak(angles, intensities, peak_angles, peak_intensities, intensitie
         is_peak = False
     # if one side of (not merged) peak is small and prominence is also small, its a fake peak
     elif not is_merged:
-        # If all peak intensities except maximum have a similar intensitiey
+        # If all peak intensities except maximum have a similar intensitiy
         # its not a real peak
         peak_lr_intensities = np.concatenate((intensities_left, intensities_right))
         mean_peak_intensity = np.mean(peak_lr_intensities)
@@ -713,6 +709,7 @@ def _is_real_peak(angles, intensities, peak_angles, peak_intensities, intensitie
             elif np.min(intensities_right) > (np.max(intensities_left) \
                         + 0.1 * global_amplitude) and not fake_in_right and not tp_in_right:
                 is_peak = False
+
 
     return is_peak
     
@@ -843,49 +840,13 @@ def _find_extremas_full(angles, intensities, first_diff, second_diff, params):
     turning_point_tolerance_2 = params.turning_point_tolerance_2
     turning_point_tolerance_3 = params.turning_point_tolerance_3
 
-    # Find extremas starting from left
+    # Find extremas
     local_maxima, local_minima, turning_points, turning_points_directions = _find_extremas(intensities,
                     first_diff, second_diff, max_A, extrema_tolerance,
-                    turning_point_tolerance, turning_point_tolerance_2, turning_point_tolerance_3,
-                    reverse = False)
-
-    # Find extremas starting from right
-    local_maxima_reverse, local_minima_reverse, turning_points_reverse, \
-    turning_points_directions_reverse = _find_extremas(intensities, first_diff, 
-                    second_diff, max_A, extrema_tolerance,
-                    turning_point_tolerance, turning_point_tolerance_2, turning_point_tolerance_3,
-                    reverse = True)
-
-    # If difference of intensities between different indices are all below tolerance
-    # append both indices (and they will be merged later)
-    local_maxima, local_maxima_reverse = _equalize_difference(angles, intensities, local_maxima, 
-                                            local_maxima_reverse, extrema_tolerance)
-    local_minima, local_minima_reverse = _equalize_difference(angles, intensities, local_minima, 
-                                            local_minima_reverse, extrema_tolerance)
-
-    # Pick extremas found independent from search direction
-    local_maxima = np.intersect1d(local_maxima, local_maxima_reverse)
-    local_minima = np.intersect1d(local_minima, local_minima_reverse)
+                    turning_point_tolerance, turning_point_tolerance_2, turning_point_tolerance_3)
 
     #turning_points = np.concatenate((turning_points, turning_points_reverse))
     #unique_turning_points = numba_unique(turning_points)[0]
-
-    tps = np.zeros(len(angles), dtype=np.bool_)
-    tp_directions = np.zeros(len(angles), dtype=np.int64)
-    for i in range(len(angles)):
-        if turning_points_directions[i] != 0 and turning_points_directions_reverse[i] == 0:
-            tps[i] = True
-            tp_directions[i] = turning_points_directions[i]
-        elif turning_points_directions[i] == 0 and turning_points_directions_reverse[i] != 0:
-            tps[i] = True
-            tp_directions[i] = turning_points_directions_reverse[i]
-        elif turning_points_directions[i] != 0 and turning_points_directions_reverse[i] != 0 \
-                and turning_points_directions[i] == turning_points_directions_reverse[i]:
-            tps[i] = True
-            tp_directions[i] = turning_points_directions[i]   
-
-    turning_points = tps.nonzero()[0]
-    turning_points_directions = tp_directions[tp_directions != 0]
 
     return local_maxima, local_minima, turning_points, turning_points_directions
 
