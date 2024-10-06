@@ -366,7 +366,7 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
             ]
 
         image = np.swapaxes(image_num_peaks, 0, 1)
-        image = colors[image]
+        image = colormap[image]
 
         imageio.imwrite(f'{directory}/n_peaks_map.tiff', image, format = 'tiff')
 
