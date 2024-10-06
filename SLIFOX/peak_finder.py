@@ -627,12 +627,7 @@ def _is_real_peak(angles, intensities, peak_angles, peak_intensities, intensitie
     if len(intensities_left) == 0 or len(intensities_right) == 0:
         is_peak = False
     elif len(intensities_left) == 1 and len(intensities_right) == 1:
-        if len(peak_intensities) == 3:
-            prominence = local_max_int - max(intensities_left[0], intensities_right[0])
-            if prominence < 2 * extrema_tolerance:
-                is_peak = False
-        else:
-            is_peak = False
+        is_peak = False
     # if one side of (not merged) peak is small and prominence is also small, its a fake peak
     elif not is_merged:
         # If all peak intensities except maximum have a similar intensitiey

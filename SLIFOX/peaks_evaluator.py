@@ -876,7 +876,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
             amplitude_significance = (amplitude[peak_index] - malus_amplitude) / global_amplitude
             gof_significance = peaks_gof[peak_index]
         else:
-            amplitude_significance = (np.mean(amplitudes[peak_pair]) - malus_amplitude) / global_amplitude)
+            amplitude_significance = (np.mean(amplitudes[peak_pair]) - malus_amplitude) / global_amplitude
             gof_significance = np.mean(peaks_gof[peak_pair])
 
         significances[i] = (amplitude_significance * weights[0] + gof_significance * weights[1]) / 2
@@ -890,7 +890,7 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
                             amplitude_threshold = 0, rel_amplitude_threshold = 0,
                             gof_threshold = 0,
                             weights = [1, 1], only_mus = False, num_processes = 2):
-                            
+
     angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)
     n_rows = image_stack.shape[0]
     n_cols = image_stack.shape[1]
