@@ -24,7 +24,7 @@ def normalize_to_rgb(array, value_range = [None, None], colormap = "viridis"):
     image = image.astype(np.uint8)
     
     # Set -1 values to black
-    image[aray == -1] = [0, 0, 0]
+    image[array == -1] = [0, 0, 0]
 
     return image
 
