@@ -363,8 +363,9 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
                 [0.83921569, 0.15294118, 0.15686275],  # 4: Bridht Red
                 [0.58039216, 0.40392157, 0.74117647],  # 5: Purple
                 [0.99607843, 0.99607843, 0.00000000]   # 6: Yellow
-            ], dtype = np.uint8)
-
+            ])
+            colormap = (colormap * 255).astype(np.uint8)
+        
         image = np.swapaxes(image_num_peaks, 0, 1)
         image = colormap[image]
 
