@@ -404,6 +404,8 @@ Maps the significances of all found directions from given "image_peak_pairs".
 - `normalize_to`: list
     List of min and max value that defines the range the image is normalized to.  
     If min (or max) is None, the minimum (or maximum) of the image will be used.
+- `num_processes`: int
+    Defines the number of processes to split the task into.
 
 ##### Returns
 - `image_direction_sig`: (n, m, np.ceil(max_peaks / 2))

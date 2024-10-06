@@ -651,7 +651,8 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
                                 amplitude_threshold = 0, rel_amplitude_threshold = 0,
                                 gof_threshold = 0, weights = [1, 1], 
                                 only_mus = False, directory = "maps",
-                                normalize = False, normalize_to = [None, None]):
+                                normalize = False, normalize_to = [None, None],
+                                num_processes = 2):
     """
     Maps the significance of the directions for every pixel.
     -Old function that could be updated without need for multi processing and in similar manner
@@ -695,6 +696,8 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
     - normalize_to: list
         List of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
+    - num_processes: int
+        Defines the number of processes to split the task into.
 
     Returns:
     - image_direction_sig: np.ndarray (n, m, 3)
@@ -707,7 +710,8 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
                                 amplitude_threshold = amplitude_threshold,
                                 rel_amplitude_threshold = rel_amplitude_threshold, 
                                 gof_threshold = gof_threshold,
-                                weights = weights, only_mus = only_mus)
+                                weights = weights, only_mus = only_mus, 
+                                num_processes = num_processes)
     
     if directory != None:
         if not os.path.exists(directory):

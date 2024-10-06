@@ -831,11 +831,17 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
     global_amplitude = np.max(intensities) - np.min(intensities)
     num_directions = peak_pairs.shape[0]
     significances = np.zeros(num_directions)
+    num_peaks = np.count_nonzero(np.any(peaks_mask, axis = -1))
+    
+    # Get indices of unpaired peaks
+    paired_peak_indices = np.unique(peak_pairs)
+    all_peak_indices = set(range(num_peaks + 1))
+    unpaired_peak_indices = list(all_peak_indices - set(paired_peak_indices))
+
+    amplitudes = np.zeros(num_peaks)
 
     if only_mus:
         # If only mus are provided, just use amplitude significance
-        num_peaks = peaks_mask.shape[0]
-        amplitudes = np.zeros(num_peaks)
         for i in range(num_peaks):
             peak_intensities = intensities[peaks_mask[i]]
             if len(peak_intensities) == 0: continue
@@ -845,7 +851,9 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
             peak_pair = peak_pairs[i]
             indices = peak_pair[peak_pair != -1]
             if len(indices) == 0: continue
-            significances[i] = np.mean(amplitudes[indices] / global_amplitude)
+            # calculate max amplitude of unpaired peaks and subtract it from significance
+            malus_amplitude = np.max(amplitudes[unpaired_peak_indices])
+            significances[i] = np.mean((amplitudes[indices] - malus_amplitude)/ global_amplitude)
         
         return significances
     
@@ -854,24 +862,26 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
     heights = params[0:-1:3]
     scales = params[2::3]
 
+    for i in range(num_peaks):
+        amplitudes[i] = heights[i] * distribution_pdf(0, 0, scales[i], distribution)
+
+    malus_amplitude = np.max(amplitudes[unpaired_peak_indices])
+
     for i in range(num_directions):
         peak_pair = peak_pairs[i]
         if peak_pair[0] == -1 and peak_pair[1] == -1: 
             continue
         elif peak_pair[0] == -1 or peak_pair[1] == -1:
             peak_index = peak_pair[peak_pair != -1][0]
-            amplitude = heights[peak_index] * distribution_pdf(0, 0, scales[peak_index], distribution)
-            amplitude_significance = amplitude / global_amplitude
+            amplitude_significance = (amplitude[peak_index] - malus_amplitude) / global_amplitude
             gof_significance = peaks_gof[peak_index]
         else:
-            amplitudes = np.empty(2)
-            for k in range(2):
-                amplitudes[k] = heights[peak_pair[k]]  \
-                                        * distribution_pdf(0, 0, scales[peak_pair[k]], distribution)
-            amplitude_significance = np.mean(amplitudes / global_amplitude)
+            amplitude_significance = (np.mean(amplitudes[peak_pair]) - malus_amplitude) / global_amplitude)
             gof_significance = np.mean(peaks_gof[peak_pair])
 
         significances[i] = (amplitude_significance * weights[0] + gof_significance * weights[1]) / 2
+
+    significances = np.clip(significances, 0, 1)
 
     return significances
 
@@ -879,9 +889,52 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
                             distribution = "wrapped_cauchy", 
                             amplitude_threshold = 0, rel_amplitude_threshold = 0,
                             gof_threshold = 0,
+                            weights = [1, 1], only_mus = False, num_processes = 2):
+                            
+    angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)
+    n_rows = image_stack.shape[0]
+    n_cols = image_stack.shape[1]
+    total_pixels = n_rows * n_cols
+
+    flat_image_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))
+    flat_image_peak_pairs = image_peak_pairs.reshape((total_pixels, *image_peak_pairs.shape[2:]))
+    flat_image_params = image_params.reshape((total_pixels, image_params.shape[2]))
+    flat_image_peaks_mask = image_peaks_mask.reshape((total_pixels, *image_peaks_mask.shape[2:]))
+
+    image_direction_sig = pymp.shared.array((total_pixels, image_peak_pairs.shape[2]))
+
+    # Initialize the progress bar
+    pbar = tqdm(total = total_pixels, 
+                desc = f'Calculating direction significances',
+                smoothing = 0)
+    shared_counter = pymp.shared.array((num_processes, ), dtype = int)
+
+    with pymp.Parallel(num_processes) as p:
+        for i in p.range(total_pixels):
+
+            # Update progress bar
+            shared_counter[p.thread_num] += 1
+            status = np.sum(shared_counter)
+            pbar.update(status - pbar.n)
+            
+            image_direction_sig[i] = direction_significances(flat_image_peak_pairs[i], 
+                        flat_image_params[i], flat_image_peaks_mask[i], flat_image_stack[i], 
+                            angles, weights = weights, distribution = distribution, 
+                            only_mus = only_mus)
+
+    image_direction_sig = image_direction_sig.rshape((n_rows, n_cols, image_direction_sig.shape[1]))
+
+    return image_direction_sig
+
+def get_image_direction_significances_vectorized(image_stack, image_peak_pairs, image_params, image_peaks_mask, 
+                            distribution = "wrapped_cauchy", 
+                            amplitude_threshold = 0, rel_amplitude_threshold = 0,
+                            gof_threshold = 0,
                             weights = [1, 1], only_mus = False):
     """
     Returns the direction significances for every pixel.
+    To-Do: This function is missing "malus_amplitude",
+           which should be subtracted from amplitude significance
 
     Parameters:
     - image_stack: np.ndarray (n, m, p)
