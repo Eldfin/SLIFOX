@@ -835,7 +835,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
     
     # Get indices of unpaired peaks
     paired_peak_indices = np.unique(peak_pairs)
-    all_peak_indices = set(range(num_peaks + 1))
+    all_peak_indices = set(range(num_peaks))
     unpaired_peak_indices = list(all_peak_indices - set(paired_peak_indices))
 
     amplitudes = np.zeros(num_peaks)
