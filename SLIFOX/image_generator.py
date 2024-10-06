@@ -19,13 +19,14 @@ def normalize_to_rgb(array, value_range = [None, None], colormap = "viridis"):
         value_range[0] = np.min(array[array > 0])
     if value_range[1] == None:
         value_range[1] = np.max(array)
-    normalized_image = np.clip(array, value_range[0], value_range[1]) / (value_range[1] - value_range[0])
+    normalized_image = np.clip(array, value_range[0], value_range[1])
+    normalized_image = (normalized_image - value_range[0]) / (value_range[1] - value_range[0])
     image = cmap(normalized_image)[:, :, :3] * 255  # Apply colormap and convert to 0-255 range
     image = image.astype(np.uint8)
     
-    # Set -1 and 0 values to black
-    image[array == -1] = [0, 0, 0]
-    image[array == 0] = [0, 0, 0]
+    # Set values below normalization range to black and above to white
+    image[array < value_range[0]] = [0, 0, 0]
+    image[array > value_range[1]] = [255, 255, 255]
 
     return image
 
@@ -460,7 +461,7 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
         image = np.swapaxes(image_distances, 0, 1)
         if normalize:
             image = normalize_to_rgb(image, normalize_to)
-        filepath = f'{directory}/{file_name}'
+        filepath = f'{directory}/{file_name}.tiff'
         imageio.imwrite(filepath, image, format = 'tiff')
 
 
