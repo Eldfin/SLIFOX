@@ -852,7 +852,10 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
             indices = peak_pair[peak_pair != -1]
             if len(indices) == 0: continue
             # calculate max amplitude of unpaired peaks and subtract it from significance
-            malus_amplitude = np.max(amplitudes[unpaired_peak_indices])
+            if len(unpaired_peak_indices) > 0:
+                malus_amplitude = np.max(amplitudes[unpaired_peak_indices])
+            else:
+                malus_amplitude = 0
             significances[i] = np.mean((amplitudes[indices] - malus_amplitude)/ global_amplitude)
         
         return significances
@@ -865,7 +868,10 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
     for i in range(num_peaks):
         amplitudes[i] = heights[i] * distribution_pdf(0, 0, scales[i], distribution)
 
-    malus_amplitude = np.max(amplitudes[unpaired_peak_indices])
+    if len(unpaired_peak_indices) > 0:
+        malus_amplitude = np.max(amplitudes[unpaired_peak_indices])
+    else:
+        malus_amplitude = 0
 
     for i in range(num_directions):
         peak_pair = peak_pairs[i]
@@ -1435,4 +1441,4 @@ def get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
 
     print("Done")
 
-    return image_scales
+    return image_scalesh
