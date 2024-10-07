@@ -90,7 +90,16 @@ def _find_extremas(intensities, first_diff, second_diff, max_A, extrema_toleranc
                         break
                     if local_minima[index] or local_maxima[index]:
                         break
-            if left_condition and right_condition:
+
+            # if both neighbours are maxima and difference to them is low, do not consider it as minima
+            between_maxima = False
+            next_index = (i + 1) % num_points
+            if local_maxima[i-1] and local_maxima[next_index]:
+                max_diff = max(intensities[i-1], intensities[next_index]) - intensities[i]
+                if np.abs(max_diff) < 2 * extrema_tolerance:
+                    between_maxima = True
+
+            if left_condition and right_condition and not between_maxima:
                 local_minima[i] = True
 
     # Check for turning points by looping from highest to lowest
