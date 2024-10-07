@@ -879,7 +879,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
             continue
         elif peak_pair[0] == -1 or peak_pair[1] == -1:
             peak_index = peak_pair[peak_pair != -1][0]
-            amplitude_significance = (amplitude[peak_index] - malus_amplitude) / global_amplitude
+            amplitude_significance = (amplitudes[peak_index] - malus_amplitude) / global_amplitude
             gof_significance = peaks_gof[peak_index]
         else:
             amplitude_significance = (np.mean(amplitudes[peak_pair]) - malus_amplitude) / global_amplitude
