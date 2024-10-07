@@ -132,12 +132,11 @@ def _find_extremas(intensities, first_diff, second_diff, max_A, extrema_toleranc
                 # +1 for tp on right side
                 turning_points_directions[i] = 1
 
-
     local_maxima = local_maxima.nonzero()[0]
     local_minima = local_minima.nonzero()[0]
 
     turning_points = turning_points.nonzero()[0]
-    #turning_points_directions = turning_points_directions[turning_points_directions != 0]
+    turning_points_directions = turning_points_directions[turning_points_directions != 0]
 
     return local_maxima, local_minima, turning_points, turning_points_directions
 
