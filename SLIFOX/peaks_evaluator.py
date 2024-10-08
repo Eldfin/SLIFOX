@@ -609,12 +609,12 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                         matched_unvalid_dir_index = \
                                             (unvalid_dir_indices_1[k] == best_dir_indices[k]).nonzero()[0][0]
                                         unvalid_dir_index = unvalid_dir_indices_2[k, matched_unvalid_dir_index]
-                                        umatched_dir_mask[k, unvalid_dir_index] = False
+                                        unmatched_dir_mask[k, unvalid_dir_index] = False
                                     elif best_dir_indices[k] in unvalid_dir_indices_2[k]:
                                         matched_unvalid_dir_index = \
                                             (unvalid_dir_indices_2[k] == best_dir_indices[k]).nonzero()[0][0]
                                         unvalid_dir_index = unvalid_dir_indices_1[k, matched_unvalid_dir_index]
-                                        umatched_dir_mask[k, unvalid_dir_index] = False
+                                        unmatched_dir_mask[k, unvalid_dir_index] = False
 
                             direction_combs = direction_combs[:num_best_combs]
                             if num_best_combs == 1 or num_best_combs == old_num_best_combs:
