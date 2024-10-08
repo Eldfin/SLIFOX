@@ -331,6 +331,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
     # iterate from 2 to max_sig_peaks and 1, 0 at last
     # so i is the number of significant peaks for every pixel in the nested loop
     iteration_list = np.append(np.arange(2, max_sig_peaks + 1), [1, 0])
+    pbar = None
     for iteration_index, i in enumerate(iteration_list):
         mask = (image_num_peaks == i)
         num_peaks = min(i, max_paired_peaks)
@@ -350,7 +351,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                 distances, _ = tree.query(indices)
                 sorted_indices = np.argsort(distances)
                 no_processed = False
-            pbar.close()
+            if not pbar is None: pbar.close()
 
         # Initialize the progress bar
         pbar = tqdm(total = num_pixels_iteration, 
@@ -904,7 +905,10 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
     scales = params[2::3]
 
     for i in range(num_peaks):
-        amplitudes[i] = heights[i] * distribution_pdf(0, 0, scales[i], distribution)
+        if i < len(heights):
+            amplitudes[i] = heights[i] * distribution_pdf(0, 0, scales[i], distribution)
+        else:
+            amplitudes[i] = np.max(intensities[peaks_mask[i]]) - np.min(intensities)
 
     if len(unpaired_peak_indices) > 0:
         malus_amplitude = np.max(amplitudes[unpaired_peak_indices])
