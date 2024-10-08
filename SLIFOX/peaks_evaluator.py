@@ -414,6 +414,10 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                     valid_combs = np.ones(num_combs, dtype = np.bool_)
                     direction_combs = np.full((num_combs, image_peak_pair_combs.shape[3]), -1, 
                                                 dtype = np.float64)
+                    num_unvalid_differences = np.zeros(num_combs, dtype = int)
+                    unvalid_dir_indices_1 = np.full((num_combs, image_peak_pair_combs.shape[3]), -1)
+                    unvalid_dir_indices_2 = np.full((num_combs, image_peak_pair_combs.shape[3]), -1)
+
                     for k in range(num_combs):
                         peak_pairs = np.where(peak_pairs_combinations[k] == -1, -1, 
                                                         sig_peak_indices[peak_pairs_combinations[k]])
@@ -451,22 +455,38 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                                             exclude_lone_peaks = exclude_lone_peaks)
                         # Filter directions with low significance out
                         directions = directions[significances >= significance_threshold]
-
                         directions = directions[directions != -1]
                     
                         # If any differences between directions are below min_directions_diff,
-                        # its not a valid peak pair combination
+                        # its not a valid peak pair combination (if found peaks = peaks to pair)
                         #differences = np.abs(directions[:, np.newaxis] - directions)
                         #differences = differences[differences != 0]
                         if len(directions) > 1:
                             # Calculate the differences between every directions
                             differences = np.abs(angle_distance(directions[:, np.newaxis], 
                                                     directions[np.newaxis, :], wrap = np.pi))
-                            differences = differences[np.triu_indices(len(directions), k=1)]
+                            dir_indices_1, dir_indices_2 = np.triu_indices(len(directions), k=1)
+                            differences = differences[dir_indices_1, dir_indices_2]
 
-                            if np.any(differences < min_directions_diff * np.pi / 180):
-                                valid_combs[k] = False
-                                continue
+                            unvalid_differences = differences < min_directions_diff * np.pi / 180
+                            unvalid_differences_indices = unvalid_differences.nonzero()[0]
+                            num_unvalid_differences[k] = np.count_nonzero(unvalid_differences)
+
+                            if num_unvalid_differences[k] > 0:
+                                if num_peaks == num_found_peaks:
+                                    # if the number of peaks (to pair) equals the found peaks
+                                    # set the whole peak pair combination to unvalid
+                                    valid_combs[k] = False
+                                    continue
+                                else:
+                                    # Save unvalid directions in mask
+                                    # only one of two unvalid directions will be paired later
+                                    # (this with the best neighbour difference)
+                                    unvalid_dir_indices_1[k, :num_unvalid_differences[k]] = \
+                                        dir_indices_1[unvalid_differences_indices]
+                                    unvalid_dir_indices_2[k, :num_unvalid_differences[k]] = \
+                                        dir_indices_2[unvalid_differences_indices]
+                                        
                         elif len(directions) == 0:
                             valid_combs[k] = False
 
@@ -480,7 +500,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                     direction_combs = direction_combs[valid_combs]
                     num_sig_combs = sig_peak_pair_combs.shape[0]
 
-                    if num_sig_combs == 1:
+                    if num_sig_combs == 1 and num_unvalid_differences[valid_combs.nonzero()[0]] == 0:
                         image_peak_pair_combs[x, y, 
                                         :sig_peak_pair_combs.shape[0],
                                         :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
@@ -529,8 +549,16 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             if attempt == max_attempts - 1 or not np.any(check_mask):
                                 # When no neighbouring pixel within max_attempts had
                                 # a direction difference below the threshold
-                                # return no peak pairs
-                                image_peak_pair_combs[x, y] = np.array([[[-1, -1]]])
+                                # return only matched directions (remove unmatched directions)
+                                if not np.any(~unmatched_dir_mask):
+                                    # return no peak pairs
+                                    image_peak_pair_combs[x, y] = np.array([[[-1, -1]]])
+                                else:
+                                    for k in range(unmatched_dir_mask.shape[0]):
+                                        sig_peak_pair_combs[k, unmatched_dir_mask[k]] = -1
+                                    image_peak_pair_combs[x, y, 
+                                        :sig_peak_pair_combs.shape[0],
+                                        :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
                                 break
                             continue
 
@@ -554,6 +582,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             direction_diffs[k] = np.min(differences)
 
                         if no_directions:
+                            for k in range(unmatched_dir_mask.shape[0]):
+                                sig_peak_pair_combs[k, unmatched_dir_mask[k]] = -1
                             image_peak_pair_combs[x, y, 
                                             :sig_peak_pair_combs.shape[0],
                                             :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
@@ -574,9 +604,22 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             best_dir_indices = dir_diff_indices[sort_indices[:num_best_combs]]
                             for k in range(num_best_combs):
                                 unmatched_dir_mask[k, best_dir_indices[k]] = False
+                                if num_unvalid_differences[k] > 0:
+                                    if best_dir_indices[k] in unvalid_dir_indices_1[k]:
+                                        matched_unvalid_dir_index = \
+                                            (unvalid_dir_indices_1[k] == best_dir_indices[k]).nonzero()[0][0]
+                                        unvalid_dir_index = unvalid_dir_indices_2[k, matched_unvalid_dir_index]
+                                        umatched_dir_mask[k, unvalid_dir_index] = False
+                                    elif best_dir_indices[k] in unvalid_dir_indices_2[k]:
+                                        matched_unvalid_dir_index = \
+                                            (unvalid_dir_indices_2[k] == best_dir_indices[k]).nonzero()[0][0]
+                                        unvalid_dir_index = unvalid_dir_indices_1[k, matched_unvalid_dir_index]
+                                        umatched_dir_mask[k, unvalid_dir_index] = False
 
                             direction_combs = direction_combs[:num_best_combs]
                             if num_best_combs == 1 or num_best_combs == old_num_best_combs:
+                                for k in range(unmatched_dir_mask.shape[0]):
+                                        sig_peak_pair_combs[k, unmatched_dir_mask[k]] = -1
                                 image_peak_pair_combs[x, y, 
                                             :sig_peak_pair_combs.shape[0],
                                             :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
@@ -589,8 +632,16 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             if attempt == max_attempts - 1 or not np.any(check_mask):
                                 # When no neighbouring pixel within max_attempts had
                                 # a direction difference below the threshold
-                                # return no peak pairs
-                                image_peak_pair_combs[x, y] = np.array([[[-1, -1]]])
+                                # return only matched directions (remove unmatched directions)
+                                if not np.any(~unmatched_dir_mask):
+                                    # return no peak pairs
+                                    image_peak_pair_combs[x, y] = np.array([[[-1, -1]]])
+                                else:
+                                    for k in range(unmatched_dir_mask.shape[0]):
+                                        sig_peak_pair_combs[k, unmatched_dir_mask[k]] = -1
+                                    image_peak_pair_combs[x, y, 
+                                        :sig_peak_pair_combs.shape[0],
+                                        :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
                                 break
 
     return image_peak_pair_combs
@@ -895,6 +946,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
                 malus_amplitude = np.max(amplitudes[unpaired_peak_indices])
             else:
                 malus_amplitude = 0
+            malus_amplitude = 0
             significances[i] = np.mean((amplitudes[indices] - malus_amplitude)/ global_amplitude)
         
         return significances
@@ -914,6 +966,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
         malus_amplitude = np.max(amplitudes[unpaired_peak_indices])
     else:
         malus_amplitude = 0
+    malus_amplitude = 0
 
     for i in range(num_directions):
         peak_pair = peak_pairs[i]
