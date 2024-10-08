@@ -390,7 +390,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                         intensities = image_stack[x, y]
                         significances = direction_significances(peak_pairs, params, peaks_mask, 
                                     intensities, angles, weights = significance_weights, 
-                                    distribution = distribution, only_mus = only_mus)
+                                    distribution = distribution, only_mus = only_mus,
+                                    exclude_lone_peaks = exclude_lone_peaks)
 
                         if significances[0] >= significance_threshold:
                             image_peak_pair_combs[x, y, 
@@ -442,7 +443,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
                         significances = direction_significances(peak_pairs, params, peaks_mask, 
                                     intensities, angles, weights = significance_weights, 
-                                    distribution = distribution, only_mus = only_mus)
+                                    distribution = distribution, only_mus = only_mus,
+                                    exclude_lone_peaks = exclude_lone_peaks)
 
                         # Set unvalid pair direction significance to -1
                         significances[~valid_pairs] = -1
@@ -510,6 +512,12 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                     check_mask = np.copy(direction_found_mask)
                     num_best_combs = num_sig_combs
                     unmatched_dir_mask = np.ones(direction_combs.shape, dtype = np.bool_)
+
+                    # Set lone peak pairs as already matched
+                    lone_peak_pair_indices = np.where(np.any(
+                                            peak_pairs_combinations[valid_combs] == -1, axis = -1))[1]
+                    unmatched_dir_mask[:, lone_peak_pair_indices] = False
+
                     for attempt in range(max_attempts):
                         neighbour_x, neighbour_y = _find_closest_true_pixel(check_mask, (x, y), 
                                                                         search_radius)
@@ -536,7 +544,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                         neighbour_significances = direction_significances(neighbour_peak_pairs, 
                                     neighbour_params, neighbour_peaks_mask, 
                                     neighbour_intensities, angles, weights = significance_weights, 
-                                    distribution = distribution, only_mus = only_mus)
+                                    distribution = distribution, only_mus = only_mus,
+                                    exclude_lone_peaks = exclude_lone_peaks)
 
                         # Filter neighbour directions with low significance out
                         neighbour_directions = neighbour_directions[neighbour_significances
@@ -651,6 +660,9 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                 if not np.any(~unmatched_dir_mask):
                                     # return no peak pairs
                                     image_peak_pair_combs[x, y] = np.array([[[-1, -1]]])
+                                    # Maybe for 3 Peaks:
+                                    # return direction comb with best paired direction significance
+
                                 else:
                                     for k in range(unmatched_dir_mask.shape[0]):
                                         matched_dir_mask = ~unmatched_dir_mask[k]
@@ -750,7 +762,8 @@ def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exc
         If None, no images will be writen.
     - only_peaks_count: int (or list of ints)
         Defines a filter for the number of peaks, so that only pixels will be processed that have
-        this number of peaks.
+        this number of peaks. 
+        Note: This functionallity is a bit deprecated here, since it uses the maximum peak index.
     - exclude_lone_peaks: bool
         Whether to exclude the directions for lone peaks 
         (for peak pairs with only one number unequal -1 e.g. [2, -1]).
@@ -933,6 +946,9 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
         The name of the distribution.
     - only_mus: bool
         Defines if only the mus are given in the params.
+    - exclude_lone_peaks: bool
+        Whether to exclude the directions for lone peaks 
+        (for peak pairs with only one number unequal -1 e.g. [2, -1]).
 
     Returns:
     - significances: np.ndarray (np.ceil(max_paired_peaks / 2), )
@@ -949,6 +965,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
     unpaired_peak_indices = list(all_peak_indices - set(paired_peak_indices))
 
     amplitudes = np.zeros(num_peaks)
+    lone_pair = np.zeros(num_directions, dtype = np.bool_)
 
     if only_mus:
         # If only mus are provided, just use amplitude significance
@@ -961,6 +978,9 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
             peak_pair = peak_pairs[i]
             indices = peak_pair[peak_pair != -1]
             if len(indices) == 0: continue
+            if (peak_pair[0] == -1 or peak_pair[1] == -1) and exclude_lone_peaks:
+                lone_pair[i] = True
+                continue
             # calculate max amplitude of unpaired peaks and subtract it from significance
             if len(unpaired_peak_indices) > 0:
                 malus_amplitude = np.max(amplitudes[unpaired_peak_indices])
@@ -969,6 +989,8 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
             malus_amplitude = 0
             significances[i] = np.mean((amplitudes[indices] - malus_amplitude)/ global_amplitude)
         
+        if exclude_lone_peaks: 
+            significances = significances[~lone_pair]
         return significances
     
     model_y = full_fitfunction(angles, params, distribution)
@@ -992,7 +1014,10 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
         peak_pair = peak_pairs[i]
         if peak_pair[0] == -1 and peak_pair[1] == -1: 
             continue
-        elif peak_pair[0] == -1 or peak_pair[1] == -1:
+        elif (peak_pair[0] == -1 or peak_pair[1] == -1):
+            if exclude_lone_peaks: 
+                lone_pair[i] = True
+                continue
             peak_index = peak_pair[peak_pair != -1][0]
             amplitude_significance = (amplitudes[peak_index] - malus_amplitude) / global_amplitude
             gof_significance = peaks_gof[peak_index]
@@ -1003,6 +1028,8 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
         significances[i] = (amplitude_significance * weights[0] + gof_significance * weights[1]) / 2
 
     significances = np.clip(significances, 0, 1)
+    if exclude_lone_peaks:
+        significances = significances[~lone_pair]
 
     return significances
 
