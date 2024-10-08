@@ -966,7 +966,6 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
     unpaired_peak_indices = list(all_peak_indices - set(paired_peak_indices))
 
     amplitudes = np.zeros(num_peaks)
-    lone_pair = np.zeros(num_directions, dtype = np.bool_)
 
     if only_mus:
         # If only mus are provided, just use amplitude significance
@@ -978,10 +977,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
         for i in range(num_directions):
             peak_pair = peak_pairs[i]
             indices = peak_pair[peak_pair != -1]
-            if len(indices) == 0: continue
-            if (peak_pair[0] == -1 or peak_pair[1] == -1) and exclude_lone_peaks:
-                lone_pair[i] = True
-                continue
+            if len(indices) == 0 or (len(indices) == 1 and exclude_lone_peaks): continue
             # calculate max amplitude of unpaired peaks and subtract it from significance
             if len(unpaired_peak_indices) > 0:
                 malus_amplitude = np.max(amplitudes[unpaired_peak_indices])
@@ -989,9 +985,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
                 malus_amplitude = 0
             malus_amplitude = 0
             significances[i] = np.mean((amplitudes[indices] - malus_amplitude)/ global_amplitude)
-        
-        if exclude_lone_peaks: 
-            significances = significances[~lone_pair]
+
         return significances
     
     model_y = full_fitfunction(angles, params, distribution)
@@ -1016,9 +1010,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
         if peak_pair[0] == -1 and peak_pair[1] == -1: 
             continue
         elif (peak_pair[0] == -1 or peak_pair[1] == -1):
-            if exclude_lone_peaks: 
-                lone_pair[i] = True
-                continue
+            if exclude_lone_peaks: continue
             peak_index = peak_pair[peak_pair != -1][0]
             amplitude_significance = (amplitudes[peak_index] - malus_amplitude) / global_amplitude
             gof_significance = peaks_gof[peak_index]
@@ -1029,8 +1021,6 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
         significances[i] = (amplitude_significance * weights[0] + gof_significance * weights[1]) / 2
 
     significances = np.clip(significances, 0, 1)
-    if exclude_lone_peaks:
-        significances = significances[~lone_pair]
 
     return significances
 
