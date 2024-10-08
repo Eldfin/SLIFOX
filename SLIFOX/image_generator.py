@@ -10,6 +10,18 @@ from .wrapped_distributions import distribution_pdf
 from .utils import angle_distance
 import imageio
 
+#Paul Tol's Bright Color Palette for color blindness
+default_colormap = np.array([
+    (102, 204, 238),  # Cyan
+    (170, 51, 119),   # Purple
+    (204, 187, 68),   # Yellow
+    (34, 136, 51),    # Green
+    (68, 119, 170),   # Blue
+    (238, 102, 119),  # Red
+    (187, 187, 187)  # Grey
+])
+norm_default_colormap = default_colormap / 255
+
 def normalize_to_rgb(array, value_range = [None, None], colormap = "viridis"):
     # Normalizes an 2d-array using a colormap
     # if min (or max) in range is None, it will be the min (or max) of the image
@@ -50,8 +62,8 @@ def plot_peaks_gof(peaks_gof, heights, mus, scales,
 
     Parameters:
     - peaks_gof: np.ndarray (n_peaks, )
-        The goodness of fit values for both peaks.
-    - peaks_mask: np.ndarray (n_peaks, m)
+        The goodness of fit values for the peaks.
+    - peaks_mask: np.ndarray (n_find_peaks, m)
         The mask array defining which of the m measurements of the pixel corresponds to a peak.
     - amplitudes: np.ndarray (n_peaks, )
         The amplitudes of the peaks.
@@ -68,12 +80,7 @@ def plot_peaks_gof(peaks_gof, heights, mus, scales,
     heights = heights[sig_mask]
     
     for k, gof in enumerate(peaks_gof):
-        if k == 0: color = "blue"
-        elif k == 1: color = "red"
-        elif k == 2: color = "green"
-        elif k == 3: color = "brown"
-        elif k == 4: color = "purple"
-        elif k == 5: color = "orange"
+        gof_color = norm_default_colormap[min(k, len(default_colormap))]
         if gof < 0: gof = 0
         amplitude = heights[k] * distribution_pdf(0, 0, scales[k], distribution)
         ymax = gof**gof_weight * amplitude
@@ -83,7 +90,7 @@ def plot_peaks_gof(peaks_gof, heights, mus, scales,
         peaks_x_f_2 = np.empty(0)
         wrapped = False
         for l in range(len(angles)):
-            if l+1 < len(angles) and peaks_mask[k][l] and peaks_mask[k][l+1]:
+            if l+1 < len(angles) and peaks_mask[k, l] and peaks_mask[k, l+1]:
                 if not wrapped:
                     peaks_x_f_1 = np.append(peaks_x_f_1, np.linspace(angles[l], 
                                                             angles[l+1], 50, endpoint=False))
@@ -104,10 +111,10 @@ def plot_peaks_gof(peaks_gof, heights, mus, scales,
         peak_y_f_1 = heights[k] * distribution_pdf(peaks_x_f_1, mus[k], scales[k], distribution)
         peak_y_f_2 = heights[k] * distribution_pdf(peaks_x_f_2, mus[k], scales[k], distribution)
         peak_y_f = heights[k] * distribution_pdf(x_f, mus[k], scales[k], distribution)
-        plt.plot((peaks_x_f_1*180/np.pi) % 360, peak_y_f_1, marker='None', linestyle="-", color=color)
-        plt.plot((peaks_x_f_2*180/np.pi) % 360, peak_y_f_2, marker='None', linestyle="-", color=color)
-        plt.plot((x_f*180/np.pi) % 360, peak_y_f, marker='None', linestyle="--", color=color)
-        plt.vlines((mus[k]*180/np.pi) % 360, 0, ymax , color = color)
+        plt.plot((peaks_x_f_1*180/np.pi) % 360, peak_y_f_1, marker='None', linestyle="-", color=gof_color)
+        plt.plot((peaks_x_f_2*180/np.pi) % 360, peak_y_f_2, marker='None', linestyle="-", color=gof_color)
+        plt.plot((x_f*180/np.pi) % 360, peak_y_f, marker='None', linestyle="--", color=gof_color)
+        plt.vlines((mus[k]*180/np.pi) % 360, 0, ymax , color = gof_color)
 
 def plot_directions(peak_pairs, mus, distribution, heights = None, scales = None):
     """
@@ -127,16 +134,11 @@ def plot_directions(peak_pairs, mus, distribution, heights = None, scales = None
     """
     for k, pair in enumerate(peak_pairs):
         if pair[0] == -1 and pair[1] == -1: continue
-        colors = []
+        mixed_colors = []
         for index in pair:
-            if index == 0: colors.append("blue")
-            elif index == 1: colors.append("red")
-            elif index == 2: colors.append("green")
-            elif index == 3: colors.append("brown")
-            elif index == 4: colors.append("purple")
-            elif index == 5: colors.append("orange")
+            mixed_colors.append(norm_default_colormap[min(index, len(default_colormap))])
 
-        if len(colors) == 1:
+        if len(mixed_colors) == 1:
             ax = plt.gca()
             limit_min, limit_max = ax.get_ylim()
             direction = mus[pair[0]] % (np.pi)
@@ -151,14 +153,14 @@ def plot_directions(peak_pairs, mus, distribution, heights = None, scales = None
                 ymin, ymin2 = limit_min, limit_min
             direction = direction * 180/np.pi
             
-            plt.vlines(direction, ymin, limit_max, color = colors[0])
-            plt.vlines(direction + 180, ymin2, limit_max, color = colors[0])
+            plt.vlines(direction, ymin, limit_max, color = mixed_colors[0])
+            plt.vlines(direction + 180, ymin2, limit_max, color = mixed_colors[0])
         else:
             distance = angle_distance(mus[pair[0]], mus[pair[1]])
             direction = (mus[pair[0]] + distance / 2) % (np.pi)
             direction = direction * 180/np.pi
-            alternating_vline(direction, colors=colors, num_segments=10)
-            alternating_vline(direction + 180, colors=colors, num_segments=10)
+            alternating_vline(direction, colors=mixed_colors, num_segments=10)
+            alternating_vline(direction + 180, colors=mixed_colors, num_segments=10)
 
 def show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distribution):
     """
@@ -171,15 +173,16 @@ def show_pixel(intensities, intensities_err, best_parameters, peaks_mask, distri
         The errors (standard deviation) of the measured intensities.
     - best_parameters: np.ndarray (m, )
         The found best parameters of the full fitfunction from the fitting process.
-    - peaks_mask: np.ndarray (n_peaks, n)
+    - peaks_mask: np.ndarray (max_find_peaks, n)
         The mask array defining which intensities corresponds to which peak.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
     """
     angles = np.linspace(0, 2*np.pi, num=len(intensities), endpoint=False)
 
+    max_fit_peaks = int((len(best_parameters) - 1) / 3)
     model_y = full_fitfunction(angles, best_parameters, distribution)
-    peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
+    peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask[:max_fit_peaks], method = "r2")
 
     plt.errorbar(angles*180/np.pi, intensities, yerr=intensities_err, marker = "o", linestyle="", capsize=5)
     plt.xlabel("Angle / $^\\circ$", fontsize = 12)
@@ -247,7 +250,7 @@ def plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs = No
                 intensities_err = np.ceil(np.sqrt(intensities)).astype(intensities.dtype)
                 intensities_err[intensities_err == 0] = 1
             peaks_mask = image_peaks_mask[i, j]
-            num_peaks = np.count_nonzero(np.any(peaks_mask, axis = -1), axis = -1)
+            num_found_peaks = np.count_nonzero(np.any(peaks_mask, axis = -1), axis = -1)
             #if num_peaks == 0: continue
 
             plt.errorbar(angles*180/np.pi, intensities, yerr=intensities_err, marker = "o", 
@@ -258,12 +261,9 @@ def plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs = No
                 heights = params[0:-1:3]
                 scales = params[2::3]
                 mus = params[1::3]
-                offset = params[-1]
-                params = params[:(3 * num_peaks)]
-                params = np.append(params, offset)
 
                 model_y = full_fitfunction(angles, params, distribution)
-                peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
+                peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask[:len(mus)], method = "r2")
                 x_f = np.linspace(0, 2*np.pi, 2000, endpoint=False)
                 y_f = full_fitfunction(x_f, params, distribution)
                 FitLine, = plt.plot(x_f*180/np.pi, y_f, marker='None', linestyle="-", color="black")
@@ -275,12 +275,8 @@ def plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs = No
                 heights = None
                 scales = None   
                 for k, mask in enumerate(peaks_mask):
-                    if k == 0: color = "blue"
-                    elif k == 1: color = "red"
-                    elif k == 2: color = "green"
-                    elif k == 3: color = "brown"
-                    elif k == 4: color = "purple"
-                    elif k == 5: color = "orange"
+                    if not np.any(mask): break
+                    color = norm_default_colormap[min(k, len(default_colormap))]
                     plt.errorbar(angles[mask]*180/np.pi, intensities[mask], 
                             yerr=intensities_err[mask], marker = "o", linestyle="", capsize=5, color=color)
 
@@ -360,19 +356,10 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
             os.makedirs(directory)
 
         if not isinstance(colormap, np.ndarray):
-            # Using Paul Tols Muted Colorblind Palette
-            colormap = np.array([
-                [0, 0, 0],  # 0: Black
-                [221, 221, 221],  # 1: Dark White
-                [126, 41, 84],  # 2: Dark Magenta
-                [220, 205, 125],  # 3: Bright Yellow
-                [51, 117, 56],  # 4: Green
-                [46, 37, 133],  # 5: Blue
-                [148, 203, 236]   # 6: Bright Blue
-            ], dtype = np.uint8)
+            colormap = np.insert(default_colormap, 0, (0, 0, 0)).astype(np.uint8)
         
         image = np.swapaxes(image_num_peaks, 0, 1)
-        image = np.clip(image, 0, 6)
+        image = np.clip(image, 0, 7)
         image = colormap[image]
 
         imageio.imwrite(f'{directory}/n_peaks_map.tiff', image, format = 'tiff')
