@@ -341,6 +341,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
         num_peaks = min(i, max_paired_peaks)
         peak_pairs_combinations = possible_pairs(num_peaks)
         num_combs = peak_pairs_combinations.shape[0]
+        num_directions = peak_pairs_combinations.shape[1]
         indices = np.argwhere(mask)
         num_pixels_iteration = np.count_nonzero(mask)
 
@@ -417,13 +418,12 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                         mus = params
 
                     valid_combs = np.ones(num_combs, dtype = np.bool_)
-                    max_directions = image_peak_pair_combs.shape[3]
-                    direction_combs = np.full((num_combs, max_directions), -1, 
+                    direction_combs = np.full((num_combs, num_directions), -1, 
                                                 dtype = np.float64)
-                    comb_significances = np.full((num_combs, max_directions), -1)
+                    comb_significances = np.full((num_combs, num_directions), -1)
                     num_unvalid_differences = np.zeros(num_combs, dtype = int)
-                    unvalid_dir_indices_1 = np.full((num_combs, max_directions), -1)
-                    unvalid_dir_indices_2 = np.full((num_combs, max_directions), -1)
+                    unvalid_dir_indices_1 = np.full((num_combs, num_directions), -1)
+                    unvalid_dir_indices_2 = np.full((num_combs, num_directions), -1)
 
                     for k in range(num_combs):
                         peak_pairs = np.where(peak_pairs_combinations[k] == -1, -1, 
