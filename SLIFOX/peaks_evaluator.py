@@ -300,7 +300,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
     if max_paired_peaks <= 2:
         max_combs = 1
-    elif max_paired_peaks <= 4
+    elif max_paired_peaks <= 4:
         max_combs = 3
     elif max_paired_peaks >= 5:
         max_combs = 15
