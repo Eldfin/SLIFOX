@@ -922,7 +922,8 @@ def get_possible_pairs(num_peaks):
 
 #@njit(cache = True, fastmath = True)
 def direction_significances(peak_pairs, params, peaks_mask, intensities, angles, weights = [1, 1],
-                            distribution = "wrapped_cauchy", only_mus = False):
+                            distribution = "wrapped_cauchy", only_mus = False,
+                            exclude_lone_peaks = True):
     """
     Calculates the significances of the directions for one (fitted) pixel.
     (Old function, performance can be improved similar to get_image_direction_significances).
