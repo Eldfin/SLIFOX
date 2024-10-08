@@ -555,7 +555,12 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                     image_peak_pair_combs[x, y] = np.array([[[-1, -1]]])
                                 else:
                                     for k in range(unmatched_dir_mask.shape[0]):
-                                        sig_peak_pair_combs[k, unmatched_dir_mask[k]] = -1
+                                        matched_dir_mask = ~unmatched_dir_mask[k]
+                                        matched_peak_pairs = sig_peak_pair_combs[k, matched_dir_mask]
+                                        num_matches = np.count_nonzero(matched_dir_mask)
+                                        if num_matches > 0:
+                                            sig_peak_pair_combs[k, :num_matches] = matched_peak_pairs
+                                            sig_peak_pair_combs[k, num_matches:] = -1
                                     image_peak_pair_combs[x, y, 
                                         :sig_peak_pair_combs.shape[0],
                                         :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
@@ -583,7 +588,12 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
                         if no_directions:
                             for k in range(unmatched_dir_mask.shape[0]):
-                                sig_peak_pair_combs[k, unmatched_dir_mask[k]] = -1
+                                matched_dir_mask = ~unmatched_dir_mask[k]
+                                matched_peak_pairs = sig_peak_pair_combs[k, matched_dir_mask]
+                                num_matches = np.count_nonzero(matched_dir_mask)
+                                if num_matches > 0:
+                                    sig_peak_pair_combs[k, :num_matches] = matched_peak_pairs
+                                    sig_peak_pair_combs[k, num_matches:] = -1
                             image_peak_pair_combs[x, y, 
                                             :sig_peak_pair_combs.shape[0],
                                             :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
@@ -619,10 +629,15 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             direction_combs = direction_combs[:num_best_combs]
                             if num_best_combs == 1 or num_best_combs == old_num_best_combs:
                                 for k in range(unmatched_dir_mask.shape[0]):
-                                        sig_peak_pair_combs[k, unmatched_dir_mask[k]] = -1
+                                    matched_dir_mask = ~unmatched_dir_mask[k]
+                                    matched_peak_pairs = sig_peak_pair_combs[k, matched_dir_mask]
+                                    num_matches = np.count_nonzero(matched_dir_mask)
+                                    if num_matches > 0:
+                                        sig_peak_pair_combs[k, :num_matches] = matched_peak_pairs
+                                        sig_peak_pair_combs[k, num_matches:] = -1
                                 image_peak_pair_combs[x, y, 
-                                            :sig_peak_pair_combs.shape[0],
-                                            :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
+                                        :sig_peak_pair_combs.shape[0],
+                                        :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
                                 direction_found_mask[x, y] = True
                                 break
                             else:
@@ -638,7 +653,12 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                     image_peak_pair_combs[x, y] = np.array([[[-1, -1]]])
                                 else:
                                     for k in range(unmatched_dir_mask.shape[0]):
-                                        sig_peak_pair_combs[k, unmatched_dir_mask[k]] = -1
+                                        matched_dir_mask = ~unmatched_dir_mask[k]
+                                        matched_peak_pairs = sig_peak_pair_combs[k, matched_dir_mask]
+                                        num_matches = np.count_nonzero(matched_dir_mask)
+                                        if num_matches > 0:
+                                            sig_peak_pair_combs[k, :num_matches] = matched_peak_pairs
+                                            sig_peak_pair_combs[k, num_matches:] = -1
                                     image_peak_pair_combs[x, y, 
                                         :sig_peak_pair_combs.shape[0],
                                         :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
