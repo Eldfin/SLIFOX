@@ -22,7 +22,7 @@ data, indices = pick_data(data_file_path, dataset_path, area = area, randoms = r
 
 # Find the peaks from the picked data
 image_mus, image_peaks_mask = find_image_peaks(data, threshold = 1000, init_fit_filter = None, 
-                        only_peaks_count = -1, max_peaks = 4, num_processes = 2)
+                        only_peaks_count = -1, num_processes = 2)
 
 
 # Optional: Write the output to a HDF5 file

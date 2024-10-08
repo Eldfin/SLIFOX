@@ -95,9 +95,11 @@ Fits the data of one pixel.
 - `only_peaks_count`: int  
     Defines a filter for found peaks, so that if the count of found peaks is not equal that number,  
     the function return the same as if no peaks are found.  
-- `max_peaks`: int  
-    Defines the maximum number of peaks that should be returned from the   
-    total found peaks (starting from highest peak).  
+- `max_fit_peaks`: int
+    Defines the maximum number of peaks that should be fitted.
+- `max_find_peaks`: int
+    Defines the maximum number of peaks that should be found.  
+    More peaks then this will be cut off (so no performeance improvements by less max found peaks).
 - `max_peak_hwhm`: float  
     Estimated maximum peak half width at half maximum.  
 - `min_peak_hwhm`: float  
@@ -158,9 +160,11 @@ Fits the data of a full image stack.
 - `only_peaks_count`: int  
     Defines a filter for found peaks, so that if the count of found peaks is not equal that number,  
     the function returns the same as if no peaks are found.  
-- `max_peaks`: int  
-    Defines the maximum number of peaks that should be returned from the   
-    total found peaks (starting from highest peak).  
+- `max_fit_peaks`: int
+    Defines the maximum number of peaks that should be fitted.
+- `max_find_peaks`: int
+    Defines the maximum number of peaks that should be found.  
+    More peaks then this will be cut off (so no performeance improvements by less max found peaks). 
 - `max_peak_hwhm`: float  
     Estimated maximum peak half width at half maximum.  
 - `min_peak_hwhm`: float  
@@ -175,7 +179,7 @@ Fits the data of a full image stack.
 ##### Returns
 - image_params: np.ndarray (n, m, q)  
     Array which stores the best found parameters for every pixel (of n*m pixels).  
-- image_peaks_mask: np.ndarray (n, m, max_peaks, p)  
+- image_peaks_mask: np.ndarray (n, m, max_find_peaks, p)  
     Array that stores the indices of the measurements that corresponds (mainly) to a peak,  
     for every pixel (of n*m pixels).  
 
@@ -203,9 +207,9 @@ Finds the peaks of an image stack using only the peak finder (no fitting).
 - `only_peaks_count`: int  
     Defines a filter for found peaks, so that if the count of found peaks is not equal that number,  
     the function return the same as if no peaks are found.  
-- `max_peaks`: int  
-    Defines the maximum number of peaks that should be returned from the   
-    total found peaks (starting from highest peak).  
+- `max_find_peaks`: int  
+    Defines the maximum number of peaks that should be found (from highest to lowest).  
+    More peaks then this will be cut off (so no performeance improvements by less max found peaks).
 - `max_peak_hwhm`: float  
     Estimated maximum peak half width at half maximum.  
 - `min_peak_hwhm`: float  
@@ -218,9 +222,9 @@ Finds the peaks of an image stack using only the peak finder (no fitting).
     Number that defines in how many sub-processes the fitting process should be split into.  
       
 ##### Returns
-- `image_peaks_mus`: np.ndarray (n, m, max_peaks)  
+- `image_peaks_mus`: np.ndarray (n, m, max_find_peaks)  
         Array which stores the best found parameters for every pixel (of n*m pixels).  
-- `image_peaks_mask`: np.ndarray (n, m, max_peaks, p)  
+- `image_peaks_mask`: np.ndarray (n, m, max_find_peaks, p)  
     Array that stores the indices of the measurements that corresponds (mainly) to a peak,  
     for every pixel (of n*m pixels).  
 
@@ -267,9 +271,8 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
     n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
 - `image_params`: np.ndarray (n, m, q)
     The output of fitting the image stack, which stores the parameters of the full fitfunction.
-    q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
     Can also store only mus, when only_mus = True.
-- `image_peaks_mask`: np.ndarray (n, m, max_peaks, p)
+- `image_peaks_mask`: np.ndarray (n, m, max_find_peaks, p)
     The mask defining which of the p-measurements corresponds to one of the peaks.
     The first two dimensions are the image dimensions.
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
@@ -294,6 +297,10 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
 - `significance_weights`: list (2, )
     The weights for the amplitude and for the goodnes-of-fit, when calculating the significance.
     See also "direction_significance" function for more info.
+- `max_paired_peaks`: int
+    Defines the maximum number of peaks that are paired.
+    Value has to be smaller or equal the number of peaks in image_params (and max 6)
+    (max_paired_peaks <= max_fit_peaks or max_find_peaks)
 - `angle_threshold`: float
     Threshold defining when a neighbouring pixel direction is considered as same nerve fiber.
 - `max_attempts`: int
@@ -313,7 +320,7 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
     with with a pair like e.g. [2, -1] for the second peak index.
 
 ##### Returns
-- `image_peak_pairs`: np.ndarray (n, m, p, np.ceil(max_peaks / 2), 2)
+- `image_peak_pairs`: np.ndarray (n, m, p, np.ceil(max_paired_peaks / 2), 2)
     The peak pairs for every pixel, where the fifth dimension contains both peak numbers of
     a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the fourth dimension
     is the number of the peak pair (dimension has length np.ceil(num_peaks / 2)).
@@ -329,13 +336,13 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
 Calculates the directions from given peak_pairs.
 
 ##### Parameters
-- `image_peak_pairs`: np.ndarray (n, m, np.ceil(max_peaks / 2), 2)  
+- `image_peak_pairs`: np.ndarray (n, m, np.ceil(max_paired_peaks / 2), 2)  
     The peak pairs for every pixel, where the fourth dimension contains both peak numbers of  
     a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension  
     is the number of the peak pair (up to 3 peak-pairs for 6 peaks).  
     The first two dimensions are the image dimensions.  
-- `image_mus`: np.ndarray (n, m, max_peaks)  
-    The mus (centers) of the found (max_peaks) peaks for everyone of the (n * m) pixels.  
+- `image_mus`: np.ndarray (n, m, p)  
+    The mus (centers) of the found (p) peaks for everyone of the (n * m) pixels.  
 - `only_peaks_count`: int or list of ints   
     Only use pixels where the number of peaks equals this number. -1 uses every number of peaks.
 - `exclude_lone_peaks`: bool
@@ -358,7 +365,7 @@ Calculates the directions from given peak_pairs.
     If min (or max) is None, the minimum (or maximum) of the image will be used.
 
 ##### Returns
-- `directions`: (n, m, np.ceil(max_peaks / 2))  
+- `directions`: (n, m, np.ceil(max_paired_peaks / 2))  
     The calculated directions for everyoe of the (n * m) pixels.  
     Max 3 directions (for 6 peaks).  
 
@@ -370,15 +377,14 @@ Maps the significances of all found directions from given "image_peak_pairs".
 - `image_stack`: np.ndarray (n, m, p)
     The image stack containing the measured intensities.
     n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
-- `image_peak_pairs`: np.ndarray (n, m, np.ceil(max_peaks / 2), 2)
+- `image_peak_pairs`: np.ndarray (n, m, np.ceil(max_paired_peaks / 2), 2)
     The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
     a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
     is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
     The first two dimensions are the image dimensions.
 - `image_params`: np.ndarray (n, m, q)
     The output of fitting the image stack, which stores the parameters of the full fitfunction.
-    q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-- `image_peaks_mask`: np.ndarray (n, m, max_peaks, p)
+- `image_peaks_mask`: np.ndarray (n, m, max_find_peaks, p)
     The mask defining which of the p-measurements corresponds to one of the peaks.
     The first two dimensions are the image dimensions.
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
@@ -408,7 +414,7 @@ Maps the significances of all found directions from given "image_peak_pairs".
     Defines the number of processes to split the task into.
 
 ##### Returns
-- `image_direction_sig`: (n, m, np.ceil(max_peaks / 2))
+- `image_direction_sig`: (n, m, np.ceil(max_paired_peaks / 2))
         The calculated significances (ranging from 0 to 1) for everyoe of the (n * m) pixels.
         Max 3 significances (shape like directions). 
 
@@ -440,8 +446,7 @@ Maps the number of peaks for every pixel.
     n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
 - `image_params`: np.ndarray (n, m, q)
     The output of fitting the image stack, which stores the parameters of the full fitfunction.
-    q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-- `image_peaks_mask`: np.ndarray (n, m, max_peaks, p)
+- `image_peaks_mask`: np.ndarray (n, m, max_find_peaks, p)
     The mask defining which of the p-measurements corresponds to one of the peaks.
     The first two dimensions are the image dimensions.
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
@@ -475,11 +480,10 @@ Maps the distance between two paired peaks for every pixel.
     n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
 - `image_params`: np.ndarray (n, m, q)
     The output of fitting the image stack, which stores the parameters of the full fitfunction.
-    q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-- `image_peaks_mask`: np.ndarray (n, m, max_peaks, p)
+- `image_peaks_mask`: np.ndarray (n, m, max_find_peaks, p)
     The mask defining which of the p-measurements corresponds to one of the peaks.
     The first two dimensions are the image dimensions.
-- `image_peak_pairs`: np.ndarray (n, m, np.ceil(max_peaks / 2), 2)
+- `image_peak_pairs`: np.ndarray (n, m, np.ceil(max_paired_peaks / 2), 2)
     The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
     a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
     is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
@@ -529,8 +533,7 @@ Maps the mean peak amplitude for every pixel.
     n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
 - `image_params`: np.ndarray (n, m, q)
     The output of fitting the image stack, which stores the parameters of the full fitfunction.
-    q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-- `image_peaks_mask`: np.ndarray (n, m, max_peaks, p)
+- `image_peaks_mask`: np.ndarray (n, m, max_find_peaks, p)
     The mask defining which of the p-measurements corresponds to one of the peaks.
     The first two dimensions are the image dimensions.
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
@@ -569,8 +572,7 @@ Maps the mean peak width for every pixel.
     n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
 - `image_params`: np.ndarray (n, m, q)
     The output of fitting the image stack, which stores the parameters of the full fitfunction.
-    q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-- `image_peaks_mask`: np.ndarray (n, m, max_peaks, p)
+- `image_peaks_mask`: np.ndarray (n, m, max_find_peaks, p)
     The mask defining which of the p-measurements corresponds to one of the peaks.
     The first two dimensions are the image dimensions.
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
@@ -633,7 +635,7 @@ best_parameters, peaks_mask = fit_pixel_stack(angles, intensities, intensities_e
                                                 fit_height_nonlinear = True,
                                                 n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 10, 
                                                 n_steps_fit = 3, min_steps_diff = 5,
-                                                refit_steps = 0, init_fit_filter = None, 
+                                                refit_steps = 0, init_fit_filter = None, max_fit_peaks = 4,
                                                 method="leastsq", distribution = distribution)
 
 print("Optimized parameters:", best_parameters)
@@ -672,7 +674,7 @@ image_params, image_peaks_mask = fit_image_stack(data, fit_height_nonlinear = Tr
                                 threshold = 1000, distribution = distribution,
                                 n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 10, 
                                 n_steps_fit = 3, min_steps_diff = 5,
-                                refit_steps = 0, init_fit_filter = None, 
+                                refit_steps = 0, init_fit_filter = None, max_fit_peaks = 4,
                                 method="leastsq", num_processes = 2)
 
 # Write the output to a HDF5 file
@@ -712,7 +714,7 @@ data, indices = pick_data(data_file_path, dataset_path, area = area, randoms = r
 
 # Find the peaks from the picked data
 image_mus, image_peaks_mask = find_image_peaks(data, threshold = 1000, init_fit_filter = None, 
-                        only_peaks_count = -1, max_peaks = 4, num_processes = 2)
+                        only_peaks_count = -1, num_processes = 2)
 
 
 # Optional: Write the output to a HDF5 file
@@ -763,7 +765,7 @@ image_params, image_peaks_mask = fit_image_stack(data, fit_height_nonlinear = Tr
                                 threshold = 1000, distribution = distribution,
                                 n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 10, 
                                 n_steps_fit = 3, min_steps_diff = 5,
-                                refit_steps = 0, init_fit_filter = None, 
+                                refit_steps = 0, init_fit_filter = None, max_fit_peaks = 4,
                                 method="leastsq", num_processes = num_processes)
 
 # Optional: Write the output to a HDF5 file

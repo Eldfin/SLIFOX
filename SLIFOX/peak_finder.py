@@ -9,7 +9,7 @@ PeakFinderParams = namedtuple('PeakFinderParams', [
     'is_hidden_peak', 'max_A', 'max_peak_hwhm', 'min_peak_hwhm', 'mu_range', 'min_int', 
     'global_amplitude', 'extrema_tolerance', 
     'turning_point_tolerance', 'turning_point_tolerance_2', 'turning_point_tolerance_3',
-    'only_peaks_count', 'max_peaks'
+    'only_peaks_count', 'max_find_peaks'
 ])
 
 @njit(cache = True, fastmath = True)
@@ -880,7 +880,7 @@ def _find_peaks_from_extrema(angles, intensities, intensities_err, params):
     global_amplitude = params.global_amplitude
     extrema_tolerance = params.extrema_tolerance
     only_peaks_count = params.only_peaks_count
-    max_peaks = params.max_peaks
+    max_find_peaks = params.max_find_peaks
 
     # Array to store the indices (mask) that (mainly) relates to a peak
     # first dimension is the peak number
@@ -1024,24 +1024,22 @@ def _find_peaks_from_extrema(angles, intensities, intensities_err, params):
         peaks_mus = np.zeros(1)
         return peaks_mask, peaks_mus
 
-    num_peaks = min(max_peaks, peaks_found)
-
-    # Cut off peaks mask array for the peaks_found highest peaks
-    start_index = len(local_maxima) - peaks_found
-    cut_off_index = start_index + num_peaks
-    peaks_mask = peaks_mask[start_index:cut_off_index, :]
+    num_peaks = min(max_find_peaks, peaks_found)
+    # Cut off peaks mask array for the peaks_found (or max_find_peaks) highest peaks
+    peaks_mask = peaks_mask[-num_peaks:, :]
     
     # Flattend peaks mask array for numba handling (same return type)
     peaks_mask = peaks_mask.ravel()
 
     # Cut off peaks mus array
-    peaks_mus = peaks_mus[start_index:cut_off_index]
+    peaks_mus = peaks_mus[-num_peaks:]
 
     return peaks_mask, peaks_mus
 
-def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1, max_peaks = 4,
+def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1,
                     max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
-                    mu_range = 40 * np.pi/180, scale_range = 0.4):
+                    mu_range = 40 * np.pi/180, scale_range = 0.4,
+                    max_find_peaks = 12):
     """
     Finds peaks from given array of measured intensities of a pixel.
 
@@ -1055,9 +1053,6 @@ def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1, max_
     - only_peaks_count: int
         Defines a filter for found peaks, so that if the count of found peaks is not equal that number,
         the function return the same as if no peaks are found.
-    - max_peaks: int
-        Defines the maximum number of peaks that should be returned from the 
-        total found peaks (starting from highest peak).
     - max_peak_hwhm: float
         Estimated maximum peak half width at half maximum.
     - min_peak_hwhm: float
@@ -1066,6 +1061,8 @@ def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1, max_
         Range of mu (regarding estimated maximum and minimum bounds around true mu).
     - scale_range: float
         Range of scale (regarding estimated maximum and minimum bounds around true scale).
+    - max_find_peaks: int
+        Defines the maximum number for the returned found peaks (more will be cut off).
 
     Returns:
     - peaks_mask: np.ndarray (n_peaks, n)
@@ -1099,7 +1096,7 @@ def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1, max_
         max_A, max_peak_hwhm, min_peak_hwhm, mu_range, 
         min_int, global_amplitude, extrema_tolerance, 
         turning_point_tolerance, turning_point_tolerance_2, turning_point_tolerance_3,
-        only_peaks_count, max_peaks
+        only_peaks_count, max_find_peaks
     )
 
     local_maxima, local_minima, turning_points, turning_points_directions = \

@@ -319,8 +319,8 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
         n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
     - image_params: np.ndarray (n, m, q)
         The output of fitting the image stack, which stores the parameters of the full fitfunction.
-        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+        q is the number of parameters.
+    - image_peaks_mask: np.ndarray (n, m, max_find_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
@@ -334,6 +334,9 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
     - gof_threshold: float
         Value between 0 and 1.
         Peaks with a goodness-of-fit value below this threshold will not be evaluated.
+    - only_mus: boolean
+        Whether only the mus (peak centers) are provided in the image_params.
+        If so only amplitude_threshold will be used.
     - directory: string
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
@@ -369,6 +372,7 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
             ], dtype = np.uint8)
         
         image = np.swapaxes(image_num_peaks, 0, 1)
+        image = np.clip(image, 0, 6)
         image = colormap[image]
 
         imageio.imwrite(f'{directory}/n_peaks_map.tiff', image, format = 'tiff')
@@ -390,10 +394,15 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
         n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
     - image_params: np.ndarray (n, m, q)
         The output of fitting the image stack, which stores the parameters of the full fitfunction.
-        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+    - image_peaks_mask: np.ndarray (n, m, max_find_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
+    - image_peak_pairs: np.ndarray (n, m, np.ceil(max_paired_peaks / 2), 2)
+        The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
+        a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
+        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+        The first two dimensions are the image dimensions.
+        If image_peak_pairs is None, only_peaks_count is set to 2.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
     - amplitude_threshold: float
@@ -406,13 +415,8 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
         Value between 0 and 1.
         Peaks with a goodness-of-fit value below this threshold will not be evaluated.
     - only_mus: boolean
-        Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
-    - image_peak_pairs: np.ndarray (n, m, np.ceil(max_peaks / 2), 2)
-        The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
-        a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
-        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
-        The first two dimensions are the image dimensions.
-        If image_peak_pairs is None, only_peaks_count is set to 2.
+        Whether only the mus (peak centers) are provided in the image_params.
+        If so only amplitude_threshold will be used.
     - deviation: boolean
         If true, the distance deviation to 180 degrees will be mapped, so that values of 0
         represent peak distances of 180 degrees.
@@ -480,8 +484,7 @@ def map_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
         n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
     - image_params: np.ndarray (n, m, q)
         The output of fitting the image stack, which stores the parameters of the full fitfunction.
-        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+    - image_peaks_mask: np.ndarray (n, m, max_find_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
@@ -540,8 +543,7 @@ def map_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
         n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
     - image_params: np.ndarray (n, m, q)
         The output of fitting the image stack, which stores the parameters of the full fitfunction.
-        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+    - image_peaks_mask: np.ndarray (n, m, max_find_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
@@ -669,8 +671,7 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
         The first two dimensions are the image dimensions.
     - image_params: np.ndarray (n, m, q)
         The output of fitting the image stack, which stores the parameters of the full fitfunction.
-        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+    - image_peaks_mask: np.ndarray (n, m, max_find_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")

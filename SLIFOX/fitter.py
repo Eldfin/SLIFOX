@@ -152,7 +152,7 @@ def _calculate_scale_bounds(distribution, min_peak_hwhm, max_peak_hwhm, hwhm, sc
 @njit(cache = True, fastmath = True)
 def create_bounds(angles, intensities, intensities_err, distribution, 
                     peaks_mask, peaks_mus, mu_range, scale_range,
-                    min_peak_hwhm, max_peak_hwhm, global_amplitude, min_int):
+                    min_peak_hwhm, max_peak_hwhm, global_amplitude, min_int, num_peaks):
     """
     Create the bounds for the fitting parameters. 
 
@@ -182,6 +182,8 @@ def create_bounds(angles, intensities, intensities_err, distribution,
         The difference between the maximum and minimum intensity of the pixel.
     - min_int: float
         The minimum of the measured intensities.
+    - num_peaks: int
+        Defines the number of peaks for that bounds should be created (highest to lowest).
     
     Returns
     -------
@@ -201,7 +203,6 @@ def create_bounds(angles, intensities, intensities_err, distribution,
         bounds_max = np.zeros(4)
         return bounds_min, bounds_max
 
-    num_peaks = len(peaks_mus)
     bounds_min = np.empty(num_peaks*3 + 1)
     bounds_max = np.empty(num_peaks*3 + 1)
 
@@ -530,7 +531,7 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
                     n_steps_fit = 3, min_steps_diff = 5,
                     fit_height_nonlinear = True, 
                     refit_steps = 0, init_fit_filter = None,
-                    method = "leastsq", only_peaks_count = -1, max_peaks = 4,
+                    method = "leastsq", only_peaks_count = -1, max_fit_peaks = 4, max_find_peaks = 12,
                     max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                     mu_range = 40 * np.pi/180, scale_range = 0.4):
     """
@@ -575,9 +576,11 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
     - only_peaks_count: int
         Defines a filter for found peaks, so that if the count of found peaks is not equal that number,
         the function return the same as if no peaks are found.
-    - max_peaks: int
-        Defines the maximum number of peaks that should be returned from the 
-        total found peaks (starting from highest peak).
+    - max_fit_peaks: int
+        Defines the maximum number of peaks that should be fitted.
+    - max_find_peaks: int
+        Defines the maximum number of peaks that should be found.
+        More peaks then this will be cut off (so no performeance improvements by less max found peaks).
     - max_peak_hwhm: float
         Estimated maximum peak half width at half maximum.
     - min_peak_hwhm: float
@@ -612,17 +615,21 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
         refit_steps += 1
 
     peaks_mask, peaks_mus = find_peaks(angles, intensities, intensities_err, 
-                    only_peaks_count = only_peaks_count, max_peaks = max_peaks,
+                    only_peaks_count = only_peaks_count,
                     max_peak_hwhm = max_peak_hwhm, min_peak_hwhm = min_peak_hwhm, 
-                    mu_range = mu_range, scale_range = scale_range)
+                    mu_range = mu_range, scale_range = scale_range,
+                    max_find_peaks = max_find_peaks)
 
     # if no peaks found return params of zeros, zeros as peaks_mask
     if not np.any(peaks_mask):
         return np.zeros(4), np.zeros((1, len(angles)), dtype = np.bool_)
 
+    num_found_peaks = len(peaks_mus)
+    num_peaks = min(max_fit_peaks, num_found_peaks)
+
     bounds_min, bounds_max = create_bounds(angles, intensities, intensities_err, distribution,
                     peaks_mask, peaks_mus, mu_range, scale_range,
-                    min_peak_hwhm, max_peak_hwhm, global_amplitude, min_int)
+                    min_peak_hwhm, max_peak_hwhm, global_amplitude, min_int, num_peaks)
 
     if method == "biteopt":
         if not fit_height_nonlinear:
@@ -768,7 +775,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                     n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 10,
                         n_steps_fit = 3, min_steps_diff = 5, refit_steps = 0,
                         init_fit_filter = None, method = "leastsq", 
-                        only_peaks_count = -1, max_peaks = 4,
+                        only_peaks_count = -1, max_fit_peaks = 4, max_find_peaks = 12,
                         max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
                         num_processes = 2):
@@ -816,9 +823,11 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
     - only_peaks_count: int
         Defines a filter for found peaks, so that if the count of found peaks is not equal that number,
         the function returns the same as if no peaks are found.
-    - max_peaks: int
-        Defines the maximum number of peaks that should be returned from the 
-        total found peaks (starting from highest peak).
+    - max_fit_peaks: int
+        Defines the maximum number of peaks that should be fitted.
+    - max_find_peaks: int
+        Defines the maximum number of peaks that should be found.
+        More peaks then this will be cut off (so no performeance improvements by less max found peaks).
     - max_peak_hwhm: float
         Estimated maximum peak half width at half maximum.
     - min_peak_hwhm: float
@@ -834,7 +843,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
     -------
     - image_params: np.ndarray (n, m, q)
         Array which stores the best found parameters for every pixel (of n*m pixels).
-    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+    - image_peaks_mask: np.ndarray (n, m, max_find_peaks, p)
         Array that stores the indices of the measurements that corresponds (mainly) to a peak,
         for every pixel (of n*m pixels).
     """
@@ -848,9 +857,9 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
 
     angles = np.linspace(0, 2*np.pi, num=image_stack.shape[2], endpoint = False)
 
-    num_params = 3 * max_peaks + 1
+    num_params = 3 * max_fit_peaks + 1
     image_params = pymp.shared.array((flattened_stack.shape[0], num_params))
-    image_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_peaks, image_stack.shape[2]), 
+    image_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_find_peaks, image_stack.shape[2]), 
                                             dtype = np.bool_)
 
     # Initialize the progress bar
@@ -882,7 +891,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                                     min_steps_diff = min_steps_diff,
                                     init_fit_filter = init_fit_filter, 
                                     method = method, only_peaks_count = only_peaks_count, 
-                                    max_peaks = max_peaks,
+                                    max_fit_peaks = max_fit_peaks, max_find_peaks = max_find_peaks,
                                     max_peak_hwhm = max_peak_hwhm, min_peak_hwhm = min_peak_hwhm, 
                                     mu_range = mu_range, scale_range = scale_range)
             image_params[pixel, 0:len(best_parameters)-1] = best_parameters[:-1]
@@ -902,7 +911,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
 
 
 def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(image_stack)",
-                        init_fit_filter = None, only_peaks_count = -1, max_peaks = 4,
+                        init_fit_filter = None, only_peaks_count = -1, max_find_peaks = 12,
                         max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
                         num_processes = 2):
@@ -930,9 +939,9 @@ def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(imag
     - only_peaks_count: int
         Defines a filter for found peaks, so that if the count of found peaks is not equal that number,
         the function return the same as if no peaks are found.
-    - max_peaks: int
-        Defines the maximum number of peaks that should be returned from the 
-        total found peaks (starting from highest peak).
+    - max_find_peaks: int
+        Defines the maximum number of peaks that should be found (from highest to lowest).
+        More peaks then this will be cut off (so no performeance improvements by less max found peaks).
     - max_peak_hwhm: float
         Estimated maximum peak half width at half maximum.
     - min_peak_hwhm: float
@@ -946,9 +955,9 @@ def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(imag
 
     Returns
     -------
-    - image_peaks_mus: np.ndarray (n, m, max_peaks)
+    - image_peaks_mus: np.ndarray (n, m, max_find_peaks)
         Array which stores the best found parameters for every pixel (of n*m pixels).
-    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+    - image_peaks_mask: np.ndarray (n, m, max_find_peaks, p)
         Array that stores the indices of the measurements that corresponds (mainly) to a peak,
         for every pixel (of n*m pixels).
     """
@@ -962,8 +971,8 @@ def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(imag
 
     angles = np.linspace(0, 2*np.pi, num=image_stack.shape[2], endpoint=False)
 
-    image_peaks_mus = pymp.shared.array((flattened_stack.shape[0], max_peaks))
-    image_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_peaks, image_stack.shape[2]), dtype=np.bool_)
+    image_peaks_mus = pymp.shared.array((flattened_stack.shape[0], max_find_peaks))
+    image_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_find_peaks, image_stack.shape[2]), dtype=np.bool_)
 
     # Initialize the progress bar
     num_tasks = len(mask_pixels)
@@ -988,7 +997,7 @@ def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(imag
                 intensities_err[intensities_err == 0] = 1
 
             peaks_mask, peaks_mus = find_peaks(angles, intensities, intensities_err, 
-                            only_peaks_count = only_peaks_count, max_peaks = max_peaks,
+                            only_peaks_count = only_peaks_count, max_find_peaks = max_find_peaks,
                             max_peak_hwhm = max_peak_hwhm, min_peak_hwhm = min_peak_hwhm, 
                             mu_range = mu_range, scale_range = scale_range)
 

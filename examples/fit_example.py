@@ -25,7 +25,7 @@ image_params, image_peaks_mask = fit_image_stack(data, fit_height_nonlinear = Tr
                                 threshold = 1000, distribution = distribution,
                                 n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 10, 
                                 n_steps_fit = 3, min_steps_diff = 5,
-                                refit_steps = 0, init_fit_filter = None, 
+                                refit_steps = 0, init_fit_filter = None, max_fit_peaks = 4,
                                 method="leastsq", num_processes = 2)
 
 # Write the output to a HDF5 file

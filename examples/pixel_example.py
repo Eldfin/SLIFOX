@@ -30,7 +30,7 @@ best_parameters, peaks_mask = fit_pixel_stack(angles, intensities, intensities_e
                                                 fit_height_nonlinear = True,
                                                 n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 10, 
                                                 n_steps_fit = 3, min_steps_diff = 5,
-                                                refit_steps = 0, init_fit_filter = None, 
+                                                refit_steps = 0, init_fit_filter = None, max_fit_peaks = 4,
                                                 method="leastsq", distribution = distribution)
 
 print("Optimized parameters:", best_parameters)

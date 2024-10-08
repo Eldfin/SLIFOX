@@ -207,7 +207,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             distribution = "wrapped_cauchy", only_mus = False, num_processes = 2,
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, significance_threshold = 0.3, 
-                            significance_weights = [1, 1],
+                            significance_weights = [1, 1], max_paired_peaks = 4,
                             angle_threshold = 20, max_attempts = 10000, 
                             search_radius = 50, min_directions_diff = 20, exclude_lone_peaks = True):
     """
@@ -219,9 +219,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
         n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
     - image_params: np.ndarray (n, m, q)
         The output of fitting the image stack, which stores the parameters of the full fitfunction.
-        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-        Can also store only mus, when only_mus = True.
-    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+        q is the number of parameters. Can also store only mus, when only_mus = True.
+    - image_peaks_mask: np.ndarray (n, m, max_find_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
     - min_distance: float
@@ -241,7 +240,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
         Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
         this threshold will not be evaluated.
     - gof_threshold: float
-        Value between 0 and 1.
+        Value between 0 and 1. If greater than 0, only fitted peaks can be paired.
         Peaks with a goodness-of-fit value below this threshold will not be evaluated.
     - significance_threshold: float
         Value between 0 and 1. Peak Pairs with peaks that have a significance
@@ -250,6 +249,10 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
     - significance_weights: list (2, )
         The weights for the amplitude and for the goodnes-of-fit, when calculating the significance.
         See also "direction_significance" function for more info.
+    - max_paired_peaks: int
+        Defines the maximum number of peaks that are paired.
+        Value has to be smaller or equal the number of peaks in image_params (and max 6)
+        (max_paired_peaks <= max_fit_peaks or max_find_peaks)
     - angle_threshold: float
         Threshold in degrees defining when a neighbouring pixel direction is considered as same nerve fiber.
     - max_attempts: int
@@ -269,7 +272,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
         with with a pair like e.g. [2, -1] for the second peak index.
 
     Returns:
-    - image_peak_pair_combs: np.ndarray (n, m, p, np.ceil(max_peaks / 2), 2)
+    - image_peak_pair_combs: np.ndarray (n, m, p, np.ceil(max_paired_peaks / 2), 2)
         The possible peak pair combinations for every pixel (sorted by difference to neighbours), 
         where the fifth dimension contains both peak numbers of
         a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the fourth dimension
@@ -282,17 +285,28 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
         The first two dimensions are the image dimensions.
         
     """
-    max_peaks = image_peaks_mask.shape[2]
     n_rows = image_stack.shape[0]
     n_cols = image_stack.shape[1]
     total_pixels = n_rows * n_cols
     angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)
-    max_combs = 3
-    if max_peaks >= 5:
+    
+    if only_mus:
+        max_peaks = len(image_params)
+    else:
+        max_peaks = int((image_params.shape[2] - 1) / 3)
+
+    max_paired_peaks = min(max_paired_peaks, max_peaks)
+    max_paired_peaks = np.clip(max_paired_peaks, 2, 6)
+
+    if max_paired_peaks <= 2:
+        max_combs = 1
+    elif max_paired_peaks <= 4
+        max_combs = 3
+    elif max_paired_peaks >= 5:
         max_combs = 15
     image_peak_pair_combs = pymp.shared.array((total_pixels,
                                             max_combs, 
-                                            np.ceil(max_peaks / 2).astype(int), 
+                                            np.ceil(max_paired_peaks / 2).astype(int), 
                                             2), dtype = np.int16)
 
     with pymp.Parallel(num_processes) as p:
@@ -312,11 +326,15 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
     direction_found_mask = pymp.shared.array((n_rows, n_cols), dtype = np.bool_)
 
-    # iterate from 2 to max_peaks and 1, 0 at last
-    iteration_list = np.append(np.arange(2, max_peaks + 1), [1, 0])
+    max_sig_peaks = np.max(image_num_peaks)
+
+    # iterate from 2 to max_sig_peaks and 1, 0 at last
+    # so i is the number of significant peaks for every pixel in the nested loop
+    iteration_list = np.append(np.arange(2, max_sig_peaks + 1), [1, 0])
     for iteration_index, i in enumerate(iteration_list):
         mask = (image_num_peaks == i)
-        peak_pairs_combinations = possible_pairs(i)
+        num_peaks = min(i, max_paired_peaks)
+        peak_pairs_combinations = possible_pairs(num_peaks)
         num_combs = peak_pairs_combinations.shape[0]
         indices = np.argwhere(mask)
         num_pixels_iteration = np.count_nonzero(mask)
@@ -324,6 +342,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
         if indices.size == 0: continue
         no_processed = True
         if i != 2:
+            # Sort indices from distance to already processed indices
             processed_mask = np.isin(image_num_peaks, iteration_list[:iteration_index])
             processed_indices = np.argwhere(processed_mask)
             if processed_indices.size != 0:
@@ -357,22 +376,34 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                     status = np.sum(shared_counter)
                     pbar.update(status - pbar.n)
 
-                    if i == 0:
+                    if num_peaks == 0:
                         #image_peak_pair_combs[x, y] = np.array([[[-1, -1]]])
                         continue
-                    elif i <= 2:
+                    elif num_peaks <= 2:
                         sig_peak_pair_combs = np.where(peak_pairs_combinations == -1, -1, 
                                                         sig_peak_indices[peak_pairs_combinations])
-                        image_peak_pair_combs[x, y, 
-                                        :peak_pairs_combinations.shape[0],
-                                        :peak_pairs_combinations.shape[1]] \
-                                    = sig_peak_pair_combs
-                        direction_found_mask[x, y] = True
+
+                        peak_pairs = sig_peak_pair_combs[0]
+                        params = image_params[x, y]
+                        peaks_mask = image_peaks_mask[x, y]
+                        intensities = image_stack[x, y]
+                        significances = direction_significances(peak_pairs, params, peaks_mask, 
+                                    intensities, angles, weights = significance_weights, 
+                                    distribution = distribution, only_mus = only_mus)
+
+                        if significances[0] >= significance_threshold:
+                            image_peak_pair_combs[x, y, 
+                                            :peak_pairs_combinations.shape[0],
+                                            :peak_pairs_combinations.shape[1]] \
+                                        = sig_peak_pair_combs
+                            if i == 2: 
+                                direction_found_mask[x, y] = True
                         continue
 
                     params = image_params[x, y]
                     peaks_mask = image_peaks_mask[x, y]
                     intensities = image_stack[x, y]
+                    num_found_peaks = np.count_nonzero(np.any(peaks_mask, axis = -1))
 
                     if not only_mus:
                         mus = params[1::3]
@@ -380,18 +411,26 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                         mus = params
 
                     valid_combs = np.ones(num_combs, dtype = np.bool_)
-                    direction_combs = np.full((num_combs, image_peak_pair_combs.shape[3]), -1, dtype = np.float64)
+                    direction_combs = np.full((num_combs, image_peak_pair_combs.shape[3]), -1, 
+                                                dtype = np.float64)
                     for k in range(num_combs):
                         peak_pairs = np.where(peak_pairs_combinations[k] == -1, -1, 
                                                         sig_peak_indices[peak_pairs_combinations[k]])
 
-                        # Check if any pair has a smaller distance than min_distance
-                        for pair in peak_pairs:
+                        # Check if a pair has a smaller distance than min_distance
+                        valid_pairs = np.ones(peak_pairs.shape[0], dtype = np.bool_)
+                        for pair_index, pair in enumerate(peak_pairs):
                             if np.any(pair == -1): continue
                             distance = np.abs(angle_distance(mus[pair[0]], mus[pair[1]]))
                             if distance < min_distance * np.pi / 180:
-                                valid_combs[k] = False
-                                break
+                                if num_peaks == num_found_peaks:
+                                    # if the number of peaks (to pair) equals the found peaks
+                                    # set the whole peak pair combination to unvalid
+                                    valid_combs[k] = False
+                                elif num_peaks < num_found_peaks:
+                                    # else (if more found peaks then peaks to pair)
+                                    # only set the peak pair to unvalid
+                                    valid_pairs[pair_index] = False
 
                         if not valid_combs[k]:
                             continue
@@ -400,14 +439,17 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                     intensities, angles, weights = significance_weights, 
                                     distribution = distribution, only_mus = only_mus)
 
-                        if np.all(significances <= significance_threshold): 
+                        # Set unvalid pair direction significance to -1
+                        significances[~valid_pairs] = -1
+
+                        if np.all(significances < significance_threshold): 
                             valid_combs[k] = False
                             continue
 
                         directions = peak_pairs_to_directions(peak_pairs, mus, 
                                                             exclude_lone_peaks = exclude_lone_peaks)
                         # Filter directions with low significance out
-                        directions = directions[significances > significance_threshold]
+                        directions = directions[significances >= significance_threshold]
 
                         directions = directions[directions != -1]
                     
@@ -433,7 +475,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                         continue
 
                     sig_peak_pair_combs = np.where(peak_pairs_combinations[valid_combs] == -1, -1, 
-                                                        sig_peak_indices[peak_pairs_combinations[valid_combs]])
+                                                sig_peak_indices[peak_pairs_combinations[valid_combs]])
                     direction_combs = direction_combs[valid_combs]
                     num_sig_combs = sig_peak_pair_combs.shape[0]
 
@@ -558,19 +600,18 @@ def peak_pairs_to_directions(peak_pairs, mus, exclude_lone_peaks = True):
     Calculates the directions from given peak_pairs of a pixel.
 
     Parameters:
-    - peak_pairs: np.ndarray (m // 2, 2)
+    - peak_pairs: np.ndarray (np.ceil(max_paired_peaks / 2), 2)
         Array containing both peak numbers of a pair (e.g. [1, 3], 
         which means peak 1 and peak 3 is paired). A pair with -1 defines a unpaired peak.
-        The first dimension (m equals number of peaks)
-        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
-    - mus: np.ndarray (m, )
+        The first dimension is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+    - mus: np.ndarray (max_find_peaks, )
         The center positions of the peaks.
     - exclude_lone_peaks: bool
         Whether to exclude the directions for lone peaks 
         (for peak pairs with only one number unequal -1 e.g. [2, -1]).
 
     Returns:
-    - directions: np.ndarray (m // 2, )
+    - directions: np.ndarray (np.ceil(max_paired_peaks/2), )
         The calculated directions for every peak pair.
     """
     directions = np.empty(peak_pairs.shape[0])
@@ -600,16 +641,15 @@ def peak_pairs_to_inclinations(peak_pairs, mus):
     Calculates the inclinations from given peak_pairs of a pixel.
 
     Parameters:
-    - peak_pairs: np.ndarray (m // 2, 2)
+    - peak_pairs: np.ndarray (np.ceil(max_paired_peaks / 2), 2)
         Array ontaining both peak numbers of a pair (e.g. [1, 3], 
         which means peak 1 and peak 3 is paired). A pair with -1 defines a unpaired peak.
-        The first dimension (m equals number of peaks)
-        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
-    - mus: np.ndarray (m, )
+        The first dimension is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+    - mus: np.ndarray (max_find_peaks, )
         The center positions of the peaks.
 
     Returns:
-    - inclinations: np.ndarray (m // 2, )
+    - inclinations: np.ndarray (np.ceil(max_paired_peaks / 2), )
         The calculated inclinations for every peak pair.
     """
     num_pairs = peak_pairs.shape[0]
@@ -626,13 +666,13 @@ def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exc
     Calculates the directions from given image_peak_pairs.
 
     Parameters:
-    - image_peak_pairs: np.ndarray (n, m, np.ceil(max_peaks / 2), 2)
+    - image_peak_pairs: np.ndarray (n, m, np.ceil(max_paired_peaks / 2), 2)
         The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
         a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
         is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
         The first two dimensions are the image dimensions.
-    - image_mus: np.ndarray (n, m, max_peaks)
-        The mus (centers) of the found (max_peaks) peaks for everyone of the (n * m) pixels.
+    - image_mus: np.ndarray (n, m, max_find_peaks)
+        The mus (centers) of the found (max_find_peaks) peaks for everyone of the (n * m) pixels.
     - directory: string
         The directory path defining where direction images should be writen to.
         If None, no images will be writen.
@@ -644,7 +684,7 @@ def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exc
         (for peak pairs with only one number unequal -1 e.g. [2, -1]).
 
     Returns:
-    - image_directions: (n, m, np.ceil(max_peaks / 2))
+    - image_directions: (n, m, np.ceil(max_paired_peaks / 2))
         The calculated directions for everyoe of the (n * m) pixels.
         Max 3 directions (for 6 peaks).
     """
@@ -803,15 +843,13 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
     (Old function, performance can be improved similar to get_image_direction_significances).
 
     Parameters:
-    - peak_pairs: np.ndarray (np.ceil(m / 2), 2)
+    - peak_pairs: np.ndarray (np.ceil(max_paired_peaks / 2), 2)
         Array ontaining both peak numbers of a pair (e.g. [1, 3], 
-        which means peak 1 and peak 3 is paired). The first dimension (m equals number of peaks)
-        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+        which means peak 1 and peak 3 is paired). The first dimension 
+        is the number of the peak pair.
     - params: np.ndarray (q, )
         The output of fitting the pixel, which stores the parameters of the full fitfunction.
-        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
     - peaks_mask: np.ndarray (m, n)
-        m is the number of peaks.
         The mask defining which of the n-measurements corresponds to one of the m-peaks.
     - intensities: np.ndarray (n, )
         The measured intensities of the pixel.
@@ -825,7 +863,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
         Defines if only the mus are given in the params.
 
     Returns:
-    - significances: np.ndarray (np.ceil(m / 2), )
+    - significances: np.ndarray (np.ceil(max_paired_peaks / 2), )
         The calculated significance for every direction (peak-pair) ranging from 0 to 1.
     """
     global_amplitude = np.max(intensities) - np.min(intensities)
@@ -940,7 +978,8 @@ def get_image_direction_significances_vectorized(image_stack, image_peak_pairs, 
     """
     Returns the direction significances for every pixel.
     To-Do: This function is missing "malus_amplitude",
-           which should be subtracted from amplitude significance
+           which should be subtracted from amplitude significance, 
+           but this function is not used anyway yet.
 
     Parameters:
     - image_stack: np.ndarray (n, m, p)
@@ -994,12 +1033,18 @@ def get_image_direction_significances_vectorized(image_stack, image_peak_pairs, 
         image_amplitudes = image_heights * \
                                 distribution_pdf(0, 0, image_scales, distribution)[..., 0]
         image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
-        image_model_y = full_fitfunction(angles, image_params, distribution)
-        image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, image_peaks_mask, method = "r2")
+        if gof_threshold == 0:
+                image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
+                                        & (image_rel_amplitudes > rel_amplitude_threshold))
+        else:
+            max_fit_peaks = image_heights.shape[2]
+            image_model_y = full_fitfunction(angles, image_params, distribution)
+            image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, 
+                                    image_peaks_mask[:, :, :max_fit_peaks, :], method = "r2")
 
-        image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
-                                    & (image_rel_amplitudes > rel_amplitude_threshold)
-                                    & (image_peaks_gof > gof_threshold))
+            image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
+                                        & (image_rel_amplitudes > rel_amplitude_threshold)
+                                        & (image_peaks_gof > gof_threshold))
     else:
         image_intensities = np.expand_dims(image_stack, axis = 2)
         image_intensities = np.where(image_peaks_mask, image_intensities, 0)
@@ -1098,8 +1143,8 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
         n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
     - image_params: np.ndarray (n, m, q)
         The output of fitting the image stack, which stores the parameters of the full fitfunction.
-        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+        q is the number of parameters.
+    - image_peaks_mask: np.ndarray (n, m, max_find_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
@@ -1120,7 +1165,7 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
     Returns:
     - image_num_peaks: np.ndarray (n, m)
         The number of peaks for every pixel.
-    - image_valid_peaks_mask: np.ndarray (n, m, max_peaks)
+    - image_valid_peaks_mask: np.ndarray (n, m, max_find_peaks)
         Mask that stores the information, which peaks are used in the counting process.
     """
     print("Calculating image number of peaks...")
@@ -1141,17 +1186,24 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
             image_amplitudes = image_heights * \
                                 distribution_pdf(0, 0, image_scales, distribution)[..., 0]
             image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
-            image_model_y = full_fitfunction(angles, image_params, distribution)
-            image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, image_peaks_mask, method = "r2")
+            if gof_threshold == 0:
+                image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
+                                        & (image_rel_amplitudes > rel_amplitude_threshold))
+            else:
+                max_fit_peaks = image_heights.shape[2]
+                image_model_y = full_fitfunction(angles, image_params, distribution)
+                image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, 
+                                        image_peaks_mask[:, :, :max_fit_peaks, :], method = "r2")
 
-            image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
-                                        & (image_rel_amplitudes > rel_amplitude_threshold)
-                                        & (image_peaks_gof > gof_threshold))
+                image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
+                                            & (image_rel_amplitudes > rel_amplitude_threshold)
+                                            & (image_peaks_gof > gof_threshold))
         else:
-            image_intensities = np.expand_dims(image_stack, axis = 2)
-            image_intensities = np.where(image_peaks_mask, image_intensities, 0)
-            image_amplitudes = (np.max(image_intensities, axis = -1)
+            image_peak_intensities = np.expand_dims(image_stack, axis = 2)
+            image_peak_intensities = np.where(image_peaks_mask, image_peak_intensities, 0)
+            image_amplitudes = (np.max(image_peak_intensities, axis = -1)
                                 - np.min(image_stack, axis = -1)[..., np.newaxis])
+            image_amplitudes = np.sort(image_amplitudes)[..., ::-1]
             image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
             
             image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
@@ -1177,11 +1229,10 @@ def get_peak_distances(image_stack, image_params, image_peaks_mask, image_peak_p
         n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
     - image_params: np.ndarray (n, m, q)
         The output of fitting the image stack, which stores the parameters of the full fitfunction.
-        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+    - image_peaks_mask: np.ndarray (n, m, max_find_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
-    - image_peak_pairs: np.ndarray (n, m, np.ceil(max_peaks / 2), 2)
+    - image_peak_pairs: np.ndarray (n, m, np.ceil(max_paired_peaks / 2), 2)
         The peak pairs for every pixel, where the fourth dimension contains both peak numbers of
         a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the third dimension
         is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
@@ -1295,8 +1346,7 @@ def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
         n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
     - image_params: np.ndarray (n, m, q)
         The output of fitting the image stack, which stores the parameters of the full fitfunction.
-        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+    - image_peaks_mask: np.ndarray (n, m, max_find_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
@@ -1330,16 +1380,23 @@ def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
         image_amplitudes = image_heights * \
                                 distribution_pdf(0, 0, image_scales, distribution)[..., 0]
         image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
-        image_model_y = full_fitfunction(angles, image_params, distribution)
-        image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, image_peaks_mask, method = "r2")
-        image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
-                                & (image_rel_amplitudes > rel_amplitude_threshold)
-                                & (image_peaks_gof > gof_threshold))
+        if gof_threshold == 0:
+            image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
+                                    & (image_rel_amplitudes > rel_amplitude_threshold))
+        else:
+            max_fit_peaks = image_heights.shape[2]
+            image_model_y = full_fitfunction(angles, image_params, distribution)
+            image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, 
+                                    image_peaks_mask[:, :, :max_fit_peaks, :], method = "r2")
+
+            image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
+                                        & (image_rel_amplitudes > rel_amplitude_threshold)
+                                        & (image_peaks_gof > gof_threshold))
 
     else:
-        image_intensities = np.expand_dims(image_stack, axis = 2)
-        image_intensities = np.where(image_peaks_mask, image_intensities, 0)
-        image_amplitudes = (np.max(image_intensities, axis = -1)
+        image_peak_intensities = np.expand_dims(image_stack, axis = 2)
+        image_peak_intensities = np.where(image_peaks_mask, image_peak_intensities, 0)
+        image_amplitudes = (np.max(image_peak_intensities, axis = -1)
                                 - np.min(image_stack, axis = -1)[..., np.newaxis])
         image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
         image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
@@ -1349,7 +1406,6 @@ def get_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
     #                        image_peaks_gof, amplitude_threshold, 
     #                        rel_amplitude_threshold, gof_threshold, only_mus)
 
-    
     image_amplitudes = np.where(image_valid_peaks_mask, image_amplitudes, np.nan)
     all_nan_slices = np.all(~image_valid_peaks_mask, axis = -1)
     image_amplitudes[all_nan_slices] = 0
@@ -1397,8 +1453,7 @@ def get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
         n and m are the lengths of the image dimensions, p is the number of measurements per pixel.
     - image_params: np.ndarray (n, m, q)
         The output of fitting the image stack, which stores the parameters of the full fitfunction.
-        q = 3 * max_peaks + 1, is the number of parameters (max 19 for 6 peaks).
-    - image_peaks_mask: np.ndarray (n, m, max_peaks, p)
+    - image_peaks_mask: np.ndarray (n, m, max_find_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
@@ -1427,12 +1482,19 @@ def get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
                                 distribution_pdf(0, 0, image_scales, distribution)[..., 0]
     image_global_amplitudes = np.max(image_stack, axis = -1) - np.min(image_stack, axis = -1)
     image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
-    image_model_y = full_fitfunction(angles, image_params, distribution)
-    image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, image_peaks_mask, method = "r2")
 
-    image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
-                                & (image_rel_amplitudes > rel_amplitude_threshold)
-                                & (image_peaks_gof > gof_threshold))
+    if gof_threshold == 0:
+        image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
+                                & (image_rel_amplitudes > rel_amplitude_threshold))
+    else:
+        max_fit_peaks = image_heights.shape[2]
+        image_model_y = full_fitfunction(angles, image_params, distribution)
+        image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, 
+                                image_peaks_mask[:, :, :max_fit_peaks, :], method = "r2")
+
+        image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
+                                    & (image_rel_amplitudes > rel_amplitude_threshold)
+                                    & (image_peaks_gof > gof_threshold))
 
     image_scales = np.where(image_valid_peaks_mask, image_scales, np.nan)
     all_nan_slices = np.all(~image_valid_peaks_mask, axis = -1)
