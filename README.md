@@ -318,6 +318,9 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
     unfound peak, this value should normally stay True. This is just for the 
     comparing process, so lone peaks will still be visible in the returned peak pairs 
     with with a pair like e.g. [2, -1] for the second peak index.
+- `fallback_significance`: bool
+    Whether to sort the possible peak pair combinations by significance, if no similar
+    neighbouring pixel direction could be found.
 
 ##### Returns
 - `image_peak_pairs`: np.ndarray (n, m, p, np.ceil(max_paired_peaks / 2), 2)
@@ -788,7 +791,8 @@ image_peak_pairs = get_image_peak_pairs(data, image_params, image_peaks_mask, mi
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
                             gof_threshold = 0.5, significance_threshold = 0.3, 
                             significance_weights = [1, 1], angle_threshold = 20, 
-                            max_attempts = 1000, search_radius = 50, max_paired_peaks = 4)
+                            max_attempts = 1000, search_radius = 50, max_paired_peaks = 4,
+                            fallback_significance = True)
 
 # Use best pairs of all possible pairs
 best_image_peak_pairs = image_peak_pairs[:, :, 0, :, :]
