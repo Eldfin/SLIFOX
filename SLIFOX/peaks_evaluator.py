@@ -423,7 +423,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                     # only set the peak pair to unvalid
                                     valid_pairs[pair_index] = False
 
-                        if mp.all(~valid_pairs):
+                        if np.all(~valid_pairs):
                             valid_combs[k] = False
                             continue
                         if not valid_combs[k]:
