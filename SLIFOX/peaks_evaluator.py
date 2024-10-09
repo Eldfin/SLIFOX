@@ -488,6 +488,13 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                                 sig_peak_indices[peak_pairs_combinations[valid_combs_mask]])
 
                     num_sig_combs = sig_peak_pair_combs.shape[0]
+                    valid_pairs_mask = valid_pairs_mask[valid_combs_mask]
+                    direction_combs = direction_combs[valid_combs_mask]
+                    # Set unvalid pairs to [-1, -1] and move the to the end of pairs
+                    for k in range(num_sig_combs):
+                            valid_pairs = sig_peak_pair_combs[k, valid_pairs_mask[k]]
+                            sig_peak_pair_combs[k, :len(valid_pairs)] = valid_pairs
+                            sig_peak_pair_combs[k, len(valid_pairs):] = [-1, -1]
 
                     if num_sig_combs == 1 and num_unvalid_differences[valid_combs_mask.nonzero()[0]] == 0:
                         image_peak_pair_combs[x, y, 
@@ -496,9 +503,6 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                         if num_peaks >= 2: 
                             direction_found_mask[x, y] = True
                         continue
-
-                    valid_pairs_mask = valid_pairs_mask[valid_combs_mask]
-                    direction_combs = direction_combs[valid_combs_mask]
 
                     check_mask = np.copy(direction_found_mask)
                     matched_dir_mask = np.zeros(direction_combs.shape, dtype = np.bool_)
