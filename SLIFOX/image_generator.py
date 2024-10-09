@@ -357,7 +357,7 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
 
         if not isinstance(colormap, np.ndarray):
             colormap = np.array(default_colormap, dtype=np.uint8)
-            colormap = np.insert(colormap, 0, (0, 0, 0)).astype(np.uint16)
+            colormap = np.insert(colormap, 0, (0, 0, 0))
         
         image = np.swapaxes(image_num_peaks, 0, 1)
         image = np.clip(image, 0, 7)
