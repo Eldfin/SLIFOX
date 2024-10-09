@@ -490,6 +490,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                     num_sig_combs = sig_peak_pair_combs.shape[0]
                     valid_pairs_mask = valid_pairs_mask[valid_combs_mask]
                     direction_combs = direction_combs[valid_combs_mask]
+                    comb_significances = comb_significances[valid_combs_mask]
+
                     # Set unvalid pairs to [-1, -1] and move the to the end of pairs
                     for k in range(num_sig_combs):
                         valid_pairs = sig_peak_pair_combs[k, valid_pairs_mask[k]]
