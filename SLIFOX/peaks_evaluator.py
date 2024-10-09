@@ -928,7 +928,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
     significances = np.zeros(num_directions)
     num_peaks = np.count_nonzero(np.any(peaks_mask, axis = -1))
     
-    # Get indices of unpaired peaks
+    # Get indices of unpaired peaks (Note: lone peaks can be paired peaks by semantic definition)
     paired_peak_indices = np.unique(peak_pairs)
     all_peak_indices = set(range(num_peaks))
     unpaired_peak_indices = list(all_peak_indices - set(paired_peak_indices))
@@ -951,8 +951,8 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
                 malus_amplitude = np.max(amplitudes[unpaired_peak_indices])
             else:
                 malus_amplitude = 0
-            malus_amplitude = 0
             significances[i] = np.mean((amplitudes[indices] - malus_amplitude)/ global_amplitude)
+            significances = np.clip(significances, 0, 1)
 
         return significances
     
@@ -971,7 +971,6 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
         malus_amplitude = np.max(amplitudes[unpaired_peak_indices])
     else:
         malus_amplitude = 0
-    malus_amplitude = 0
 
     for i in range(num_directions):
         peak_pair = peak_pairs[i]
