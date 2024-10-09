@@ -578,7 +578,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                         # and mark it as matched
                                         if dir_diff_indices[k] in unvalid_dir_indices_1[k]:
                                             matched_unvalid_dir_index = \
-                                                (unvalid_dir_indices_1[k] == best_ddir_diff_indicesir_indices[k]).nonzero()[0][0]
+                                                (unvalid_dir_indices_1[k] == dir_diff_indices[k]).nonzero()[0][0]
                                             unvalid_dir_index = unvalid_dir_indices_2[k, matched_unvalid_dir_index]
                                             valid_pairs_mask[k, unvalid_dir_index] = False
                                             matched_dir_mask[k, unvalid_dir_index] = True
