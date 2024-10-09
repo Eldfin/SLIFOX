@@ -547,7 +547,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
                         # Filter neighbour directions with low significance out
                         neighbour_directions = neighbour_directions[neighbour_significances
-                                                                        > significance_threshold]
+                                                                        >= significance_threshold]
 
                         neighbour_directions = neighbour_directions[neighbour_directions != -1]
 
@@ -589,23 +589,25 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                             valid_pairs_mask[k, unvalid_dir_index] = False
                                             matched_dir_mask[k, unvalid_dir_index] = True
 
-                        if np.any(np.all(matched_dir_mask, axis = -1)) \
-                            or (num_best_combs == 1 and num_peaks == num_found_peaks):
-                            # if any combination is full matched
-                            # Set unvalid pairs to [-1, -1] and move them to the end of pairs
-                            for k in range(num_sig_combs):
-                                valid_pairs = sig_peak_pair_combs[k, valid_pairs_mask[k]]
-                                sig_peak_pair_combs[k, :len(valid_pairs)] = valid_pairs
-                                sig_peak_pair_combs[k, len(valid_pairs):] = [-1, -1]
-                            # Sort combs by the matched direction differences
-                            sort_indices = np.argsort(direction_diffs)
-                            sig_peak_pair_combs = sig_peak_pair_combs[sort_indices]
-                            # save the sorted significant peak pair combinations
-                            image_peak_pair_combs[x, y, 
-                                        :sig_peak_pair_combs.shape[0],
-                                        :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
-                            direction_found_mask[x, y] = True
-                            break
+                                if np.any(np.all(matched_dir_mask, axis = -1)) \
+                                    or (num_best_combs == 1 and num_peaks == num_found_peaks):
+                                    # if any combination is full matched
+                                    # Set unvalid pairs to [-1, -1] and move them to the end of pairs
+                                    for k in range(num_sig_combs):
+                                        valid_pairs = sig_peak_pair_combs[k, valid_pairs_mask[k]]
+                                        sig_peak_pair_combs[k, :len(valid_pairs)] = valid_pairs
+                                        sig_peak_pair_combs[k, len(valid_pairs):] = [-1, -1]
+                                    # Sort combs by the matched direction differences
+                                    sort_indices = np.argsort(direction_diffs)
+                                    sig_peak_pair_combs = sig_peak_pair_combs[sort_indices]
+                                    # save the sorted significant peak pair combinations
+                                    image_peak_pair_combs[x, y, 
+                                                :sig_peak_pair_combs.shape[0],
+                                                :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
+                                    direction_found_mask[x, y] = True
+                                    break
+                                else:
+                                    continue
                         
                         check_mask[neighbour_x, neighbour_y] = False
                         if attempt == max_attempts - 1 or not np.any(check_mask):
