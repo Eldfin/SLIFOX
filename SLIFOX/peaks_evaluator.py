@@ -385,27 +385,6 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                     if num_peaks == 0:
                         #image_peak_pair_combs[x, y] = np.array([[[-1, -1]]])
                         continue
-                    elif num_peaks <= 2:
-                        sig_peak_pair_combs = np.where(peak_pairs_combinations == -1, -1, 
-                                                        sig_peak_indices[peak_pairs_combinations])
-
-                        peak_pairs = sig_peak_pair_combs[0]
-                        params = image_params[x, y]
-                        peaks_mask = image_peaks_mask[x, y]
-                        intensities = image_stack[x, y]
-                        significances = direction_significances(peak_pairs, params, peaks_mask, 
-                                    intensities, angles, weights = significance_weights, 
-                                    distribution = distribution, only_mus = only_mus,
-                                    exclude_lone_peaks = exclude_lone_peaks)
-
-                        if significances[0] >= significance_threshold:
-                            image_peak_pair_combs[x, y, 
-                                            :peak_pairs_combinations.shape[0],
-                                            :peak_pairs_combinations.shape[1]] \
-                                        = sig_peak_pair_combs
-                            if i == 2: 
-                                direction_found_mask[x, y] = True
-                        continue
 
                     params = image_params[x, y]
                     peaks_mask = image_peaks_mask[x, y]
@@ -444,6 +423,9 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                     # only set the peak pair to unvalid
                                     valid_pairs[pair_index] = False
 
+                        if mp.all(~valid_pairs):
+                            valid_combs[k] = False
+                            continue
                         if not valid_combs[k]:
                             continue
 
@@ -514,7 +496,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                         image_peak_pair_combs[x, y, 
                                         :sig_peak_pair_combs.shape[0],
                                         :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
-                        direction_found_mask[x, y] = True
+                        if num_peaks >= 2: 
+                            direction_found_mask[x, y] = True
                         continue
 
                     check_mask = np.copy(direction_found_mask)
