@@ -356,7 +356,8 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
             os.makedirs(directory)
 
         if not isinstance(colormap, np.ndarray):
-            colormap = np.insert(default_colormap, 0, (0, 0, 0)).astype(np.uint32)
+            colormap = np.array(default_colormap, dtype=np.uint8)
+            colormap = np.insert(colormap, 0, (0, 0, 0)).astype(np.uint16)
         
         image = np.swapaxes(image_num_peaks, 0, 1)
         image = np.clip(image, 0, 7)
