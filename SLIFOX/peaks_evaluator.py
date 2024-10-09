@@ -492,9 +492,9 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                     direction_combs = direction_combs[valid_combs_mask]
                     # Set unvalid pairs to [-1, -1] and move the to the end of pairs
                     for k in range(num_sig_combs):
-                            valid_pairs = sig_peak_pair_combs[k, valid_pairs_mask[k]]
-                            sig_peak_pair_combs[k, :len(valid_pairs)] = valid_pairs
-                            sig_peak_pair_combs[k, len(valid_pairs):] = [-1, -1]
+                        valid_pairs = sig_peak_pair_combs[k, valid_pairs_mask[k]]
+                        sig_peak_pair_combs[k, :len(valid_pairs)] = valid_pairs
+                        sig_peak_pair_combs[k, len(valid_pairs):] = [-1, -1]
 
                     if num_sig_combs == 1 and num_unvalid_differences[valid_combs_mask.nonzero()[0]] == 0:
                         image_peak_pair_combs[x, y, 
@@ -593,17 +593,18 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                             valid_pairs_mask[k, unvalid_dir_index] = False
                                             matched_dir_mask[k, unvalid_dir_index] = True
 
-                        if np.any(np.all(matched_dir_mask, axis = -1)) or num_best_combs == 1:
+                        if np.any(np.all(matched_dir_mask, axis = -1)) \
+                            or (num_best_combs == 1 and num_peaks == num_found_peaks):
                             # if any combination is full matched
-                            # Set unvalid pairs to [-1, -1] and move the to the end of pairs
+                            # Set unvalid pairs to [-1, -1] and move them to the end of pairs
                             for k in range(num_sig_combs):
-                                    valid_pairs = sig_peak_pair_combs[k, valid_pairs_mask[k]]
-                                    sig_peak_pair_combs[k, :len(valid_pairs)] = valid_pairs
-                                    sig_peak_pair_combs[k, len(valid_pairs):] = [-1, -1]
+                                valid_pairs = sig_peak_pair_combs[k, valid_pairs_mask[k]]
+                                sig_peak_pair_combs[k, :len(valid_pairs)] = valid_pairs
+                                sig_peak_pair_combs[k, len(valid_pairs):] = [-1, -1]
                             # save the sorted significant peak pair combinations
                             image_peak_pair_combs[x, y, 
-                                            :sig_peak_pair_combs.shape[0],
-                                            :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
+                                        :sig_peak_pair_combs.shape[0],
+                                        :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
                             direction_found_mask[x, y] = True
                             break
                         
