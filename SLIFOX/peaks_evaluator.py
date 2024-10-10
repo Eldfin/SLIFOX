@@ -486,7 +486,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
                             # same for direction difference handling
                         if np.any(num_unvalid_differences > 0) and np.any(num_unvalid_differences == 0):
-                            valid_combs_mask[np.where(num_valid_differences > 0)[0]] = False
+                            unvalid_comb_indices = np.where(num_unvalid_differences > 0)[0]
+                            valid_combs_mask[unvalid_comb_indices] = False
 
                     if not np.any(valid_combs_mask):
                         continue
