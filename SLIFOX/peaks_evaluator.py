@@ -414,12 +414,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             distance = np.abs(angle_distance(mus[pair[0]], mus[pair[1]]))
                             if distance < min_distance * np.pi / 180:
                                 if num_peaks == num_found_peaks:
-                                    # if the number of peaks (to pair) equals the found peaks
-                                    # set the whole peak pair combination to unvalid
                                     valid_combs_mask[k] = False
-                                elif num_peaks < num_found_peaks:
-                                    # else (if more found peaks then peaks to pair)
-                                    # only set the peak pair to unvalid
+                                else:
                                     valid_pairs_mask[k, pair_index] = False
 
                         if not np.any(valid_pairs_mask[k]):
@@ -456,10 +452,9 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                                     directions[np.newaxis, :], wrap = np.pi))
                             dir_indices_1, dir_indices_2 = np.triu_indices(len(directions), k=1)
                             differences = differences[dir_indices_1, dir_indices_2]
-
                             unvalid_differences = differences < min_directions_diff * np.pi / 180
                             unvalid_differences_indices = unvalid_differences.nonzero()[0]
-                            num_unvalid_differences[k] = np.count_nonzero(unvalid_differences)
+                            num_unvalid_differences[k] = len(unvalid_differences_indices)
 
                             if num_unvalid_differences[k] > 0:
                                 if num_peaks == num_found_peaks:
@@ -480,6 +475,18 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             valid_combs_mask[k] = False
 
                         direction_combs[k, :len(directions)] = directions
+
+                    if num_peaks == num_found_peaks:
+                        if np.any(~valid_pairs_mask) and np.any(np.all(valid_pairs_mask, axis = -1)):
+                            # if the number of peaks (to pair) equals the found peaks
+                            # and any comb has only valid pairs
+                            # set the whole combs with unvalid pairs to unvalid
+                            unvalid_comb_indices = np.where(np.any(~valid_pairs_mask, axis = -1))[0]
+                            valid_combs_mask[unvalid_comb_indices] = False
+
+                            # same for direction difference handling
+                        if np.any(num_unvalid_differences > 0) and np.any(num_unvalid_differences == 0):
+                            valid_combs_mask[np.where(num_valid_differences > 0)[0]] = False
 
                     if not np.any(valid_combs_mask):
                         continue
@@ -521,7 +528,6 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                                                         search_radius)
                         if neighbour_x == -1 and neighbour_y == -1:
                             # When no true pixel within radius: return no pairs
-                            #image_peak_pair_combs[x, y] = np.array([[[-1, -1]]])
                             break
 
                         neighbour_peak_pairs = image_peak_pair_combs[neighbour_x, neighbour_y, 0]
@@ -557,13 +563,14 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             for k in range(num_sig_combs):
                                 directions = direction_combs[k]
                                 directions = directions[~matched_dir_mask[k]]
+                                unmatched_indices = (~matched_dir_mask[k]).nonzero()[0]
 
                                 differences = np.abs(neighbour_directions[:, np.newaxis] - directions)
                                 min_diff_index = np.argmin(differences)
-                                _, dir_diff_indices[k] = np.unravel_index(min_diff_index, 
-                                                                                        differences.shape)
+                                nbd_index, min_diff_dir_index = np.unravel_index(min_diff_index, differences.shape)
+                                dir_diff_indices[k] = unmatched_indices[min_diff_dir_index]
                                 # Insert minimum difference to neighbour directions into array for sorting later
-                                direction_diffs[k] = np.min(differences)
+                                direction_diffs[k] = differences[nbd_index, min_diff_dir_index]
 
                             if np.min(direction_diffs) < angle_threshold * np.pi / 180:
                                 # If minimum difference to neighbour direction is 
