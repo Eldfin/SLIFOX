@@ -1221,7 +1221,7 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
     flat_image_params = image_params.reshape((total_pixels, image_params.shape[2]))
     flat_image_peaks_mask = image_peaks_mask.reshape((total_pixels, *image_peaks_mask.shape[2:]))
 
-    image_valid_peaks_mask = pymp.shared.array((total_pixels, image_peak_pairs.shape[2]))
+    image_valid_peaks_mask = pymp.shared.array((total_pixels, *image_peaks_mask.shape[1:-1]))
 
     # Initialize the progress bar
     pbar = tqdm(total = total_pixels, 
@@ -1271,7 +1271,7 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
                                 & (rel_amplitudes > rel_amplitude_thresold))
 
     image_valid_peaks_mask = image_valid_peaks_mask.reshape((n_rows, n_cols, 
-                                                    image_valid_peaks_mask.shape[1]))
+                                                    *image_valid_peaks_mask.shape[1:]))
 
     image_num_peaks = np.sum(image_valid_peaks_mask, axis = -1)
 
