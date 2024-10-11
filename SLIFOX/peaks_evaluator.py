@@ -1273,10 +1273,10 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
                                             & (image_rel_amplitudes > rel_amplitude_threshold)
                                             & (image_peaks_gof > gof_threshold))
         else:
-            image_amplitudes = (
-                np.max(np.where(image_peaks_mask, np.expand_dims(image_stack, axis=2), -np.inf), axis=-1)
-                - np.min(image_stack, axis=-1)[..., np.newaxis]
-            )
+            image_peak_intensities = np.expand_dims(image_stack, axis = 2)
+            image_peak_intensities = np.where(image_peaks_mask, image_peak_intensities, 0)
+            image_amplitudes = (np.max(image_peak_intensities, axis = -1)
+                                - np.min(image_stack, axis = -1)[..., np.newaxis])
             image_rel_amplitudes = image_amplitudes / image_global_amplitudes[..., np.newaxis]
             
             image_valid_peaks_mask = ((image_amplitudes > amplitude_threshold)
