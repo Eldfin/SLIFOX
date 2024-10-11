@@ -1225,7 +1225,7 @@ def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
 
     # Initialize the progress bar
     pbar = tqdm(total = total_pixels, 
-                desc = f'Calculating direction significances',
+                desc = f'Calculating number of peaks',
                 smoothing = 0)
     shared_counter = pymp.shared.array((num_processes, ), dtype = int)
 
