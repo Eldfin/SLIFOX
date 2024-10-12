@@ -4,7 +4,7 @@ import matplotlib.colors as mcolors
 import os
 from .fitter import full_fitfunction
 from .peaks_evaluator import calculate_peaks_gof, get_number_of_peaks, get_image_direction_significances, \
-                                get_peak_distances, get_peak_amplitudes, get_peak_widths, \
+                                get_peak_distances, get_peak_mean_amplitudes, get_peak_mean_widths, \
                                     calculate_directions
 from .wrapped_distributions import distribution_pdf
 from .utils import angle_distance
@@ -481,7 +481,7 @@ def map_peak_distances(image_stack = None, image_params = None, image_peaks_mask
 
     return image_distances
 
-def map_peak_amplitudes(image_stack = None, image_params = None, image_peaks_mask = None, 
+def map_peak_mean_amplitudes(image_stack = None, image_params = None, image_peaks_mask = None, 
                             distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, only_mus = False, directory = "maps", 
