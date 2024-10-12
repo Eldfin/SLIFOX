@@ -657,7 +657,16 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
                                     area = [0, min(square_size, total_rows), 0, 
                                             min(square_size, total_cols)])
         data_arguments.append(initial_chunk_data)
-    initial_result = func(*tuple(data_arguments), *args, **kwargs)
+
+    if suppress_prints:
+        # Suppress stdout and stderr for the execution of func
+        with open(os.devnull, 'w') as devnull, \
+                contextlib.redirect_stdout(devnull), \
+                contextlib.redirect_stderr(devnull):
+            initial_result = func(*tuple(data_arguments), *args, **kwargs)
+    else:
+        initial_result = func(*tuple(data_arguments), *args, **kwargs)
+    
     multi_dim_result = False
     if isinstance(initial_result, list) or isinstance(initial_result, tuple):
         multi_dim_result = True
