@@ -368,6 +368,8 @@ Calculates the directions from given peak_pairs.
 - `normalize_to`: list
     List of min and max value that defines the range the image is normalized to.  
     If min (or max) is None, the minimum (or maximum) of the image will be used.
+- `image_directions`: np.ndarray (n, m, 3)
+    If the directions have already been calculated, they can be inserted here.
 
 ##### Returns
 - `directions`: (n, m, np.ceil(max_paired_peaks / 2))  
@@ -417,6 +419,8 @@ Maps the significances of all found directions from given "image_peak_pairs".
     If min (or max) is None, the minimum (or maximum) of the image will be used.
 - `num_processes`: int
     Defines the number of processes to split the task into.
+- `image_direction_sig:` np.ndarray (n, m, 3)
+    If the direction significances have already been calculated, they can be inserted here.
 
 ##### Returns
 - `image_direction_sig`: (n, m, np.ceil(max_paired_peaks / 2))
@@ -470,6 +474,11 @@ Maps the number of peaks for every pixel.
     If None, no image will be writen.
 - `colormap`: np.ndarray (6, 3)
     Colormap used for the image generation.
+- `image_sig_peaks_mask`: np.ndarray (n, m, max_find_peaks)
+    When significant peaks mask is already calculated,   
+    it can be provided here to speed up the process.
+- `image_num_peaks`: np.ndarray (n, m)
+    If the number of peaks have already been calculated, they can be inserted here.
 
 ##### Returns
 - `image_num_peaks`: (n, m)
@@ -522,6 +531,14 @@ Maps the distance between two paired peaks for every pixel.
     If min (or max) is None, the minimum (or maximum) of the image will be used.
 - `num_processes`: int
     Defines the number of processes to split the task into.
+- `image_sig_peaks_mask`: np.ndarray (n, m, max_find_peaks)
+    If significant peaks mask is already calculated, 
+    it can be provided here to speed up the process.
+- `image_num_peaks`: np.ndarray (n, m)
+    If number of peaks are already calculated,
+    they can be provided here to speed up the process.
+- `image_distances`: np.ndarray (n, m)
+    If the distances have already been calculated, they can be inserted here.
 
 
 ##### Returns
@@ -562,9 +579,14 @@ Maps the mean peak amplitude for every pixel.
 - `normalize_to`: list
     List of min and max value that defines the range the image is normalized to.  
     If min (or max) is None, the minimum (or maximum) of the image will be used.
+- `image_sig_peaks_mask`: np.ndarray (n, m)
+    If significant peaks mask is already calculated, 
+    it can be provided here to speed up the process.
+- `image_mean_amplitudes`: np.ndarray (n, m)
+    If the mean amplitudes have already been calculated, they can be inserted here.
 
 ##### Returns
-- `image_amplitudes`: (n, m)
+- `image_mean_amplitudes`: (n, m)
     The mean amplitude for every pixel.
 
 #### Function: `map_peak_widths`
@@ -599,9 +621,14 @@ Maps the mean peak width for every pixel.
 - `normalize_to`: list
     List of min and max value that defines the range the image is normalized to.  
     If min (or max) is None, the minimum (or maximum) of the image will be used.
+- `image_sig_peaks_mask`: np.ndarray (n, m)
+    If significant peaks mask is already calculated, 
+    it can be provided here to speed up the process.
+- `image_mean_widths`: np.ndarray (n, m)
+    If the mean widths have already been calculated, they can be inserted here.
 
 ##### Returns
-- `image_widths`: (n, m)
+- `image_mean_widths`: (n, m)
     The mean amplitude for every pixel.
 
 ### Examples
@@ -739,7 +766,8 @@ import h5py
 import matplotlib.pyplot as plt
 from SLIFOX import fit_image_stack, get_image_peak_pairs, pick_data, plot_data_pixels,\
                     map_number_of_peaks, map_peak_distances, map_peak_amplitudes, \
-                    map_peak_widths, map_directions, map_direction_significances, write_fom
+                    map_peak_widths, map_directions, map_direction_significances, write_fom, \
+                    get_sig_peaks_mask
 from SLIFOX.filters import apply_filter
 import os
 
@@ -811,37 +839,43 @@ image_directions = map_directions(best_image_peak_pairs, image_mus, directory = 
 # Map the significance of the directions
 image_direction_sig = map_direction_significances(data, best_image_peak_pairs, image_params, 
                                 image_peaks_mask, distribution = distribution, 
-                                weights = [1, 1])
+                                weights = [1, 1], num_processes = num_processes)
 
 # Optional: Map the threshold filtered direction images 
+# (when pairs filtered with same threshold redundant)
 # map_direction_significance can also be called with specific amplitude / gof thresholds beforehand
 #map_directions(best_image_peak_pairs, image_mus, directiory = "maps",  exclude_lone_peaks = True,
 #                image_direction_sig = image_direction_sig, significance_threshold = 0.8)
 
-# Create the fiber orientation map (fom)
+# Create the fiber orientation map (fom) using the two direction files (for max 4 peaks)
 write_fom(image_directions, output_path = "direction_maps")
 
-# Create map for the number of peaks
-map_number_of_peaks(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, only_mus = False, directory = "maps")
+# Create a mask for the significant peaks
+image_sig_peaks_mask = get_sig_peaks_mask(image_stack, image_params = image_params, 
+                            image_peaks_mask = image_peaks_mask,
+                            distribution = distribution, 
+                            amplitude_threshold = amplitude_threshold, 
+                            rel_amplitude_threshold = rel_amplitude_threshold, 
+                            gof_threshold = gof_threshold, only_mus = only_mus)
+
+# Create map for the number of peaks (will be saved as .tiff in "maps" directory)
+image_num_peaks = map_number_of_peaks(image_sig_peaks_mask, directory = "maps")
 
 # Create map for the distance between two paired peaks
-map_peak_distances(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, only_mus = False, deviation = False,
+map_peak_distances(image_params = image_params, only_mus = False, deviation = False,
                             image_peak_pairs = best_image_peak_pairs, directory = "maps",
-                            num_processes = num_processes, only_peaks_count = -1)
+                            num_processes = num_processes, only_peaks_count = -1,
+                            image_sig_peaks_mask = image_sig_peaks_mask,
+                            image_num_peaks = image_num_peaks)
 
 # Create map for the mean amplitudes
 map_peak_amplitudes(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, only_mus = False, directory = "maps")
+                            only_mus = False, directory = "maps",
+                            image_sig_peaks_mask = image_sig_peaks_mask)
 
 # Create map for the mean peak widths
 map_peak_widths(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, directory = "maps")  
+                            directory = "maps", image_sig_peaks_mask = image_sig_peaks_mask)  
 ```
 
 

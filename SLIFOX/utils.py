@@ -605,8 +605,8 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
 
     return data, indices
 
-def process_image_in_chunks(filepaths, func, square_size = None, 
-                            dataset_paths = "", num_processes = 2, *args, **kwargs):
+def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths = "", 
+                            num_processes = 2, suppress_prints = True, *args, **kwargs):
     """
     Processes image data in square chunks and applies a given function `func` to each chunk.
 
@@ -624,6 +624,8 @@ def process_image_in_chunks(filepaths, func, square_size = None,
         List of dataset paths within the corresponding HDF5 files.
     - num_processes: int
         The number of processes to use. Should be lower than the number of square chunks created.
+    - surpress_prints: bool
+        If True, prints within the function `func` will be suppressed.
     - *args: tuple
         Additional positional arguments for the function `func`.
     - **kwargs: dict
@@ -694,7 +696,15 @@ def process_image_in_chunks(filepaths, func, square_size = None,
                     initial_chunk_data, _ = pick_data(filepaths[idx], dataset_paths[idx], area = area)
                     data_arguments.append(initial_chunk_data)
                 
-                result_chunk = func(*tuple(data_arguments), *args, **kwargs)
+                if suppress_prints:
+                    # Suppress stdout and stderr for the execution of func
+                    with open(os.devnull, 'w') as devnull, \
+                            contextlib.redirect_stdout(devnull), \
+                            contextlib.redirect_stderr(devnull):
+                        result_chunk = func(*tuple(data_arguments), *args, **kwargs)
+                else:
+                    result_chunk = func(*tuple(data_arguments), *args, **kwargs)
+
                 if multi_dim_result:
                     result_chunk = result_chunk[0]
             

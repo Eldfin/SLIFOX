@@ -2,7 +2,8 @@ import h5py
 import matplotlib.pyplot as plt
 from SLIFOX import fit_image_stack, get_image_peak_pairs, pick_data, plot_data_pixels,\
                     map_number_of_peaks, map_peak_distances, map_peak_amplitudes, \
-                    map_peak_widths, map_directions, map_direction_significances, write_fom
+                    map_peak_widths, map_directions, map_direction_significances, write_fom, \
+                    get_sig_peaks_mask
 from SLIFOX.filters import apply_filter
 import os
 
@@ -77,6 +78,7 @@ image_direction_sig = map_direction_significances(data, best_image_peak_pairs, i
                                 weights = [1, 1], num_processes = num_processes)
 
 # Optional: Map the threshold filtered direction images 
+# (when pairs filtered with same threshold redundant)
 # map_direction_significance can also be called with specific amplitude / gof thresholds beforehand
 #map_directions(best_image_peak_pairs, image_mus, directiory = "maps",  exclude_lone_peaks = True,
 #                image_direction_sig = image_direction_sig, significance_threshold = 0.8)
@@ -84,24 +86,29 @@ image_direction_sig = map_direction_significances(data, best_image_peak_pairs, i
 # Create the fiber orientation map (fom) using the two direction files (for max 4 peaks)
 write_fom(image_directions, output_path = "direction_maps")
 
-# Create map for the number of peaks
-map_number_of_peaks(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, only_mus = False, directory = "maps")
+# Create a mask for the significant peaks
+image_sig_peaks_mask = get_sig_peaks_mask(image_stack, image_params = image_params, 
+                            image_peaks_mask = image_peaks_mask,
+                            distribution = distribution, 
+                            amplitude_threshold = amplitude_threshold, 
+                            rel_amplitude_threshold = rel_amplitude_threshold, 
+                            gof_threshold = gof_threshold, only_mus = only_mus)
+
+# Create map for the number of peaks (will be saved as .tiff in "maps" directory)
+image_num_peaks = map_number_of_peaks(image_sig_peaks_mask, directory = "maps")
 
 # Create map for the distance between two paired peaks
-map_peak_distances(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, only_mus = False, deviation = False,
+map_peak_distances(image_params = image_params, only_mus = False, deviation = False,
                             image_peak_pairs = best_image_peak_pairs, directory = "maps",
-                            num_processes = num_processes, only_peaks_count = -1)
+                            num_processes = num_processes, only_peaks_count = -1,
+                            image_sig_peaks_mask = image_sig_peaks_mask,
+                            image_num_peaks = image_num_peaks)
 
 # Create map for the mean amplitudes
 map_peak_amplitudes(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, only_mus = False, directory = "maps")
+                            only_mus = False, directory = "maps",
+                            image_sig_peaks_mask = image_sig_peaks_mask)
 
 # Create map for the mean peak widths
 map_peak_widths(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, directory = "maps")  
+                            directory = "maps", image_sig_peaks_mask = image_sig_peaks_mask)  

@@ -302,10 +302,12 @@ def plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs = No
             plt.savefig(f"{directory}/x{x_str}y{y_str}.png")
             plt.clf()
             
-def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
+def map_number_of_peaks(image_stack = None, image_params = None, 
+                            image_peaks_mask = None, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, only_mus = False,
-                            directory = "maps", colormap = None):
+                            directory = "maps", colormap = None,
+                            image_sig_peaks_mask = None, image_num_peaks = None):
     """
     Maps the number of peaks for every pixel.
 
@@ -338,18 +340,25 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
         If None, no image will be writen.
     - colormap: np.ndarray (6, 3)
         Colormap used for the map generation.
+    - image_sig_peaks_mask: np.ndarray (n, m, max_find_peaks)
+        When significant peaks mask is already calculated, 
+        it can be provided here to speed up the process.
+    - image_num_peaks: np.ndarray (n, m)
+        If the number of peaks already have been calculated, they can be inserted here.
 
     Returns:
     - image_num_peaks: np.ndarray (n, m)
         The number of peaks for every pixel.
     """
 
-    image_num_peaks, image_valid_peaks_mask = get_number_of_peaks(image_stack, 
-                            image_params, image_peaks_mask, distribution = distribution, 
-                            amplitude_threshold = amplitude_threshold, 
-                            rel_amplitude_threshold = rel_amplitude_threshold, 
-                            gof_threshold = gof_threshold,
-                            only_mus = only_mus)
+    if not isinstance(image_num_peaks, np.ndarray):
+        image_num_peaks = get_number_of_peaks(image_stack = image_stack, 
+                                image_params = image_params, image_peaks_mask = image_peaks_mask, 
+                                distribution = distribution, 
+                                amplitude_threshold = amplitude_threshold, 
+                                rel_amplitude_threshold = rel_amplitude_threshold, 
+                                gof_threshold = gof_threshold,
+                                only_mus = only_mus, image_sig_peaks_mask = image_sig_peaks_mask)
 
     if directory != None:
         if not os.path.exists(directory):
@@ -366,12 +375,15 @@ def map_number_of_peaks(image_stack, image_params, image_peaks_mask, distributio
 
     return image_num_peaks
     
-def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
+def map_peak_distances(image_stack = None, image_params = None, image_peaks_mask = None, 
+                            distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, only_mus = False, deviation = False,
                             image_peak_pairs = None, only_peaks_count = -1, 
                             normalize = False, normalize_to = [None, None],
-                            directory = "maps", num_processes = 2):
+                            directory = "maps", num_processes = 2,
+                            image_num_peaks = None, image_sig_peaks_mask = None,
+                            image_distances = None):
     """
     Maps the distance between two paired peaks for every pixel.
 
@@ -419,21 +431,32 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
         If min (or max) is None, the minimum (or maximum) of the image will be used.
     - num_processes: int
         Defines the number of processes to split the task into.
+    - image_sig_peaks_mask: np.ndarray (n, m, max_find_peaks)
+        If significant peaks mask is already calculated, 
+        it can be provided here to speed up the process.
+    - image_num_peaks: np.ndarray (n, m)
+        If number of peaks are already calculated,
+        they can be provided here to speed up the process.
+    - image_distances: np.ndarray (n, m)
+        If peak distances already have been calculated, they can be inserted here.
 
     Returns:
     - image_distances: np.ndarray (n, m)
         The distance between paired peaks for every pixel.
     """
     
-    image_distances = get_peak_distances(image_stack, image_params, image_peaks_mask, 
-                            distribution = distribution,
-                            amplitude_threshold = amplitude_threshold, 
-                            rel_amplitude_threshold = rel_amplitude_threshold, 
-                            gof_threshold = gof_threshold, 
-                            only_mus = only_mus,
-                            image_peak_pairs = image_peak_pairs,
-                            only_peaks_count = only_peaks_count,
-                            num_processes = num_processes)
+    if not isinstance(image_distances, np.ndarray):
+        image_distances = get_peak_distances(image_stack, image_params, image_peaks_mask, 
+                                distribution = distribution,
+                                amplitude_threshold = amplitude_threshold, 
+                                rel_amplitude_threshold = rel_amplitude_threshold, 
+                                gof_threshold = gof_threshold, 
+                                only_mus = only_mus,
+                                image_peak_pairs = image_peak_pairs,
+                                only_peaks_count = only_peaks_count,
+                                num_processes = num_processes,
+                                image_sig_peaks_mask = image_sig_peaks_mask,
+                                image_num_peaks = image_num_peaks)
 
     image_distances[image_distances != -1] = image_distances[image_distances != -1] * 180 / np.pi
     file_name = "peak_distances"
@@ -458,10 +481,12 @@ def map_peak_distances(image_stack, image_params, image_peaks_mask, distribution
 
     return image_distances
 
-def map_peak_amplitudes(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
+def map_peak_amplitudes(image_stack = None, image_params = None, image_peaks_mask = None, 
+                            distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, only_mus = False, directory = "maps", 
-                            normalize = False, normalize_to = [None, None]):
+                            normalize = False, normalize_to = [None, None],
+                            image_sig_peaks_mask = None, image_mean_amplitudes = None):
     """
     Maps the mean peak amplitude for every pixel.
 
@@ -495,32 +520,39 @@ def map_peak_amplitudes(image_stack, image_params, image_peaks_mask, distributio
     - normalize_to: list
         List of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
+    - image_sig_peaks_mask: np.ndarray (n, m)
+        If significant peaks mask is already calculated, 
+        it can be provided here to speed up the process.
+    - image_mean_ampplitudes: np.ndarray (n, m)
+        If the mean amplitudes have already been calculated, they can be inserted here.
 
     Returns:
-    - image_amplitudes: np.ndarray (n, m)
+    - image_mean_amplitudes: np.ndarray (n, m)
         The mean amplitude for every pixel.
     """
 
-    image_amplitudes = get_peak_amplitudes(image_stack, image_params, image_peaks_mask, 
-                        distribution = distribution,
-                        amplitude_threshold = amplitude_threshold, 
-                        rel_amplitude_threshold = rel_amplitude_threshold, 
-                        gof_threshold = gof_threshold,
-                        only_mus = only_mus)
+    if not isinstance(image_mean_amplitudes, np.ndarray):
+        image_mean_amplitudes = get_peak_mean_amplitudes(image_stack, image_params, image_peaks_mask, 
+                            distribution = distribution,
+                            amplitude_threshold = amplitude_threshold, 
+                            rel_amplitude_threshold = rel_amplitude_threshold, 
+                            gof_threshold = gof_threshold,
+                            only_mus = only_mus, 
+                            image_sig_peaks_mask = image_sig_peaks_mask)
 
-
-    image = np.swapaxes(image_amplitudes, 0, 1)
+    image = np.swapaxes(image_mean_amplitudes, 0, 1)
     if normalize:
         image = normalize_to_rgb(image, normalize_to)
 
     imageio.imwrite(f'{directory}/peak_amplitudes_map.tiff', image, format = 'tiff')
 
-    return image_amplitudes
+    return image_mean_amplitudes
 
-def map_peak_widths(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
+def map_peak_mean_widths(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, directory = "maps",
-                            normalize = False, normalize_to = [None, None]):
+                            normalize = False, normalize_to = [None, None],
+                            image_sig_peaks_mask = None, image_mean_widths = None):
     """
     Maps the mean peak width for every pixel.
 
@@ -552,31 +584,40 @@ def map_peak_widths(image_stack, image_params, image_peaks_mask, distribution = 
     - normalize_to: list
         List of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
+    - image_sig_peaks_mask: np.ndarray (n, m, max_find_peaks)
+        If the significant peaks mask is already calculated,
+        it can be provided here to speed up the process.
+    - image_mean_widths: np.ndarray (n, m)
+        If the mean widths have already been calculated, they can be inserted here.
 
     Returns:
-    - image_widths: np.ndarray (n, m)
+    - image_mean_widths: np.ndarray (n, m)
         The mean amplitude for every pixel.
     """
 
-    image_scales = get_peak_widths(image_stack, image_params, image_peaks_mask, distribution = distribution,
-                            amplitude_threshold = amplitude_threshold, 
-                            rel_amplitude_threshold = rel_amplitude_threshold, 
-                            gof_threshold = gof_threshold)
+    if not isinstance(image_mean_widths):
+        image_mean_widths = get_peak_mean_widths(image_stack, image_params, image_peaks_mask, 
+                                distribution = distribution,
+                                amplitude_threshold = amplitude_threshold, 
+                                rel_amplitude_threshold = rel_amplitude_threshold, 
+                                gof_threshold = gof_threshold,
+                                image_sig_peaks_mask = image_sig_peaks_mask)
 
     # scale = hwhm for wrapped cauchy distribution
-    image_scales = image_scales * 180 / np.pi * 2
+    image_mean_widths = image_mean_widths * 180 / np.pi * 2
 
-    image = np.swapaxes(image_scales, 0, 1)
+    image = np.swapaxes(image_mean_widths, 0, 1)
     if normalize:
         image = normalize_to_rgb(image, normalize_to)
 
     imageio.imwrite(f'{directory}/peak_widths_map.tiff', image, format = 'tiff')
 
-    return image_scales
+    return image_mean_widths
 
 def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exclude_lone_peaks = True,
                     image_direction_sig = None, significance_threshold = 0,
-                    directory = "maps", normalize = False, normalize_to = [0, 180]):
+                    directory = "maps", normalize = False, normalize_to = [0, 180],
+                    image_directions = None):
     """
     Maps the directions for every pixel.
 
@@ -608,14 +649,17 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exclude_l
     - normalize_to: list
         List of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
+    - image_directions: np.ndarray (n, m, 3)
+        If the directions have already been calculated, they can be inserted here.
 
     Returns:
     - image_directions: np.ndarray (n, m, 3)
         The directions for every pixel.
     """
 
-    image_directions = calculate_directions(image_peak_pairs, image_mus, 
-                        only_peaks_count = only_peaks_count, exclude_lone_peaks = exclude_lone_peaks)
+    if not isinstance(image_directions, np.ndarray):
+        image_directions = calculate_directions(image_peak_pairs, image_mus, 
+                            only_peaks_count = only_peaks_count, exclude_lone_peaks = exclude_lone_peaks)
 
     # Apply significance threshold filter if given
     if isinstance(image_direction_sig, np.ndarray) and significance_threshold > 0:
@@ -641,7 +685,7 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
                                 gof_threshold = 0, weights = [1, 1], 
                                 only_mus = False, directory = "maps",
                                 normalize = False, normalize_to = [None, None],
-                                num_processes = 2):
+                                num_processes = 2, image_direction_sig = None):
     """
     Maps the significance of the directions for every pixel.
     -Old function that could be updated without need for multi processing and in similar manner
@@ -686,20 +730,22 @@ def map_direction_significances(image_stack, image_peak_pairs, image_params,
         If min (or max) is None, the minimum (or maximum) of the image will be used.
     - num_processes: int
         Defines the number of processes to split the task into.
+    - image_direction_sig: np.ndarray (n, m, 3)
+        If the direction significances have already been calculated, they can be inserted here.
 
     Returns:
     - image_direction_sig: np.ndarray (n, m, 3)
         The significances of the directions for every pixel.
     """
 
-
-    image_direction_sig = get_image_direction_significances(image_stack, image_peak_pairs, image_params, 
-                                image_peaks_mask, distribution = distribution, 
-                                amplitude_threshold = amplitude_threshold,
-                                rel_amplitude_threshold = rel_amplitude_threshold, 
-                                gof_threshold = gof_threshold,
-                                weights = weights, only_mus = only_mus, 
-                                num_processes = num_processes)
+    if not isinstance(image_direction_sig, np.ndarray):
+        image_direction_sig = get_image_direction_significances(image_stack, image_peak_pairs, image_params, 
+                                    image_peaks_mask, distribution = distribution, 
+                                    amplitude_threshold = amplitude_threshold,
+                                    rel_amplitude_threshold = rel_amplitude_threshold, 
+                                    gof_threshold = gof_threshold,
+                                    weights = weights, only_mus = only_mus, 
+                                    num_processes = num_processes)
     
     if directory != None:
         if not os.path.exists(directory):
