@@ -52,6 +52,8 @@ pip install .
 ## Usage
 
 ### Functions
+Below the most important functions are listed.   
+Very large data that does not fit into memory can be splitted and processed in chunks with the "process_image_in_chunks" function.
 
 #### Function: `fit_pixel_stack`
 ##### Description
