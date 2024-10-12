@@ -4,6 +4,7 @@ from numba import njit
 import nibabel as nib
 import tifffile
 from tqdm import tqdm
+import pymp
 
 @njit(cache = True, fastmath = True)
 def angle_distance(angle1, angle2, wrap = 2*np.pi):
@@ -604,7 +605,8 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
 
     return data, indices
 
-def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths = "", *args, **kwargs):
+def process_image_in_chunks(filepaths, func, square_size = None, 
+                            dataset_paths = "", num_processes = 2, *args, **kwargs):
     """
     Processes image data in square chunks and applies a given function `func` to each chunk.
 
@@ -620,6 +622,8 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
         If None, it defaults to 1/10th of the total image size.
     - dataset_paths: list of strings
         List of dataset paths within the corresponding HDF5 files.
+    - num_processes: int
+        The number of processes to use. Should be lower than the number of square chunks created.
     - *args: tuple
         Additional positional arguments for the function `func`.
     - **kwargs: dict
@@ -643,9 +647,6 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
     total_chunks = (((total_rows + square_size - 1) // square_size) 
                     * ((total_cols + square_size - 1) // square_size))
 
-    # Initialize the progress bar
-    pbar = tqdm(total=total_chunks, desc='Processing chunks', smoothing = 0)
-
     data_arguments = []
     for idx in range(len(filepaths)):
         initial_chunk_data, _ = pick_data(filepaths[idx], dataset_paths[idx], 
@@ -660,31 +661,50 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
     
     # Determine the full result shape based on the initial function's output
     result_shape = (total_rows, total_cols) + initial_result.shape[2:]
-    full_result = np.empty(result_shape, dtype = initial_result.dtype)
+    full_result = pymp.shared.array(result_shape, dtype=initial_result.dtype)
 
     full_result[0:initial_chunk_data.shape[0], 0:initial_chunk_data.shape[1], ...] = initial_result
-    pbar.update(1)
     
-    # Process data in square chunks
-    for row_start in range(0, total_rows, square_size):
-        for col_start in range(0, total_cols, square_size):
-            if row_start == 0 and col_start == 0: continue
+    # Create a list of chunk coordinates to process
+    chunk_coords = [(row_start, col_start)
+                    for row_start in range(0, total_rows, square_size)
+                    for col_start in range(0, total_cols, square_size)]
+
+    # Initialize the progress bar
+    pbar = tqdm(total = len(chunk_coords), 
+                desc = f'Processing chunks',
+                smoothing = 0)
+    shared_counter = pymp.shared.array((num_processes, ), dtype = int)
+
+    with pymp.Parallel(num_processes) as p:
+        # Process data in square chunks
+        for i in p.range(len(chunk_coords)):
+            row_start, col_start = chunk_coords[i]
 
             row_end = min(row_start + square_size, total_rows)
             col_end = min(col_start + square_size, total_cols)
-            area = [row_start, row_end, col_start, col_end]
+            if row_start == 0 and col_start == 0:
+                result_chunk = initial_result
+            else: 
+                full_result
+                area = [row_start, row_end, col_start, col_end]
 
-            data_arguments = []
-            for idx in range(len(filepaths)):
-                initial_chunk_data, _ = pick_data(filepaths[idx], dataset_paths[idx], area = area)
-                data_arguments.append(initial_chunk_data)
+                data_arguments = []
+                for idx in range(len(filepaths)):
+                    initial_chunk_data, _ = pick_data(filepaths[idx], dataset_paths[idx], area = area)
+                    data_arguments.append(initial_chunk_data)
+                
+                result_chunk = func(*tuple(data_arguments), *args, **kwargs)
+                if multi_dim_result:
+                    result_chunk = result_chunk[0]
             
-            result_chunk = func(*tuple(data_arguments), *args, **kwargs)
-            if multi_dim_result:
-                result_chunk = result_chunk[0]
             full_result[row_start:row_end, col_start:col_end, ...] = result_chunk
-            pbar.update(1)
-    
+
+            # Update progress bar
+            shared_counter[p.thread_num] += 1
+            status = np.sum(shared_counter)
+            pbar.update(status - pbar.n)
+        
     return full_result
 
 def get_data_shape_and_dtype(filepath, dataset_path = ""):
