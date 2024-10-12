@@ -548,7 +548,8 @@ def map_peak_amplitudes(image_stack = None, image_params = None, image_peaks_mas
 
     return image_mean_amplitudes
 
-def map_peak_mean_widths(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
+def map_peak_mean_widths(image_stack = None, image_params = None, 
+                            image_peaks_mask = None, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, directory = "maps",
                             normalize = False, normalize_to = [None, None],
@@ -614,7 +615,8 @@ def map_peak_mean_widths(image_stack, image_params, image_peaks_mask, distributi
 
     return image_mean_widths
 
-def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exclude_lone_peaks = True,
+def map_directions(image_peak_pairs = None, image_mus = None, only_peaks_count = -1, 
+                    exclude_lone_peaks = True,
                     image_direction_sig = None, significance_threshold = 0,
                     directory = "maps", normalize = False, normalize_to = [0, 180],
                     image_directions = None):
@@ -679,8 +681,8 @@ def map_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exclude_l
 
     return image_directions
 
-def map_direction_significances(image_stack, image_peak_pairs, image_params, 
-                                image_peaks_mask, distribution = "wrapped_cauchy", 
+def map_direction_significances(image_stack = None, image_peak_pairs = None, image_params = None, 
+                                image_peaks_mask = None, distribution = "wrapped_cauchy", 
                                 amplitude_threshold = 0, rel_amplitude_threshold = 0,
                                 gof_threshold = 0, weights = [1, 1], 
                                 only_mus = False, directory = "maps",
