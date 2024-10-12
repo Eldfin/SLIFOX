@@ -1204,81 +1204,8 @@ def peak_significances(intensities, angles, params, peaks_mask, distribution, on
 
     return significances
 
-def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
-                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, only_mus = False):
-
-    if gof_threshold == 0 and amplitude_threshold == 0 and rel_amplitude_threshold == 0:
-        image_num_peaks = np.sum(np.any(image_peaks_mask, axis=-1), axis = -1)
-        image_valid_peaks_mask = np.ones(image_peaks_mask.shape[:-1], dtype = np.bool_)
-
-    angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)
-    n_rows = image_stack.shape[0]
-    n_cols = image_stack.shape[1]
-    total_pixels = n_rows * n_cols
-
-    flat_image_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))
-    flat_image_params = image_params.reshape((total_pixels, image_params.shape[2]))
-    flat_image_peaks_mask = image_peaks_mask.reshape((total_pixels, *image_peaks_mask.shape[2:]))
-
-    image_valid_peaks_mask = pymp.shared.array((total_pixels, *image_peaks_mask.shape[1:-1]))
-
-    # Initialize the progress bar
-    pbar = tqdm(total = total_pixels, 
-                desc = f'Calculating number of peaks',
-                smoothing = 0)
-    shared_counter = pymp.shared.array((num_processes, ), dtype = int)
-
-    with pymp.Parallel(num_processes) as p:
-        for i in p.range(total_pixels):
-
-            # Update progress bar
-            shared_counter[p.thread_num] += 1
-            status = np.sum(shared_counter)
-            pbar.update(status - pbar.n)
-
-            intensities = flat_image_stack[i]
-            min_int = np.min(intensities)
-            global_amplitude = np.max(intensities) - min_int
-            
-            if not only_mus:
-                if gof_threshold > 0:
-                    model_y = full_fitfunction(angles, flat_image_params[i], distribution)
-                    peaks_gof = calculate_peaks_gof(intensities, model_y, 
-                                        flat_image_peaks_mask[i, :len(model_y)], method = "r2")
-                if amplitude_threshold > 0 or rel_amplitude_threshold > 0:
-                    heights = flat_image_params[i, 0:-1:3]
-                    scales = flat_image_params[i, 2::3]
-                    amplitudes = heights * distribution_pdf(0, 0, scales, distribution)[..., 0]
-                    rel_amplitudes = amplitudes / global_amplitude
-                    if gof_threshold == 0:
-                        peaks_gof = np.zeros(len(amplitudes))
-                else:
-                    amplitudes = np.zeros(len(peaks_gof))
-                    rel_amplitudes = np.zeros(len(peaks_gof))
-                
-                num_peaks = ((amplitudes >= amplitude_threshold) 
-                                & (rel_amplitudes >= rel_amplitude_thresold)
-                                & (peaks_gof >= gof_threshold))
-            else:
-                amplitudes = np.full(flat_image_peaks_mask[i].shape[0], -1)
-                for mask in flat_image_peaks_mask[i]:
-                    peak_intensities = intensities[mask]
-                    amplitudes[i] = np.max(peak_intensities) - min_int
-                    
-                rel_amplitudes = amplitudes / global_amplitude
-                image_valid_peaks_mask[i] = ((amplitudes > amplitude_threshold) 
-                                & (rel_amplitudes > rel_amplitude_thresold))
-
-    image_valid_peaks_mask = image_valid_peaks_mask.reshape((n_rows, n_cols, 
-                                                    *image_valid_peaks_mask.shape[1:]))
-
-    image_num_peaks = np.sum(image_valid_peaks_mask, axis = -1)
-
-    return image_num_peaks, image_valid_peaks_mask
-
 #@njit(cache = True, fastmath = True)
-def get_number_of_peaks_vectorized(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
+def get_number_of_peaks(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
                             gof_threshold = 0.5, only_mus = False):
     """

@@ -3,6 +3,7 @@ import h5py
 from numba import njit
 import nibabel as nib
 import tifffile
+from tqdm import tqdm
 
 @njit(cache = True, fastmath = True)
 def angle_distance(angle1, angle2, wrap = 2*np.pi):
@@ -639,12 +640,11 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
     if square_size is None:
         square_size = min(total_rows, total_cols) // 10
     
-    total_chunks = ((total_rows + square_size - 1) // square_size) 
-                    * ((total_cols + square_size - 1) // square_size)
+    total_chunks = (((total_rows + square_size - 1) // square_size) 
+                    * ((total_cols + square_size - 1) // square_size))
 
     # Initialize the progress bar
-    pbar = tqdm(total=total_chunks, desc='Processing chunks', 
-                            bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} chunks processed")
+    pbar = tqdm(total=total_chunks, desc='Processing chunks', smoothing = 0)
 
     data_arguments = []
     for idx in range(len(filepaths)):
@@ -653,6 +653,10 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
                                             min(square_size, total_cols)])
         data_arguments.append(initial_chunk_data)
     initial_result = func(*tuple(data_arguments), *args, **kwargs)
+    multi_dim_result = False
+    if isinstance(initial_result, list) or isinstance(initial_result, tuple):
+        multi_dim_result = True
+        initial_result = initial_result[0]
     
     # Determine the full result shape based on the initial function's output
     result_shape = (total_rows, total_cols) + initial_result.shape[2:]
@@ -676,6 +680,8 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
                 data_arguments.append(initial_chunk_data)
             
             result_chunk = func(*tuple(data_arguments), *args, **kwargs)
+            if multi_dim_result:
+                result_chunk = result_chunk[0]
             full_result[row_start:row_end, col_start:col_end, ...] = result_chunk
             pbar.update(1)
     
