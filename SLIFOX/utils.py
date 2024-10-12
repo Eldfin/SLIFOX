@@ -603,13 +603,13 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
 
     return data, indices
 
-def process_image_in_chunks(filepath, func, square_size = None, dataset_path = "", *args, **kwargs):
+def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths = "", *args, **kwargs):
     """
     Processes image data in square chunks and applies a given function `func` to each chunk.
 
     Parameters:
-    - filepath: string
-        The path to the file (HDF5 or NII).
+    - filepaths: list of strings
+        List of file paths (HDF5 or NII).
     - func: function
         The function to apply to each square chunk of data.
         The function `func` has to be an image processing function in that way that it returns
@@ -617,8 +617,8 @@ def process_image_in_chunks(filepath, func, square_size = None, dataset_path = "
     - square_size: int
         The size of the square chunks (the length of one edge in pixels).
         If None, it defaults to 1/10th of the total image size.
-    - dataset_path: string
-        The dataset path within the HDF5 file.
+    - dataset_paths: list of strings
+        List of dataset paths within the corresponding HDF5 files.
     - *args: tuple
         Additional positional arguments for the function `func`.
     - **kwargs: dict
@@ -628,9 +628,12 @@ def process_image_in_chunks(filepath, func, square_size = None, dataset_path = "
     - full_result: np.ndarray
         A numpy array where the first two dimensions match the input data and are filled with the processed results.
     """
+
+    if len(filepaths) != len(dataset_paths):
+        raise ValueError("filepaths and dataset_paths must have the same length.")
     
     # Get the shape of the dataset
-    data_shape, data_dtype = get_data_shape_and_dtype(filepath, dataset_path)
+    data_shape, data_dtype = get_data_shape_and_dtype(filepaths[0], dataset_paths[0])
     total_rows, total_cols = data_shape[0], data_shape[1]
 
     if square_size is None:
@@ -643,10 +646,13 @@ def process_image_in_chunks(filepath, func, square_size = None, dataset_path = "
     pbar = tqdm(total=total_chunks, desc='Processing chunks', 
                             bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} chunks processed")
 
-    initial_chunk_data, _ = pick_data(filepath, dataset_path, 
-                                area = [0, min(square_size, total_rows), 0, 
-                                        min(square_size, total_cols)])
-    initial_result = func(initial_chunk_data, *args, **kwargs)
+    data_arguments = []
+    for idx in range(len(filepaths)):
+        initial_chunk_data, _ = pick_data(filepaths[idx], dataset_paths[idx], 
+                                    area = [0, min(square_size, total_rows), 0, 
+                                            min(square_size, total_cols)])
+        data_arguments.append(initial_chunk_data)
+    initial_result = func(*tuple(data_arguments), *args, **kwargs)
     
     # Determine the full result shape based on the initial function's output
     result_shape = (total_rows, total_cols) + initial_result.shape[2:]
@@ -659,12 +665,17 @@ def process_image_in_chunks(filepath, func, square_size = None, dataset_path = "
     for row_start in range(0, total_rows, square_size):
         for col_start in range(0, total_cols, square_size):
             if row_start == 0 and col_start == 0: continue
-            
+
             row_end = min(row_start + square_size, total_rows)
             col_end = min(col_start + square_size, total_cols)
             area = [row_start, row_end, col_start, col_end]
-            chunk_data, indices = pick_data(filepath, dataset_path, area = area)
-            result_chunk = func(chunk_data, *args, **kwargs)
+
+            data_arguments = []
+            for idx in range(len(filepaths)):
+                initial_chunk_data, _ = pick_data(filepaths[idx], dataset_paths[idx], area = area)
+                data_arguments.append(initial_chunk_data)
+            
+            result_chunk = func(*tuple(data_arguments), *args, **kwargs)
             full_result[row_start:row_end, col_start:col_end, ...] = result_chunk
             pbar.update(1)
     
