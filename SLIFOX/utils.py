@@ -460,7 +460,7 @@ def cartesian_product(arrays):
         repeats *= n_elements
     return result
 
-@njit(cache=True, fastmath = True)
+@njit(cache = True, fastmath = True)
 def calculate_chi2(model_y, ydata, xdata, ydata_err, num_params = 0):
     """
     Calculates the (reduces) chi2 of given data.
@@ -602,6 +602,85 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
         indices = np.stack((x_indices, y_indices), axis = -1, dtype = np.int64)
 
     return data, indices
+
+def process_image_in_chunks(filepath, func, square_size = None, dataset_path = "", *args, **kwargs):
+    """
+    Processes image data in square chunks and applies a given function `func` to each chunk.
+
+    Parameters:
+    - filepath: string
+        The path to the file (HDF5 or NII).
+    - func: function
+        The function to apply to each square chunk of data.
+        The function `func` has to be an image processing function in that way that it returns
+        an numpy array which first two dimensions are the image dimensions.
+    - square_size: int
+        The size of the square chunks (the length of one edge in pixels).
+        If None, it defaults to 1/10th of the total image size.
+    - dataset_path: string
+        The dataset path within the HDF5 file.
+    - *args: tuple
+        Additional positional arguments for the function `func`.
+    - **kwargs: dict
+        Additional keyword arguments for the function `func`.
+
+    Returns:
+    - full_result: np.ndarray
+        A numpy array where the first two dimensions match the input data and are filled with the processed results.
+    """
+    
+    # Get the shape of the dataset
+    data_shape, data_dtype = get_data_shape_and_dtype(filepath, dataset_path)
+    total_rows, total_cols = data_shape[0], data_shape[1]
+
+    if square_size is None:
+        square_size = min(total_rows, total_cols) // 10
+    
+    total_chunks = ((total_rows + square_size - 1) // square_size) 
+                    * ((total_cols + square_size - 1) // square_size)
+
+    # Initialize the progress bar
+    pbar = tqdm(total=total_chunks, desc='Processing chunks', 
+                            bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} chunks processed")
+
+    initial_chunk_data, _ = pick_data(filepath, dataset_path, 
+                                area = [0, min(square_size, total_rows), 0, 
+                                        min(square_size, total_cols)])
+    initial_result = func(initial_chunk_data, *args, **kwargs)
+    
+    # Determine the full result shape based on the initial function's output
+    result_shape = (total_rows, total_cols) + initial_result.shape[2:]
+    full_result = np.empty(result_shape, dtype = initial_result.dtype)
+
+    full_result[0:initial_chunk_data.shape[0], 0:initial_chunk_data.shape[1], ...] = initial_result
+    pbar.update(1)
+    
+    # Process data in square chunks
+    for row_start in range(0, total_rows, square_size):
+        for col_start in range(0, total_cols, square_size):
+            if row_start == 0 and col_start == 0: continue
+            
+            row_end = min(row_start + square_size, total_rows)
+            col_end = min(col_start + square_size, total_cols)
+            area = [row_start, row_end, col_start, col_end]
+            chunk_data, indices = pick_data(filepath, dataset_path, area = area)
+            result_chunk = func(chunk_data, *args, **kwargs)
+            full_result[row_start:row_end, col_start:col_end, ...] = result_chunk
+            pbar.update(1)
+    
+    return full_result
+
+def get_data_shape_and_dtype(filepath, dataset_path = ""):
+    if filepath.endswith(".nii") or filepath.endswith(".nii-gz"):
+        nii_file = nib.load(filepath)
+        data_shape = nii_file.shape
+        data_dtype = nii_file.get_data_dtype()
+    else:
+        with h5py.File(filepath, "r") as h5f:
+            data_shape = h5f[dataset_path].shape
+            data_dtype = h5f[dataset_path].dtype
+
+    return data_shape, data_dtype
 
 
 # Following function is copied from SLIX software:
