@@ -611,6 +611,7 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
                             num_processes = 2, suppress_prints = True, *args, **kwargs):
     """
     Processes image data in square chunks and applies a given function `func` to each chunk.
+    This is usefull e.g. for map creation of very large datasets.
 
     Parameters:
     - filepaths: list of strings
