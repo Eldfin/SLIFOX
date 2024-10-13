@@ -545,7 +545,7 @@ Maps the distance between two paired peaks for every pixel.
 - `image_distances`: (n, m)
     The distances between paired peaks for every pixel.
 
-#### Function: `map_peak_mean_amplitudes`
+#### Function: `map_mean_peak_amplitudes`
 ##### Description
 Maps the mean peak amplitude for every pixel.
 
@@ -589,7 +589,7 @@ Maps the mean peak amplitude for every pixel.
 - `image_mean_amplitudes`: (n, m)
     The mean amplitude for every pixel.
 
-#### Function: `map_peak_mean_widths`
+#### Function: `map_mean_peak_widths`
 ##### Description
 Maps the mean peak width for every pixel.
 
@@ -765,8 +765,8 @@ with h5py.File(output_file_path, "w") as h5f:
 import h5py
 import matplotlib.pyplot as plt
 from SLIFOX import fit_image_stack, get_image_peak_pairs, pick_data, plot_data_pixels,\
-                    map_number_of_peaks, map_peak_distances, map_peak_mean_amplitudes, \
-                    map_peak_mean_widths, map_directions, map_direction_significances, write_fom, \
+                    map_number_of_peaks, map_peak_distances, map_mean_peak_amplitudes, \
+                    map_mean_peak_widths, map_directions, map_direction_significances, write_fom, \
                     get_sig_peaks_mask
 from SLIFOX.filters import apply_filter
 import os
@@ -869,13 +869,13 @@ map_peak_distances(image_params = image_params, only_mus = False, deviation = Fa
                             image_num_peaks = image_num_peaks)
 
 # Create map for the mean amplitudes
-map_peak_mean_amplitudes(image_stack = data, image_params = image_params, 
+map_mean_peak_amplitudes(image_stack = data, image_params = image_params, 
                             image_peaks_mask = image_peaks_mask, distribution = "wrapped_cauchy", 
                             only_mus = False, directory = "maps",
                             image_sig_peaks_mask = image_sig_peaks_mask)
 
 # Create map for the mean peak widths
-map_peak_mean_widths(image_stack = data, image_params = image_params, 
+map_mean_peak_widths(image_stack = data, image_params = image_params, 
                             image_peaks_mask = image_peaks_mask, distribution = "wrapped_cauchy", 
                             directory = "maps", image_sig_peaks_mask = image_sig_peaks_mask)  
 ```

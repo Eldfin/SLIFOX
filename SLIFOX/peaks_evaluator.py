@@ -1418,7 +1418,7 @@ def get_peak_distances(image_stack = None, image_params = None, image_peaks_mask
 
     return image_distances
 
-def get_peak_mean_amplitudes(image_stack = None, image_params = None, image_peaks_mask = None,
+def get_mean_peak_amplitudes(image_stack = None, image_params = None, image_peaks_mask = None,
                          distribution = "wrapped_cauchy", 
                         amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                         gof_threshold = 0.5, only_mus = False,
@@ -1481,7 +1481,7 @@ def get_peak_mean_amplitudes(image_stack = None, image_params = None, image_peak
 
     return image_amplitudes
 
-def get_peak_mean_widths(image_stack = None, image_params = None, image_peaks_mask = None, 
+def get_mean_peak_widths(image_stack = None, image_params = None, image_peaks_mask = None, 
                             distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, image_sig_peaks_mask = None):

@@ -4,7 +4,7 @@ import matplotlib.colors as mcolors
 import os
 from .fitter import full_fitfunction
 from .peaks_evaluator import calculate_peaks_gof, get_number_of_peaks, get_image_direction_significances, \
-                                get_peak_distances, get_peak_mean_amplitudes, get_peak_mean_widths, \
+                                get_peak_distances, get_mean_peak_amplitudes, get_mean_peak_widths, \
                                     calculate_directions
 from .wrapped_distributions import distribution_pdf
 from .utils import angle_distance
@@ -481,7 +481,7 @@ def map_peak_distances(image_stack = None, image_params = None, image_peaks_mask
 
     return image_distances
 
-def map_peak_mean_amplitudes(image_stack = None, image_params = None, image_peaks_mask = None, 
+def map_mean_peak_amplitudes(image_stack = None, image_params = None, image_peaks_mask = None, 
                             distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, only_mus = False, directory = "maps", 
@@ -532,7 +532,7 @@ def map_peak_mean_amplitudes(image_stack = None, image_params = None, image_peak
     """
 
     if not isinstance(image_mean_amplitudes, np.ndarray):
-        image_mean_amplitudes = get_peak_mean_amplitudes(image_stack, image_params, image_peaks_mask, 
+        image_mean_amplitudes = get_mean_peak_amplitudes(image_stack, image_params, image_peaks_mask, 
                             distribution = distribution,
                             amplitude_threshold = amplitude_threshold, 
                             rel_amplitude_threshold = rel_amplitude_threshold, 
@@ -548,7 +548,7 @@ def map_peak_mean_amplitudes(image_stack = None, image_params = None, image_peak
 
     return image_mean_amplitudes
 
-def map_peak_mean_widths(image_stack = None, image_params = None, 
+def map_mean_peak_widths(image_stack = None, image_params = None, 
                             image_peaks_mask = None, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, directory = "maps",
@@ -597,7 +597,7 @@ def map_peak_mean_widths(image_stack = None, image_params = None,
     """
 
     if not isinstance(image_mean_widths):
-        image_mean_widths = get_peak_mean_widths(image_stack, image_params, image_peaks_mask, 
+        image_mean_widths = get_mean_peak_widths(image_stack, image_params, image_peaks_mask, 
                                 distribution = distribution,
                                 amplitude_threshold = amplitude_threshold, 
                                 rel_amplitude_threshold = rel_amplitude_threshold, 
