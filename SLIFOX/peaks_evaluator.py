@@ -1516,7 +1516,7 @@ def get_mean_peak_amplitudes(image_stack = None, image_params = None, image_peak
                             image_peaks_mask = image_peaks_mask, distribution = distribution, 
                             only_mus = only_mus)
 
-    image_mean_amplitudes = np.where(image_sig_peaks_mask, image_amplituimage_mean_amplitudesdes, np.nan)
+    image_mean_amplitudes = np.where(image_sig_peaks_mask, image_mean_amplitudes, np.nan)
     all_nan_slices = np.all(~image_sig_peaks_mask, axis = -1)
     image_mean_amplitudes[all_nan_slices] = 0
     image_mean_amplitudes = np.nanmean(image_mean_amplitudes, axis = -1)
