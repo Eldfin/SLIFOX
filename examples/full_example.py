@@ -95,7 +95,7 @@ image_sig_peaks_mask = get_sig_peaks_mask(image_stack, image_params = image_para
                             gof_threshold = gof_threshold, only_mus = only_mus)
 
 # Create map for the number of peaks (will be saved as .tiff in "maps" directory)
-image_num_peaks = map_number_of_peaks(image_sig_peaks_mask, directory = "maps")
+image_num_peaks = map_number_of_peaks(image_sig_peaks_mask = image_sig_peaks_mask, directory = "maps")
 
 # Create map for the distance between two paired peaks
 map_peak_distances(image_params = image_params, only_mus = False, deviation = False,
@@ -105,10 +105,12 @@ map_peak_distances(image_params = image_params, only_mus = False, deviation = Fa
                             image_num_peaks = image_num_peaks)
 
 # Create map for the mean amplitudes
-map_peak_mean_amplitudes(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
+map_peak_mean_amplitudes(image_stack = data, image_params = image_params, 
+                            image_peaks_mask = image_peaks_mask, distribution = "wrapped_cauchy", 
                             only_mus = False, directory = "maps",
                             image_sig_peaks_mask = image_sig_peaks_mask)
 
 # Create map for the mean peak widths
-map_peak_mean_widths(data, image_params, image_peaks_mask, distribution = "wrapped_cauchy", 
+map_peak_mean_widths(image_stack = data, image_params = image_params, 
+                            image_peaks_mask = image_peaks_mask, distribution = "wrapped_cauchy", 
                             directory = "maps", image_sig_peaks_mask = image_sig_peaks_mask)  
