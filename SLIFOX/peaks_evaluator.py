@@ -336,7 +336,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             rel_amplitude_threshold = rel_amplitude_threshold, 
                             gof_threshold = gof_threshold, only_mus = only_mus)
 
-    if not isinstance(image_num_peaks):
+    if not isinstance(image_num_peaks, np.ndarray):
         image_num_peaks = np.sum(image_sig_peaks_mask, axis = -1)
 
     direction_found_mask = pymp.shared.array((n_rows, n_cols), dtype = np.bool_)
@@ -1380,7 +1380,7 @@ def get_peak_distances(image_stack = None, image_params = None, image_peaks_mask
     else:
         image_mus = image_params
 
-    if not isinstance(image_sig_peaks_mask):
+    if not isinstance(image_sig_peaks_mask, np.ndarray):
         image_sig_peaks_mask = get_sig_peaks_mask(image_stack = image_stack, 
                             image_params = image_params, 
                             image_peaks_mask = image_peaks_mask,
@@ -1389,7 +1389,7 @@ def get_peak_distances(image_stack = None, image_params = None, image_peaks_mask
                             rel_amplitude_threshold = rel_amplitude_threshold, 
                             gof_threshold = gof_threshold, only_mus = only_mus)
     
-    if not isinstance(image_num_peaks):
+    if not isinstance(image_num_peaks, np.ndarray):
         image_num_peaks = np.sum(image_sig_peaks_mask, axis = -1)
 
     total_pixels = image_mus.shape[0] * image_mus.shape[1]

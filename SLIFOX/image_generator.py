@@ -600,7 +600,7 @@ def map_mean_peak_widths(image_stack = None, image_params = None,
         The mean amplitude for every pixel.
     """
 
-    if not isinstance(image_mean_widths):
+    if not isinstance(image_mean_widths, np.ndarray):
         image_mean_widths = get_mean_peak_widths(image_stack = image_stack, 
                                 image_params = image_params, 
                                 image_peaks_mask = image_peaks_mask, 
