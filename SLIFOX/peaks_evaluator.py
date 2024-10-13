@@ -1398,7 +1398,9 @@ def get_peak_distances(image_stack = None, image_params = None, image_peaks_mask
     if not isinstance(image_num_peaks, np.ndarray):
         image_num_peaks = np.sum(image_sig_peaks_mask, axis = -1)
 
-    total_pixels = image_mus.shape[0] * image_mus.shape[1]
+    n_rows = image_mus.shape[0]
+    n_cols = image_mus.shape[1]
+    total_pixels = n_rows * n_cols
     if not isinstance(image_peak_pairs, np.ndarray) or only_peaks_count == 2:
         only_peaks_count = 2
         image_distances = pymp.shared.array(total_pixels, dtype = np.float32)
@@ -1453,10 +1455,9 @@ def get_peak_distances(image_stack = None, image_params = None, image_peaks_mask
     pbar.update(pbar.total - pbar.n)
 
     if only_peaks_count == 2:
-        image_distances = image_distances.reshape((image_mus.shape[0], image_mus.shape[1]))
+        image_distances = image_distances.reshape((n_rows, n_cols))
     else:
-        image_distances = image_distances.reshape((image_mus.shape[0], image_mus.shape[1],
-                                                image_distances.shape[1]))
+        image_distances = image_distances.reshape((n_rows, n_cols, image_distances.shape[1]))
 
     return image_distances
 
