@@ -608,7 +608,7 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
     return data, indices
 
 def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths = "", 
-                            num_processes = 2, suppress_prints = True, *args, **kwargs):
+                            num_processes_main = 2, suppress_prints = True, *args, **kwargs):
     """
     Processes image data in square chunks and applies a given function `func` to each chunk.
     This is usefull e.g. for map creation of very large datasets that does not fit into memory.
@@ -625,8 +625,9 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
         If None, it defaults to 1/10th of the total image size.
     - dataset_paths: list of strings
         List of dataset paths within the corresponding HDF5 files.
-    - num_processes: int
-        The number of processes to use. Should be lower than the number of square chunks created.
+    - num_processes_main: int
+        The number of processes to use for chunk calculation. Every process will calculate one chunk.
+        Should be lower than the number of square chunks created.
     - surpress_prints: bool
         If True, prints within the function `func` will be suppressed.
     - *args: tuple
@@ -688,9 +689,12 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
     pbar = tqdm(total = len(chunk_coords), 
                 desc = f'Processing chunks',
                 smoothing = 0)
-    shared_counter = pymp.shared.array((num_processes, ), dtype = int)
+    shared_counter = pymp.shared.array((num_processes_main, ), dtype = int)
 
-    with pymp.Parallel(num_processes) as p:
+    # Activate nested looping in case func also uses pymp
+    pymp.config.nested = True
+
+    with pymp.Parallel(num_processes_main) as p:
         # Process data in square chunks
         for i in p.range(len(chunk_coords)):
             row_start, col_start = chunk_coords[i]
