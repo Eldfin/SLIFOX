@@ -427,7 +427,7 @@ Maps the significances of all found directions from given "image_peak_pairs".
         The calculated significances (ranging from 0 to 1) for everyoe of the (n * m) pixels.
         Max 3 significances (shape like directions). 
 
-#### Function: `write_fom`
+#### Function: `map_fom`
 ##### Description
     Creates and writes the fiber orientation map (fom) from given direction (files) to a file.
 
@@ -442,7 +442,7 @@ Maps the significances of all found directions from given "image_peak_pairs".
     Path to the output directory.
 
 ##### Returns
-- `rgb_fom`: np.ndarray (2*n, 2*m)
+- `rgb_fom`: np.ndarray (2*n, 2*m, 3)
     Fiber orientation map (fom) from the directions of the image.
 
 #### Function: `map_number_of_peaks`
@@ -766,7 +766,7 @@ import h5py
 import matplotlib.pyplot as plt
 from SLIFOX import fit_image_stack, get_image_peak_pairs, pick_data, plot_data_pixels,\
                     map_number_of_peaks, map_peak_distances, map_mean_peak_amplitudes, \
-                    map_mean_peak_widths, map_directions, map_direction_significances, write_fom, \
+                    map_mean_peak_widths, map_directions, map_direction_significances, map_fom, \
                     get_sig_peaks_mask
 from SLIFOX.filters import apply_filter
 import os
@@ -848,7 +848,7 @@ image_direction_sig = map_direction_significances(data, best_image_peak_pairs, i
 #                image_direction_sig = image_direction_sig, significance_threshold = 0.8)
 
 # Create the fiber orientation map (fom) using the two direction files (for max 4 peaks)
-write_fom(image_directions, output_path = "direction_maps")
+map_fom(image_directions, output_path = "maps")
 
 # Create a mask for the significant peaks
 image_sig_peaks_mask = get_sig_peaks_mask(image_stack = image_stack, image_params = image_params, 
@@ -877,7 +877,7 @@ map_mean_peak_amplitudes(image_stack = data, image_params = image_params,
 # Create map for the mean peak widths
 map_mean_peak_widths(image_stack = data, image_params = image_params, 
                             image_peaks_mask = image_peaks_mask, distribution = "wrapped_cauchy", 
-                            directory = "maps", image_sig_peaks_mask = image_sig_peaks_mask)  
+                            directory = "maps", image_sig_peaks_mask = image_sig_peaks_mask)   
 ```
 
 

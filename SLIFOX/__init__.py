@@ -6,4 +6,4 @@ from .image_generator import plot_data_pixels, show_pixel, map_number_of_peaks, 
                         map_direction_significances
 from .PLI_comparison import get_distance_deviations
 from .inclination import calculate_image_inclinations
-from .fom_generator import write_fom
+from .fom_generator import map_fom

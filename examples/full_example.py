@@ -2,7 +2,7 @@ import h5py
 import matplotlib.pyplot as plt
 from SLIFOX import fit_image_stack, get_image_peak_pairs, pick_data, plot_data_pixels,\
                     map_number_of_peaks, map_peak_distances, map_mean_peak_amplitudes, \
-                    map_mean_peak_widths, map_directions, map_direction_significances, write_fom, \
+                    map_mean_peak_widths, map_directions, map_direction_significances, map_fom, \
                     get_sig_peaks_mask
 from SLIFOX.filters import apply_filter
 import os
@@ -84,7 +84,7 @@ image_direction_sig = map_direction_significances(data, best_image_peak_pairs, i
 #                image_direction_sig = image_direction_sig, significance_threshold = 0.8)
 
 # Create the fiber orientation map (fom) using the two direction files (for max 4 peaks)
-write_fom(image_directions, output_path = "direction_maps")
+map_fom(image_directions, output_path = "maps")
 
 # Create a mask for the significant peaks
 image_sig_peaks_mask = get_sig_peaks_mask(image_stack = image_stack, image_params = image_params, 

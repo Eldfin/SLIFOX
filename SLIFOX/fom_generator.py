@@ -354,9 +354,9 @@ def imwrite_rgb(filepath, data):
         tifffile.imwrite(filepath, save_data, photometric='rgb',
                          compression=8)
 
-def write_fom(image_directions = None, direction_files = None, output_path = None):
+def map_fom(image_directions = None, direction_files = None, output_path = None):
     """
-    Creates and writes the fiber orientation map (fom) from given direction (files) to a file.
+    Maps the fiber orientation map (fom) from given direction (files).
 
     Parameters:
     - image_directions: np.ndarray (n, m, p)
@@ -369,7 +369,7 @@ def write_fom(image_directions = None, direction_files = None, output_path = Non
         Path to the output directory.
 
     Returns:
-    - rgb_fom: np.ndarray (2*n, 2*m)
+    - rgb_fom: np.ndarray (2*n, 2*m, 3)
         Fiber orientation map (fom) from the directions of the image.
     """
     
