@@ -902,6 +902,8 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
             status = np.sum(shared_counter)
             pbar.update(status - pbar.n)
 
+    # Set the progress bar to 100%
+    pbar.update(pbar.total - pbar.n)
     deflattened_params = image_params.reshape((image_stack.shape[0], 
                                             image_stack.shape[1], image_params.shape[1]))
     deflattened_peaks_mask = image_peaks_mask.reshape((image_stack.shape[0], 
@@ -1008,6 +1010,8 @@ def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(imag
             status = np.sum(shared_counter)
             pbar.update(status - pbar.n)
 
+    # Set the progress bar to 100%
+    pbar.update(pbar.total - pbar.n)
     deflattened_peaks_mask = image_peaks_mask.reshape((image_stack.shape[0], 
                                             image_stack.shape[1], image_peaks_mask.shape[1], 
                                             image_peaks_mask.shape[2]))

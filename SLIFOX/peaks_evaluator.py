@@ -667,6 +667,9 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
                             break
 
+        # Set the progress bar to 100%
+        pbar.update(pbar.total - pbar.n)
+    
     return image_peak_pair_combs
 
 @njit(cache = True, fastmath = True)
@@ -1050,6 +1053,9 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
                         flat_image_params[i], flat_image_peaks_mask[i], flat_image_stack[i], 
                             angles, weights = weights, distribution = distribution, 
                             only_mus = only_mus)
+
+    # Set the progress bar to 100%
+    pbar.update(pbar.total - pbar.n)
 
     image_direction_sig = image_direction_sig.reshape((n_rows, n_cols, image_direction_sig.shape[1]))
 
@@ -1442,6 +1448,9 @@ def get_peak_distances(image_stack = None, image_params = None, image_peaks_mask
                 if image_sig_peaks_mask[i, pair[0]] and image_sig_peaks_mask[i, pair[1]]:
                     image_distances[i, j] = np.abs(angle_distance(image_mus[i, pair[0]], 
                                             image_mus[i, pair[1]]))
+
+    # Set the progress bar to 100%
+    pbar.update(pbar.total - pbar.n)
 
     if only_peaks_count == 2:
         image_distances = image_distances.reshape((image_mus.shape[0], image_mus.shape[1]))

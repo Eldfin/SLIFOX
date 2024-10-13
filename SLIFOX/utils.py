@@ -727,6 +727,9 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
             status = np.sum(shared_counter)
             pbar.update(status - pbar.n)
         
+    # Set the progress bar to 100%
+    pbar.update(pbar.total - pbar.n)
+
     return full_result
 
 def get_data_shape_and_dtype(filepath, dataset_path = ""):
