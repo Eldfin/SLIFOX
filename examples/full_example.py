@@ -87,7 +87,7 @@ image_direction_sig = map_direction_significances(data, best_image_peak_pairs, i
 write_fom(image_directions, output_path = "direction_maps")
 
 # Create a mask for the significant peaks
-image_sig_peaks_mask = get_sig_peaks_mask(image_stack, image_params = image_params, 
+image_sig_peaks_mask = get_sig_peaks_mask(image_stack = image_stack, image_params = image_params, 
                             image_peaks_mask = image_peaks_mask,
                             distribution = distribution, 
                             amplitude_threshold = amplitude_threshold, 

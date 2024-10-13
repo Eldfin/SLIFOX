@@ -446,7 +446,9 @@ def map_peak_distances(image_stack = None, image_params = None, image_peaks_mask
     """
     
     if not isinstance(image_distances, np.ndarray):
-        image_distances = get_peak_distances(image_stack, image_params, image_peaks_mask, 
+        image_distances = get_peak_distances(image_stack = image_stack, 
+                                image_params = image_params, 
+                                image_peaks_mask = image_peaks_mask, 
                                 distribution = distribution,
                                 amplitude_threshold = amplitude_threshold, 
                                 rel_amplitude_threshold = rel_amplitude_threshold, 
@@ -532,7 +534,9 @@ def map_mean_peak_amplitudes(image_stack = None, image_params = None, image_peak
     """
 
     if not isinstance(image_mean_amplitudes, np.ndarray):
-        image_mean_amplitudes = get_mean_peak_amplitudes(image_stack, image_params, image_peaks_mask, 
+        image_mean_amplitudes = get_mean_peak_amplitudes(image_stack = image_stack, 
+                            image_params = image_params, 
+                            image_peaks_mask = image_peaks_mask, 
                             distribution = distribution,
                             amplitude_threshold = amplitude_threshold, 
                             rel_amplitude_threshold = rel_amplitude_threshold, 
@@ -597,7 +601,9 @@ def map_mean_peak_widths(image_stack = None, image_params = None,
     """
 
     if not isinstance(image_mean_widths):
-        image_mean_widths = get_mean_peak_widths(image_stack, image_params, image_peaks_mask, 
+        image_mean_widths = get_mean_peak_widths(image_stack = image_stack, 
+                                image_params = image_params, 
+                                image_peaks_mask = image_peaks_mask, 
                                 distribution = distribution,
                                 amplitude_threshold = amplitude_threshold, 
                                 rel_amplitude_threshold = rel_amplitude_threshold, 
@@ -741,8 +747,10 @@ def map_direction_significances(image_stack = None, image_peak_pairs = None, ima
     """
 
     if not isinstance(image_direction_sig, np.ndarray):
-        image_direction_sig = get_image_direction_significances(image_stack, image_peak_pairs, image_params, 
-                                    image_peaks_mask, distribution = distribution, 
+        image_direction_sig = get_image_direction_significances(image_stack = image_stack, 
+                                    image_peak_pairs = image_peak_pairs, 
+                                    image_params = image_params, 
+                                    image_peaks_mask = image_peaks_mask, distribution = distribution, 
                                     amplitude_threshold = amplitude_threshold,
                                     rel_amplitude_threshold = rel_amplitude_threshold, 
                                     gof_threshold = gof_threshold,
