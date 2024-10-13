@@ -607,7 +607,7 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
 
     return data, indices
 
-def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths = "", 
+def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths = None, 
                             num_processes_main = 2, suppress_prints = True, *args, **kwargs):
     """
     Processes image data in square chunks and applies a given function `func` to each chunk.
@@ -641,9 +641,12 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
         A numpy array where the first two dimensions match the input data and are filled with the processed results.
     """
 
-    if len(filepaths) != len(dataset_paths):
-        raise ValueError("filepaths and dataset_paths must have the same length.")
-    
+    if isinstance(dataset_paths, list):
+        if len(filepaths) != len(dataset_paths):
+            raise ValueError("filepaths and dataset_paths must have the same length.")
+    else:
+        dataset_paths = [None for i in range(len(filepaths))]
+
     # Get the shape of the dataset
     data_shape, data_dtype = get_data_shape_and_dtype(filepaths[0], dataset_paths[0])
     total_rows, total_cols = data_shape[0], data_shape[1]
