@@ -1574,7 +1574,7 @@ def get_mean_peak_widths(image_stack = None, image_params = None, image_peaks_ma
     image_mean_widths = image_params[:, :, 2::3]
     image_mean_widths = np.where(image_sig_peaks_mask, image_mean_widths, np.nan)
     all_nan_slices = np.all(~image_sig_peaks_mask, axis = -1)
-    image_wiimage_mean_widthsdths[all_nan_slices] = 0
+    image_mean_widths[all_nan_slices] = 0
     image_mean_widths = np.nanmean(image_mean_widths, axis = -1)
 
     print("Done")
