@@ -620,6 +620,7 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
         The function to apply to each square chunk of data.
         The function `func` has to be an image processing function in that way that it returns
         an numpy array which first two dimensions are the image dimensions.
+        The first arguments of the function must be the datas of the filepaths
     - square_size: int
         The size of the square chunks (the length of one edge in pixels).
         If None, it defaults to 1/10th of the total image size.
