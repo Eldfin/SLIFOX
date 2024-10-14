@@ -253,6 +253,7 @@ def plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs = No
             num_found_peaks = np.count_nonzero(np.any(peaks_mask, axis = -1), axis = -1)
             #if num_peaks == 0: continue
 
+            intensities_err = np.array(intensities_err, dtype = np.int32)
             plt.errorbar(angles*180/np.pi, intensities, yerr=intensities_err, marker = "o", 
                             linestyle="", capsize=5, color="black")
 

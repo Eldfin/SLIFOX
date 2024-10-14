@@ -1071,6 +1071,7 @@ def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1,
         Array that stores the angles of the centers (mus) of the peaks.
     """
 
+    data_dtype = intensities.dtype
     # Ensure no overflow in (subtract) operations happen:
     intensities = intensities.astype(np.int32)
     intensities_err = intensities_err.astype(np.int32)
@@ -1134,5 +1135,9 @@ def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1,
 
     # unflatten peaks_mask array
     peaks_mask = np.reshape(peaks_mask, (len(peaks_mus), len(angles))).astype(np.bool_)
+
+    #recast intensities to original dtype
+    intensities = intensities.astype(data_dtype)
+    intensities_err = intensities_err.astype(data_dtype)
 
     return peaks_mask, peaks_mus

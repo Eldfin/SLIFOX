@@ -30,6 +30,7 @@ def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2"):
     """
 
     # Ensure intensity dtype is sufficient for calculations
+    data_dtype = intensities.dtype
     intensities = intensities.astype(np.int32)
 
     peaks_gof = np.zeros(peaks_mask.shape[:-1])
@@ -69,6 +70,9 @@ def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2"):
     
         peaks_gof = 1 - np.nanmean(np.abs(peak_intensities - peak_model_y), axis = -1)
         peaks_gof = np.where(peaks_gof < 0, 0, peaks_gof)
+
+    # recast intensities dtype
+    intensities = intensities.astype(data_dtype)
 
     return peaks_gof
 
@@ -126,42 +130,6 @@ def calculate_image_peaks_gof(image_stack, image_model_y, peaks_mask, method = "
             peaks_gof[peak_number] = max(1 - mae, 0)
 
     return peaks_gof
-
-def _find_closest_true_pixel_new(mask, start_pixel, radius):
-    """
-    Finds the closest true pixel for a given 2D-mask and a start_pixel, within a given radius.
-
-    Parameters:
-    - mask: np.ndarray (n, m)
-        The boolean mask defining which pixels are False or True.
-    - start_pixel: tuple
-        The x- and y-coordinates of the start_pixel.
-    - radius: int
-        The radius within which to search for the closest true pixel.
-
-    Returns:
-    - closest_true_pixel: tuple
-        The x- and y-coordinates of the closest true pixel, 
-        or (-1, -1) if no true pixel is found within the radius.
-    """
-    # Step 1: Get the coordinates of all True pixels in the mask
-    true_pixel_coords = np.argwhere(mask)
-    
-    # If there are no true pixels, return (-1, -1)
-    if true_pixel_coords.size == 0:
-        return (-1, -1)
-
-    # Step 2: Build KDTree for the True pixels
-    tree = KDTree(true_pixel_coords)
-
-    # Step 3: Query the tree for the closest pixel within the radius
-    dist, idx = tree.query(start_pixel, distance_upper_bound=radius)
-    
-    # Step 4: If a valid pixel is found (distance is finite), return its coordinates
-    if np.isinf(dist):
-        return (-1, -1)
-    else:
-        return tuple(true_pixel_coords[idx])
 
 def _find_closest_true_pixel(mask, start_pixel, radius):
     """
@@ -321,7 +289,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
     with pymp.Parallel(num_processes) as p:
         for i in p.range(total_pixels):
-            image_peak_pair_combs[i, :, :, :] = -1
+            image_peak_pair_combs[i, ...] = -1
 
     image_peak_pair_combs = image_peak_pair_combs.reshape(n_rows, n_cols,
                                                 image_peak_pair_combs.shape[1],
@@ -1192,6 +1160,8 @@ def get_peak_amplitudes(image_stack, image_params = None, image_peaks_mask = Non
         image_peak_intensities = np.where(image_peaks_mask, image_peak_intensities, 0)
         image_amplitudes = (np.max(image_peak_intensities, axis = -1)
                             - np.min(image_stack, axis = -1)[..., np.newaxis])
+        valid_peaks = np.any(image_peaks_mask, axis = -1)
+        image_amplitudes = np.where(valid_peaks, image_amplitudes, 0)
 
     return image_amplitudes
 
@@ -1421,8 +1391,8 @@ def get_peak_distances(image_stack = None, image_params = None, image_peaks_mask
         mask = (image_num_peaks == only_peaks_count)
         image_sig_peaks_mask[~mask, :] = False
 
-    image_sig_peaks_mask = image_sig_peaks_mask.reshape((total_pixels, image_sig_peaks_mask.shape[2]))
-    image_mus = image_mus.reshape((total_pixels, image_mus.shape[2]))
+    flat_image_sig_peaks_mask = image_sig_peaks_mask.reshape((total_pixels, image_sig_peaks_mask.shape[2]))
+    flat_image_mus = image_mus.reshape((total_pixels, image_mus.shape[2]))
 
     # Initialize the progress bar
     pbar = tqdm(total = total_pixels, 
@@ -1438,18 +1408,18 @@ def get_peak_distances(image_stack = None, image_params = None, image_peaks_mask
             status = np.sum(shared_counter)
             pbar.update(status - pbar.n)
 
-            if not np.any(image_sig_peaks_mask[i]): continue
+            if not np.any(flat_image_sig_peaks_mask[i]): continue
             if only_peaks_count == 2:
-                sig_peak_indices = image_sig_peaks_mask[i].nonzero()[0]
-                image_distances[i] = np.abs(angle_distance(image_mus[i, sig_peak_indices[0]], 
-                                            image_mus[i, sig_peak_indices[1]]))
+                sig_peak_indices = flat_image_sig_peaks_mask[i].nonzero()[0]
+                image_distances[i] = np.abs(angle_distance(flat_image_mus[i, sig_peak_indices[0]], 
+                                            flat_image_mus[i, sig_peak_indices[1]]))
                 continue
 
             for j, pair in enumerate(flat_image_peak_pairs[i]):
                 if np.any(pair == -1): continue
-                if image_sig_peaks_mask[i, pair[0]] and image_sig_peaks_mask[i, pair[1]]:
-                    image_distances[i, j] = np.abs(angle_distance(image_mus[i, pair[0]], 
-                                            image_mus[i, pair[1]]))
+                if flat_image_sig_peaks_mask[i, pair[0]] and flat_image_sig_peaks_mask[i, pair[1]]:
+                    image_distances[i, j] = np.abs(angle_distance(flat_image_mus[i, pair[0]], 
+                                            flat_image_mus[i, pair[1]]))
 
     # Set the progress bar to 100%
     pbar.update(pbar.total - pbar.n)

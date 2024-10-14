@@ -600,6 +600,7 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
     """
 
     # Ensure no overflow in (subtract) operations happen:
+    data_dtype = intensities.dtype
     intensities = intensities.astype(np.int32)
     intensities_err = intensities_err.astype(np.int32)
 
@@ -622,6 +623,9 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
 
     # if no peaks found return params of zeros, zeros as peaks_mask
     if not np.any(peaks_mask):
+        # recast to original dtype
+        intensities = intensities.astype(data_dtype)
+        intensities_err = intensities_err.astype(data_dtype)
         return np.zeros(4), np.zeros((1, len(angles)), dtype = np.bool_)
 
     num_found_peaks = len(peaks_mus)
@@ -711,62 +715,64 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
 
     # Maybe To-Do Idea: If chi2 of peak is bad, add one peak to that peak and fit again
     
-    if refit_steps == 0:
-        return best_parameters, peaks_mask
+    if refit_steps >= 0:
+        # Refit mu and scale with updated heights (not refitting height leads to better results)
+        best_heights = best_parameters[0:-1:3]
+        zero_heights = np.asarray(best_heights < 1).nonzero()[0]
 
-    # Refit mu and scale with updated heights (not refitting height leads to better results)
-    best_heights = best_parameters[0:-1:3]
-    zero_heights = np.asarray(best_heights < 1).nonzero()[0]
+        # if first fit was filtered, now fit original data
+        if init_fit_filter:
+            intensities = original_intensities
+            intensities_err = original_intensities_err
 
-    # if first fit was filtered, now fit original data
-    if init_fit_filter:
-        intensities = original_intensities
-        intensities_err = original_intensities_err
+        if method == "biteopt" and fit_height_nonlinear:
+            bounds = Bounds(np.delete(bounds_min, np.s_[0::3]), np.delete(bounds_max, np.s_[0::3]))
+        for r in range(refit_steps):
+            if method == "biteopt":
+                heights = best_parameters[0:-1:3]
+                offset = best_parameters[-1]
 
-    if method == "biteopt" and fit_height_nonlinear:
-        bounds = Bounds(np.delete(bounds_min, np.s_[0::3]), np.delete(bounds_max, np.s_[0::3]))
-    for r in range(refit_steps):
-        if method == "biteopt":
-            heights = best_parameters[0:-1:3]
-            offset = best_parameters[-1]
+                def biteopt_objective(params):
+                    params = np.insert(params, range(0, len(params), 2), heights)
+                    params = np.append(params, offset)
+                    
+                    return _objective(params, angles, intensities, intensities_err, distribution)
+                init_guess = np.delete(best_parameters, np.s_[0::3])
+                result = bitecpp.minimize(biteopt_objective, bounds, x0 = init_guess, max_evaluations = 10000)
+                result.x = np.insert(result.x, range(0, len(result.x), 2), heights)
+                result.x = np.append(result.x, offset)
 
-            def biteopt_objective(params):
-                params = np.insert(params, range(0, len(params), 2), heights)
-                params = np.append(params, offset)
+                best_parameters = result.x
+            else:
+                for i, param in enumerate(best_parameters):
+                    vary = not i in [0,3,6,9,12]
+                    if i == 0:
+                        name = distribution
+                    else:
+                        name = f'p{i}'
+                    # If the height of the peak is zero, dont fit the peak
+                    if i in zero_heights or i-1 in zero_heights or i-2 in zero_heights:
+                        vary = False
+                    if i < num_parameters:
+                        result.params[name].value = param
+                        result.params[name].vary = vary
+                    else:
+                        result.params.add(name = name, value = param, 
+                                        min = bounds_min[i], max = bounds_max[i], vary = vary)
+                result = wcm_model.fit(intensities, result.params, x=angles, weights = 1 / intensities_err)
                 
-                return _objective(params, angles, intensities, intensities_err, distribution)
-            init_guess = np.delete(best_parameters, np.s_[0::3])
-            result = bitecpp.minimize(biteopt_objective, bounds, x0 = init_guess, max_evaluations = 10000)
-            result.x = np.insert(result.x, range(0, len(result.x), 2), heights)
-            result.x = np.append(result.x, offset)
+                best_parameters = np.array([result.params[key].value for key in result.params])
 
-            best_parameters = result.x
-        else:
-            for i, param in enumerate(best_parameters):
-                vary = not i in [0,3,6,9,12]
-                if i == 0:
-                    name = distribution
-                else:
-                    name = f'p{i}'
-                # If the height of the peak is zero, dont fit the peak
-                if i in zero_heights or i-1 in zero_heights or i-2 in zero_heights:
-                    vary = False
-                if i < num_parameters:
-                    result.params[name].value = param
-                    result.params[name].vary = vary
-                else:
-                    result.params.add(name = name, value = param, 
-                                    min = bounds_min[i], max = bounds_max[i], vary = vary)
-            result = wcm_model.fit(intensities, result.params, x=angles, weights = 1 / intensities_err)
-            
-            best_parameters = np.array([result.params[key].value for key in result.params])
-
-        corrected_heights = fit_heights_linear(angles, intensities, intensities_err, 
-                                                best_parameters, distribution)
-        best_parameters[0::3] = corrected_heights
+            corrected_heights = fit_heights_linear(angles, intensities, intensities_err, 
+                                                    best_parameters, distribution)
+            best_parameters[0::3] = corrected_heights
     
     #model_y = full_fitfunction(angles, best_parameters, distribution)
     #best_redchi = calculate_chi2(model_y, intensities, angles, intensities_err, len(best_parameters))
+
+    # recast to original dtype
+    intensities = intensities.astype(data_dtype)
+    intensities_err = intensities_err.astype(data_dtype)
 
     return best_parameters, peaks_mask
 
@@ -904,12 +910,12 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
 
     # Set the progress bar to 100%
     pbar.update(pbar.total - pbar.n)
-    deflattened_params = image_params.reshape((image_stack.shape[0], 
+    image_params = image_params.reshape((image_stack.shape[0], 
                                             image_stack.shape[1], image_params.shape[1]))
-    deflattened_peaks_mask = image_peaks_mask.reshape((image_stack.shape[0], 
+    image_peaks_mask = image_peaks_mask.reshape((image_stack.shape[0], 
                                             image_stack.shape[1], image_peaks_mask.shape[1], 
                                             image_peaks_mask.shape[2]))
-    return deflattened_params, deflattened_peaks_mask
+    return image_params, image_peaks_mask
 
 
 def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(image_stack)",
@@ -973,7 +979,7 @@ def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(imag
 
     angles = np.linspace(0, 2*np.pi, num=image_stack.shape[2], endpoint=False)
 
-    image_peaks_mus = pymp.shared.array((flattened_stack.shape[0], max_find_peaks))
+    image_peaks_mus = pymp.shared.array((flattened_stack.shape[0], max_find_peaks), dtype = np.float32)
     image_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_find_peaks, image_stack.shape[2]), dtype=np.bool_)
 
     # Initialize the progress bar
@@ -1012,10 +1018,10 @@ def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(imag
 
     # Set the progress bar to 100%
     pbar.update(pbar.total - pbar.n)
-    deflattened_peaks_mask = image_peaks_mask.reshape((image_stack.shape[0], 
+    image_peaks_mask = image_peaks_mask.reshape((image_stack.shape[0], 
                                             image_stack.shape[1], image_peaks_mask.shape[1], 
                                             image_peaks_mask.shape[2]))
-    deflattened_peaks_mus = image_peaks_mus.reshape((image_stack.shape[0], 
+    image_peaks_mus = image_peaks_mus.reshape((image_stack.shape[0], 
                                             image_stack.shape[1], image_peaks_mus.shape[1]))
 
-    return deflattened_peaks_mus, deflattened_peaks_mask
+    return image_peaks_mus, image_peaks_mask

@@ -515,7 +515,8 @@ def mean_angle(angles):
     
     return mean_angle
 
-def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = None):
+def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = None, 
+                dtype = np.uint16):
     """
     Picks data from a HDF5 or nii file.
 
@@ -556,10 +557,10 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
             data_dtype = h5f[dataset_path].dtype
 
     if area == None:
-        x_indices, y_indices = np.indices((data_shape[0], data_shape[1]))
+        x_indices, y_indices = np.indices((data_shape[0], data_shape[1]), dtype = np.uint16)
 
     elif not isinstance(indices, np.ndarray):
-        x_indices, y_indices = np.indices((area[1] - area[0], area[3] - area[2]))
+        x_indices, y_indices = np.indices((area[1] - area[0], area[3] - area[2]), dtype = np.uint16)
         x_indices += area[0]
         y_indices += area[2]
 
@@ -568,7 +569,7 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
         random_y_indices = np.random.choice(y_indices[0, :], randoms)
 
         data = np.empty((randoms, 1) + (data_shape[2:]), dtype = data_dtype)
-        indices = np.empty((randoms, 1, 2), dtype = int)
+        indices = np.empty((randoms, 1, 2), dtype = np.uint16)
         for i in range(randoms):
             if filepath.endswith(".nii"):
                 data[i, 0, ...] = data_proxy[random_x_indices[i], random_y_indices[i], ...]
@@ -603,7 +604,9 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
                 with h5py.File(filepath, "r") as h5f:
                     data = h5f[dataset_path][area[0]:area[1], area[2]:area[3], ...]
 
-        indices = np.stack((x_indices, y_indices), axis = -1, dtype = np.int64)
+        indices = np.stack((x_indices, y_indices), axis = -1, dtype = np.uint16)
+    
+    data = data.astype(dtype)
 
     return data, indices
 

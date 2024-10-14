@@ -134,7 +134,7 @@ def apply_filter(data, filter_params, num_processes = 2):
             return fourier_smoothing(data_1d, filter_params[1], filter_params[2])
         elif filter_params[0] == "gauss":
             order = filter_params[2] if len(filter_params) == 3 else 0
-            # return gaussian_filter1d(data_1d, filter_params[1], order=order, mode="wrap")
+            #return gaussian_filter1d(data_1d, filter_params[1], order=order, mode="wrap")
             return apply_gaussian_filter1d(data_1d, filter_params[1])
         elif filter_params[0] == "uniform":
             return uniform_filter1d(data_1d, filter_params[1], mode="wrap")
@@ -149,8 +149,9 @@ def apply_filter(data, filter_params, num_processes = 2):
 
     n_rows, n_cols = data.shape[0], data.shape[1]
     total_pixels = n_rows * n_cols
-    data = data.reshape((total_pixels, data.shape[-1]))
-    result_data = pymp.shared.array((total_pixels, data.shape[-1]), dtype=data.dtype)
+    flat_data = data.reshape((total_pixels, data.shape[-1]))
+    data_dtype = data.dtype
+    result_data = pymp.shared.array((total_pixels, data.shape[-1]), dtype=data_dtype)
     # Initialize the progress bar
     pbar = tqdm(total = total_pixels, 
                 desc = f'Applying filter to data',
@@ -160,7 +161,9 @@ def apply_filter(data, filter_params, num_processes = 2):
     with pymp.Parallel(num_processes) as p:
         # Process data in square chunks
         for i in p.range(total_pixels):
-            result_data[i] = apply_filter_1d(data[i])
+            data_1d = flat_data[i].astype(np.float32)
+            result_1d = apply_filter_1d(data_1d).astype(data_dtype)
+            result_data[i] = result_1d
 
         # Update progress bar
             shared_counter[p.thread_num] += 1
@@ -171,6 +174,5 @@ def apply_filter(data, filter_params, num_processes = 2):
     pbar.update(pbar.total - pbar.n)
 
     result_data = result_data.reshape((n_rows, n_cols, result_data.shape[-1]))
-    data = data.reshape((n_rows, n_cols, data.shape[-1]))
 
     return result_data
