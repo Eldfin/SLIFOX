@@ -2,6 +2,8 @@ import numpy as np
 from numba import njit
 from scipy.ndimage import gaussian_filter1d, uniform_filter1d, gaussian_filter1d, median_filter
 from scipy.signal import savgol_filter
+import pymp
+from tqdm import tqdm
 
 @njit(cache=True, fastmath=True)
 def _fftfreq(n, d=1.0):
@@ -72,8 +74,43 @@ def circular_moving_average_filter(data, window_size):
 
     return smoothed_arr
 
+@njit(cache = True, fastmath = True)
+def gaussian_kernel(sigma):
+    radius = round(4 * sigma)
+    kernel_size = (2 * radius) + 1
+    kernel = np.zeros(kernel_size, dtype=np.float64)
+    
+    for x in range(-radius, radius + 1):
+        kernel[x + radius] = np.exp(-0.5 * (x / sigma) ** 2)
+    
+    # Normalize the kernel
+    return kernel / np.sum(kernel)
+
+@njit(cache = True, fastmath = True)
+def apply_gaussian_filter1d(arr, sigma):
+    if sigma <= 0:
+        raise ValueError("Sigma must be greater than 0.")
+        
+    kernel = gaussian_kernel(sigma)
+    radius = len(kernel) // 2
+    
+    # Prepare the output array
+    output = np.zeros_like(arr)
+    padded_arr = np.empty(len(arr) + 2 * radius)
+    
+    # Wrap padding
+    padded_arr[:radius] = arr[-radius:]  # Left wrap
+    padded_arr[radius:radius + len(arr)] = arr  # Original values
+    padded_arr[radius + len(arr):] = arr[:radius]  # Right wrap
+
+    # Apply the Gaussian filter
+    for i in range(len(arr)):
+        output[i] = np.sum(kernel * padded_arr[i:i + kernel.size])
+    
+    return output
+
 # To-Do: Add numba for all filters
-def apply_filter(data, filter_params):
+def apply_filter(data, filter_params, num_processes = 2):
     """
     Applies a filter to data.
 
@@ -84,6 +121,8 @@ def apply_filter(data, filter_params):
         List that defines which filter to use. First value of list is a string with
         "fourier", "gauss", "uniform", "median", "moving_average", or "savgol".
         The following one to two values are the params for this filter.
+    - num_processes: int
+        The number of processes to use.
 
     Returns:
     - result: np.ndarray (n, ) or (p, q, n)
@@ -95,7 +134,8 @@ def apply_filter(data, filter_params):
             return fourier_smoothing(data_1d, filter_params[1], filter_params[2])
         elif filter_params[0] == "gauss":
             order = filter_params[2] if len(filter_params) == 3 else 0
-            return gaussian_filter1d(data_1d, filter_params[1], order=order, mode="wrap")
+            # return gaussian_filter1d(data_1d, filter_params[1], order=order, mode="wrap")
+            return apply_gaussian_filter1d(data_1d, filter_params[1])
         elif filter_params[0] == "uniform":
             return uniform_filter1d(data_1d, filter_params[1], mode="wrap")
         elif filter_params[0] == "median":
@@ -107,4 +147,30 @@ def apply_filter(data, filter_params):
             return savgol_filter(data_1d, filter_params[1], order, mode="wrap")
         return data_1d
 
-    return np.apply_along_axis(apply_filter_1d, axis=-1, arr=data)
+    n_rows, n_cols = data.shape[0], data.shape[1]
+    total_pixels = n_rows * n_cols
+    data = data.reshape((total_pixels, data.shape[-1]))
+    result_data = pymp.shared.array((total_pixels, data.shape[-1]), dtype=data.dtype)
+    # Initialize the progress bar
+    pbar = tqdm(total = total_pixels, 
+                desc = f'Applying filter to data',
+                smoothing = 0)
+    shared_counter = pymp.shared.array((num_processes, ), dtype = int)
+
+    with pymp.Parallel(num_processes) as p:
+        # Process data in square chunks
+        for i in p.range(total_pixels):
+            result_data[i] = apply_filter_1d(data[i])
+
+        # Update progress bar
+            shared_counter[p.thread_num] += 1
+            status = np.sum(shared_counter)
+            pbar.update(status - pbar.n)
+        
+    # Set the progress bar to 100%
+    pbar.update(pbar.total - pbar.n)
+
+    result_data = result_data.reshape((n_rows, n_cols, result_data.shape[-1]))
+    data = data.reshape((n_rows, n_cols, data.shape[-1]))
+
+    return result_data
