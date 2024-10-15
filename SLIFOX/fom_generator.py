@@ -354,7 +354,7 @@ def imwrite_rgb(filepath, data):
         tifffile.imwrite(filepath, save_data, photometric='rgb',
                          compression=8)
 
-def map_fom(image_directions = None, direction_files = None, output_path = None):
+def map_fom(image_directions = None, direction_files = None, output_path = None, direction_offset = 0):
     """
     Maps the fiber orientation map (fom) from given direction (files).
 
@@ -367,6 +367,8 @@ def map_fom(image_directions = None, direction_files = None, output_path = None)
         If None, image_directions should be used as input instead.
     - output_path: string
         Path to the output directory.
+    - direction_offset
+        The offset of the direction in degree. Default is zero.
 
     Returns:
     - rgb_fom: np.ndarray (2*n, 2*m, 3)
@@ -376,11 +378,11 @@ def map_fom(image_directions = None, direction_files = None, output_path = None)
     if not isinstance(image_directions, np.ndarray):
         if isinstance(direction_files, list):
             image_directions = _merge_direction_images(direction_files)
-            rgb_fom = create_fom(image_directions)
+            rgb_fom = create_fom(image_directions, direction_offset = direction_offset)
         else:
             raise Exception("You have to input image_directions array or direction_files list.")
     else:
-        rgb_fom = create_fom(np.swapaxes(image_directions, 0, 1))
+        rgb_fom = create_fom(np.swapaxes(image_directions, 0, 1), direction_offset = direction_offset)
         
     imwrite_rgb(f"{output_path}/fom.tiff", rgb_fom)
     imwrite_rgb(f"{output_path}/color_bubble.tiff", color_bubble(Colormap.hsv_black))
