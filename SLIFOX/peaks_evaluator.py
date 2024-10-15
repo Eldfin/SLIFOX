@@ -320,7 +320,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
         num_peaks = min(i, max_paired_peaks)
         peak_pairs_combinations = possible_pairs(num_peaks)
         num_combs = peak_pairs_combinations.shape[0]
-        num_directions = peak_pairs_combinations.shape[1]
+        num_pairs = peak_pairs_combinations.shape[1]
         indices = np.argwhere(mask)
         num_pixels_iteration = np.count_nonzero(mask)
 
@@ -375,13 +375,13 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                         mus = params
 
                     valid_combs_mask = np.ones(num_combs, dtype = np.bool_)
-                    valid_pairs_mask = np.ones((num_combs, num_directions), dtype = np.bool_)
-                    direction_combs = np.full((num_combs, num_directions), -1, 
+                    valid_pairs_mask = np.ones((num_combs, num_pairs), dtype = np.bool_)
+                    direction_combs = np.full((num_combs, num_pairs), -1, 
                                                 dtype = np.float64)
-                    comb_significances = np.full((num_combs, num_directions), -1)
+                    comb_significances = np.full((num_combs, num_pairs), -1)
                     num_unvalid_differences = np.zeros(num_combs, dtype = int)
-                    unvalid_dir_indices_1 = np.full((num_combs, num_directions), -1)
-                    unvalid_dir_indices_2 = np.full((num_combs, num_directions), -1)
+                    unvalid_dir_indices_1 = np.full((num_combs, num_pairs), -1)
+                    unvalid_dir_indices_2 = np.full((num_combs, num_pairs), -1)
 
                     for k in range(num_combs):
                         peak_pairs = np.where(peak_pairs_combinations[k] == -1, -1, 
@@ -400,6 +400,12 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                         if not np.any(valid_pairs_mask[k]):
                             valid_combs_mask[k] = False
                             continue
+                        else:
+                            # if every valid pair is a lone peak the comb is unvalid
+                            valid_pairs = peak_pairs[valid_pairs_mask[k]]
+                            if np.all(np.any(valid_pairs == -1, axis = -1)):
+                                valid_combs_mask[k] = False
+                                
                         if not valid_combs_mask[k]:
                             continue
 
