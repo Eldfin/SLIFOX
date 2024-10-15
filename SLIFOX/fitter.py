@@ -979,7 +979,7 @@ def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(imag
 
     angles = np.linspace(0, 2*np.pi, num=image_stack.shape[2], endpoint=False)
 
-    image_peaks_mus = pymp.shared.array((flattened_stack.shape[0], max_find_peaks), dtype = np.float32)
+    image_peaks_mus = pymp.shared.array((flattened_stack.shape[0], max_find_peaks))
     image_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_find_peaks, image_stack.shape[2]), dtype=np.bool_)
 
     # Initialize the progress bar

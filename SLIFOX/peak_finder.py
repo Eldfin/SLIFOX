@@ -1107,6 +1107,11 @@ def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1,
     if len(local_maxima) == 0:
         peaks_mask = np.zeros((1, len(angles)), dtype = np.bool_)
         peaks_mus = np.zeros(1)
+
+        #recast intensities to original dtype
+        intensities = intensities.astype(data_dtype)
+        intensities_err = intensities_err.astype(data_dtype)
+
         return peaks_mask, peaks_mus
 
     params = params._replace(

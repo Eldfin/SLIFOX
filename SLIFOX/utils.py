@@ -516,7 +516,7 @@ def mean_angle(angles):
     return mean_angle
 
 def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = None, 
-                dtype = np.uint16):
+                dtype = None):
     """
     Picks data from a HDF5 or nii file.
 
@@ -532,6 +532,7 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
         The number of randoms to pick from the data. 0 equals picking the full data.
     - indices: np.ndarray (n, m, 2)
         Array storing the both indices in the last dimension, which are used to pick from the data.
+    - dtype: The dtype the returned data should have. Default (None) is same as in file.
 
     Returns:
     - data: np.ndarray (n, m) or (n, m, p)
@@ -606,7 +607,8 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
 
         indices = np.stack((x_indices, y_indices), axis = -1, dtype = np.uint16)
     
-    data = data.astype(dtype)
+    if not dtype is None:
+        data = data.astype(dtype)
 
     return data, indices
 
