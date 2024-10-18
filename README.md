@@ -110,13 +110,18 @@ Fits the data of one pixel.
     Range of mu (regarding estimated maximum and minimum bounds around true mu).  
 - `scale_range`: float  
     Range of scale (regarding estimated maximum and minimum bounds around true scale).  
-
+- `return_result_errors`: bool
+    Whether to also return the error (standard deviation) of the fitted parameters.  
+    Default is False.
 
 ##### Returns
 - `best_parameters`: np.ndarray (m, )  
     Array which stores the best found parameters.  
 - `peaks_mask`: np.ndarray (n_peaks, n)  
     Array that stores the indices of the measurements that corresponds (mainly) to a peak.  
+- `params_err`: np.ndarray (m, ), optional
+    Array which stores the errors of the best found parameters.  
+    Only returned if return_result_errors is True.
 
 #### Function: `fit_image_stack`
 ##### Description
@@ -177,13 +182,19 @@ Fits the data of a full image stack.
     Range of scale (regarding estimated maximum and minimum bounds around true scale).  
 - `num_processes`: int  
     Number that defines in how many sub-processes the fitting process should be split into.  
+- `return_result_errors`: bool
+    Whether to also return the error (standard deviation) of the fitted parameters.
+    Default is False.
       
 ##### Returns
-- image_params: np.ndarray (n, m, q)  
+- `image_params`: np.ndarray (n, m, q)  
     Array which stores the best found parameters for every pixel (of n*m pixels).  
-- image_peaks_mask: np.ndarray (n, m, max_find_peaks, p)  
+- `image_peaks_mask`: np.ndarray (n, m, max_find_peaks, p)  
     Array that stores the indices of the measurements that corresponds (mainly) to a peak,  
     for every pixel (of n*m pixels).  
+- `image_params_errors`: np.ndarray (n, m, q), optional
+    Array which stores the errors of the best found parameters for every pixel (of n*m pixels).
+    Only returned if return_result_errors is True.
 
 #### Function: `find_image_peaks`
 ##### Description

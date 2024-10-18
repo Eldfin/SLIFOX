@@ -591,7 +591,8 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
     - scale_range: float
         Range of scale (regarding estimated maximum and minimum bounds around true scale).
     - return_result_errors: bool
-        Whether to also return the error (standard deviation) of the fitted parameters.
+        Whether to also return the error (standard deviation) of the fitted parameters.  
+        Default is False.
 
     Returns
     -------
@@ -599,7 +600,9 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
         Array which stores the best found parameters.
     - peaks_mask: np.ndarray (n_peaks, n)
         Array that stores the indices of the measurements that corresponds (mainly) to a peak.
-    
+    - params_err: np.ndarray (m, ), optional
+        Array which stores the errors of the best found parameters.  
+        Only returned if return_result_errors is True.
     """
 
     # Ensure no overflow in (subtract) operations happen:
@@ -853,6 +856,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
         Number that defines in how many sub-processes the fitting process should be split into.
     - return_result_errors: bool
         Whether to also return the error (standard deviation) of the fitted parameters.
+        Default is False.
 
     Returns
     -------
@@ -861,6 +865,9 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
     - image_peaks_mask: np.ndarray (n, m, max_find_peaks, p)
         Array that stores the indices of the measurements that corresponds (mainly) to a peak,
         for every pixel (of n*m pixels).
+    - image_params_errors: np.ndarray (n, m, q), optional
+        Array which stores the errors of the best found parameters for every pixel (of n*m pixels).
+        Only returned if return_result_errors is True.
     """
 
     total_pixels = image_stack.shape[0]*image_stack.shape[1]
