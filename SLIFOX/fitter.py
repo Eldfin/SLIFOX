@@ -533,7 +533,8 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
                     refit_steps = 0, init_fit_filter = None,
                     method = "leastsq", only_peaks_count = -1, max_fit_peaks = 4, max_find_peaks = 12,
                     max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
-                    mu_range = 40 * np.pi/180, scale_range = 0.4):
+                    mu_range = 40 * np.pi/180, scale_range = 0.4,
+                    return_result_errors = False):
     """
     Fits the data of one pixel.
 
@@ -589,6 +590,8 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
         Range of mu (regarding estimated maximum and minimum bounds around true mu).
     - scale_range: float
         Range of scale (regarding estimated maximum and minimum bounds around true scale).
+    - return_result_errors: bool
+        Whether to also return the error (standard deviation) of the fitted parameters.
 
     Returns
     -------
@@ -600,9 +603,9 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
     """
 
     # Ensure no overflow in (subtract) operations happen:
-    data_dtype = intensities.dtype
-    intensities = intensities.astype(np.int32)
-    intensities_err = intensities_err.astype(np.int32)
+    if intensities.dtype != np.int32:
+        intensities = intensities.astype(np.int32)
+        intensities_err = intensities_err.astype(np.int32)
 
     min_int = np.min(intensities)
     max_int = np.max(intensities)
@@ -623,10 +626,10 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
 
     # if no peaks found return params of zeros, zeros as peaks_mask
     if not np.any(peaks_mask):
-        # recast to original dtype
-        intensities = intensities.astype(data_dtype)
-        intensities_err = intensities_err.astype(data_dtype)
-        return np.zeros(4), np.zeros((1, len(angles)), dtype = np.bool_)
+        if return_result_errors:
+            return np.zeros(4), np.zeros((1, len(angles)), dtype = np.bool_), np.zeros(4)
+        else:
+            return np.zeros(4), np.zeros((1, len(angles)), dtype = np.bool_)
 
     num_found_peaks = len(peaks_mus)
     num_peaks = min(max_fit_peaks, num_found_peaks)
@@ -701,6 +704,9 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
                     best_parameters = result.x
                 else:
                     best_parameters = np.array([result.params[key].value for key in result.params])
+                    if return_result_errors:
+                        params_err = np.array([result.params[key].stderr for key in result.params])
+
     except RuntimeError as err:
         print(err)
         if (index_height == len(height_tests[0]) - 1 and index_mu == len(mu_tests[0])
@@ -762,6 +768,8 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
                 result = wcm_model.fit(intensities, result.params, x=angles, weights = 1 / intensities_err)
                 
                 best_parameters = np.array([result.params[key].value for key in result.params])
+                if return_result_errors:
+                    params_err = np.array([result.params[key].stderr for key in result.params])
 
             corrected_heights = fit_heights_linear(angles, intensities, intensities_err, 
                                                     best_parameters, distribution)
@@ -770,11 +778,10 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
     #model_y = full_fitfunction(angles, best_parameters, distribution)
     #best_redchi = calculate_chi2(model_y, intensities, angles, intensities_err, len(best_parameters))
 
-    # recast to original dtype
-    intensities = intensities.astype(data_dtype)
-    intensities_err = intensities_err.astype(data_dtype)
-
-    return best_parameters, peaks_mask
+    if return_result_errors:
+        return best_parameters, peaks_mask, params_err
+    else:
+        return best_parameters, peaks_mask
 
 def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_nonlinear = True,
                     threshold = 1000, image_stack_err = "sqrt(image_stack)",
@@ -784,7 +791,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                         only_peaks_count = -1, max_fit_peaks = 4, max_find_peaks = 12,
                         max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
-                        num_processes = 2):
+                        num_processes = 2, return_result_errors = False):
     """
     Fits the data (of a full image stack).
 
@@ -844,6 +851,8 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
         Range of scale (regarding estimated maximum and minimum bounds around true scale).
     - num_processes: int
         Number that defines in how many sub-processes the fitting process should be split into.
+    - return_result_errors: bool
+        Whether to also return the error (standard deviation) of the fitted parameters.
 
     Returns
     -------
@@ -867,6 +876,8 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
     image_params = pymp.shared.array((flattened_stack.shape[0], num_params))
     image_peaks_mask = pymp.shared.array((flattened_stack.shape[0], max_find_peaks, image_stack.shape[2]), 
                                             dtype = np.bool_)
+    if return_result_errors:
+        image_params_errors = pymp.shared.array(image_params.shape)
 
     # Initialize the progress bar
     num_tasks = len(mask_pixels)
@@ -888,7 +899,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
             else:
                 intensities_err = np.ceil(np.sqrt(intensities)).astype(intensities.dtype)
                 intensities_err[intensities_err == 0] = 1
-            best_parameters, peaks_mask = fit_pixel_stack(angles, intensities, 
+            best_parameters, peaks_mask, *rest = fit_pixel_stack(angles, intensities, 
                                     intensities_err, 
                                     distribution, n_steps_height, n_steps_mu, n_steps_scale,
                                     fit_height_nonlinear = fit_height_nonlinear, 
@@ -899,10 +910,15 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                                     method = method, only_peaks_count = only_peaks_count, 
                                     max_fit_peaks = max_fit_peaks, max_find_peaks = max_find_peaks,
                                     max_peak_hwhm = max_peak_hwhm, min_peak_hwhm = min_peak_hwhm, 
-                                    mu_range = mu_range, scale_range = scale_range)
+                                    mu_range = mu_range, scale_range = scale_range,
+                                    return_result_errors = return_result_errors)
             image_params[pixel, 0:len(best_parameters)-1] = best_parameters[:-1]
             image_params[pixel, -1] = best_parameters[-1]
             image_peaks_mask[pixel, 0:len(peaks_mask)] = peaks_mask
+            if return_result_errors and rest:
+                params_errors = rest[0]
+                image_params_errors[pixel, 0:len(params_errors)-1] = params_errors
+                image_params_errors[pixel, -1] = params_errors[-1]
 
             shared_counter[p.thread_num] += 1
             status = np.sum(shared_counter)
@@ -915,7 +931,12 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
     image_peaks_mask = image_peaks_mask.reshape((image_stack.shape[0], 
                                             image_stack.shape[1], image_peaks_mask.shape[1], 
                                             image_peaks_mask.shape[2]))
-    return image_params, image_peaks_mask
+    
+    if return_result_errors:
+        image_params_errors = image_params_errors.reshape(image_params.shape)
+        return image_params, image_peaks_mask, image_params_errors
+    else:
+        return image_params, image_peaks_mask
 
 
 def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(image_stack)",
