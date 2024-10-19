@@ -171,17 +171,16 @@ def _find_closest_true_pixel(mask, start_pixel, radius):
     # When no true pixel in the mask within the radius, return (-1, -1)
     return (-1, -1)
 
-def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distance = 20,
-                            distribution = "wrapped_cauchy", only_mus = False, num_processes = 2,
-                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
+def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "neighbor", 
+                            min_distance = 20, distribution = "wrapped_cauchy", only_mus = False, 
+                            num_processes = 2, amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, significance_threshold = 0.3, 
                             significance_weights = [1, 1], max_paired_peaks = 4,
                             angle_threshold = 20, max_attempts = 10000, 
                             search_radius = 50, min_directions_diff = 20, exclude_lone_peaks = True,
-                            fallback_significance = True, image_num_peaks = None,
-                            image_sig_peaks_mask = None):
+                            image_num_peaks = None, image_sig_peaks_mask = None):
     """
-    Finds all the peak_pairs for a whole image stack and sorts them by comparing with neighbour pixels.
+    Finds all the peak_pairs for a whole image stack and sorts them by comparing with neighbor pixels.
 
     Parameters:
     - image_stack: np.ndarray (n, m, p)
@@ -193,12 +192,23 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
     - image_peaks_mask: np.ndarray (n, m, max_find_peaks, p)
         The mask defining which of the p-measurements corresponds to one of the peaks.
         The first two dimensions are the image dimensions.
+    - method: string or list of strings
+        Method that is used to sort the possible peak pair combinations.  
+        Can be "single", "neighbor", "pli", "significance" or "random".  
+        "single" will only return a combination if there is only one possible (no sorting).
+        "neighbor" will sort the possible peak pair combinations by neighbouring peak pairs.
+        "pli" will sort the possible peak pair combinations by given 3d-pli measurement data.
+        "significance" will sort the peak pair combinations by direction significance.
+        "random" will sort the peak pair combinations randomly.
+        Can also be a list containing multiple methods that are used in order.
+        E.g. ["neighbor", "significance"] will sort remaining combinations of a pixel by significance 
+        if sorting by neighbor was not sucessfull.
     - min_distance: float
         Defines the minimum distance between two paired peaks in degrees, when more than 2 peaks are present.
-        If this value is close to 180 the peak finding method converges to a method where neighbours
+        If this value is close to 180 the peak finding method converges to a method where neighbors
         does not matter and only peaks with distances around 180 are paired.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
-        The name of the distribution.
+        The name of the distribution used for calculation of the goodness-of-fit for gof thresholding.
     - only_mus: bool
         Defines if only the mus (for every pixel) are given in the image_params.
     - num_processes: int
@@ -224,9 +234,9 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
         Value has to be smaller or equal the number of peaks in image_params (and max 6)
         (max_paired_peaks <= max_fit_peaks or max_find_peaks)
     - angle_threshold: float
-        Threshold in degrees defining when a neighbouring pixel direction is considered as same nerve fiber.
+        Threshold in degrees defining when a neighboring pixel direction is considered as same nerve fiber.
     - max_attempts: int
-        Number defining how many times it should be attempted to find a neighbouring pixel within
+        Number defining how many times it should be attempted to find a neighboring pixel within
         the given "angle_threshold".
     - search_radius: int
         The radius within which to search for the closest pixel with a defined direction.
@@ -240,9 +250,6 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
         unfound peak, this value should normally stay True. This is just for the 
         comparing process, so lone peaks will still be visible in the returned peak pairs 
         with with a pair like e.g. [2, -1] for the second peak index.
-    - fallback_significance: bool
-        Whether to sort the possible peak pair combinations by significance, if no similar
-        neighbouring pixel direction could be found.
     - image_num_peaks: np.ndarray (n, m)
         If the number of peaks are already calculated, they can be inserted here to speed up the process.
     - image_sig_peaks_mask: np.ndarray (n, m, max_find_peaks)
@@ -251,7 +258,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
 
     Returns:
     - image_peak_pair_combs: np.ndarray (n, m, p, np.ceil(max_paired_peaks / 2), 2)
-        The possible peak pair combinations for every pixel (sorted by difference to neighbours), 
+        The possible peak pair combinations for every pixel (sorted by difference to neighbors), 
         where the fifth dimension contains both peak numbers of
         a pair (e.g. [1, 3], which means peak 1 and peak 3 is paired), and the fourth dimension
         is the number of the peak pair (dimension has length np.ceil(num_peaks / 2)).
@@ -450,7 +457,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                                 else:
                                     # Save unvalid directions in mask
                                     # only one of two unvalid directions will be paired later
-                                    # (this with the best neighbour difference)
+                                    # (this with the best neighbor difference)
                                     unvalid_dir_indices_1[k, :num_unvalid_differences[k]] = \
                                         dir_indices_1[unvalid_differences_indices]
                                     unvalid_dir_indices_2[k, :num_unvalid_differences[k]] = \
@@ -499,147 +506,192 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, min_distan
                             direction_found_mask[x, y] = True
                         continue
 
-                    check_mask = np.copy(direction_found_mask)
-                    matched_dir_mask = np.zeros(direction_combs.shape, dtype = np.bool_)
-
-                    # Set lone peak pairs as already matched
-                    lone_peak_pair_indices = np.where(np.any(
-                                            peak_pairs_combinations[valid_combs_mask] == -1, axis = -1))
-                    matched_dir_mask[lone_peak_pair_indices] = True
-                    num_best_combs = 0
-
-                    for attempt in range(max_attempts):
-
-                        neighbour_x, neighbour_y = _find_closest_true_pixel(check_mask, (x, y), 
-                                                                        search_radius)
-                        if neighbour_x == -1 and neighbour_y == -1:
-                            # When no true pixel within radius: return no pairs
+                    # Try method(s) with loop
+                    if isinstance(method, str):
+                        method = [method]
+                    for current_method in method:
+                        if current_method in [None, "None", "single"] or direction_found_mask[x, y]:
                             break
-
-                        neighbour_peak_pairs = image_peak_pair_combs[neighbour_x, neighbour_y, 0]
-                        neighbour_params = image_params[neighbour_x, neighbour_y]
-                        neighbour_peaks_mask = image_peaks_mask[neighbour_x, neighbour_y]
-                        neighbour_intensities = image_stack[neighbour_x, neighbour_y]
-                        if not only_mus:
-                            neighbour_mus = neighbour_params[1::3]
+                        # Get the start_index for insertion
+                        start_index = np.where(np.any(
+                                    image_peak_pair_combs[x, y] != -1, axis = (1, 2)))[0] 
+                        if len(start_index) > 0:
+                            # another method already used
+                            start_index = start_index[0] + 1
                         else:
-                            neighbour_mus = neighbour_params
+                            # no method already used
+                            start_index = 0
+                        if current_method == "random":
+                            sig_peak_pair_combs[start_index:] = np.random.shuffle(
+                                                                    sig_peak_pair_combs[start_index:])
+                            image_peak_pair_combs[x, y, 
+                                        :sig_peak_pair_combs.shape[0],
+                                        :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
+                            break
+                        elif current_method == "significance":
+                            sort_indices = np.argsort(np.max(comb_significances[start_index:], axis = -1))
+                            sig_peak_pair_combs[start_index:] = \
+                                        sig_peak_pair_combs[start_index:][sort_indices[::-1]]
+                            image_peak_pair_combs[x, y, 
+                                        :sig_peak_pair_combs.shape[0],
+                                        :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
+                            break
+                        elif current_method == "pli":
+                            to_do = "code will be inserted here"
 
-                        #To-Do: Filter neighbour peaks with amplitude and gof threshold
+                        elif current_method == "neighbor":
+                            check_mask = np.copy(direction_found_mask)
+                            matched_dir_mask = np.zeros(direction_combs.shape, dtype = np.bool_)
 
-                        neighbour_directions = peak_pairs_to_directions(neighbour_peak_pairs, 
-                                            neighbour_mus, 
+                            # Set lone peak pairs as already matched
+                            lone_peak_pair_indices = np.where(np.any(sig_peak_pair_combs == -1, axis = -1))
+                            matched_dir_mask[lone_peak_pair_indices] = True
+                            num_best_combs = 0
+
+                            for attempt in range(max_attempts):
+
+                                neighbor_x, neighbor_y = _find_closest_true_pixel(check_mask, (x, y), 
+                                                                                search_radius)
+                                if neighbor_x == -1 and neighbor_y == -1:
+                                    # When no true pixel within radius: return no pairs
+                                    break
+
+                                neighbor_peak_pairs = image_peak_pair_combs[neighbor_x, neighbor_y, 0]
+                                neighbor_params = image_params[neighbor_x, neighbor_y]
+                                neighbor_peaks_mask = image_peaks_mask[neighbor_x, neighbor_y]
+                                neighbor_intensities = image_stack[neighbor_x, neighbor_y]
+                                if not only_mus:
+                                    neighbor_mus = neighbor_params[1::3]
+                                else:
+                                    neighbor_mus = neighbor_params
+
+                                #To-Do: Filter neighbor peaks with amplitude and gof threshold
+
+                                neighbor_directions = peak_pairs_to_directions(neighbor_peak_pairs, 
+                                                    neighbor_mus, 
+                                                    exclude_lone_peaks = exclude_lone_peaks)
+
+                                neighbor_significances = direction_significances(neighbor_peak_pairs, 
+                                            neighbor_params, neighbor_peaks_mask, 
+                                            neighbor_intensities, angles, weights = significance_weights, 
+                                            distribution = distribution, only_mus = only_mus,
                                             exclude_lone_peaks = exclude_lone_peaks)
 
-                        neighbour_significances = direction_significances(neighbour_peak_pairs, 
-                                    neighbour_params, neighbour_peaks_mask, 
-                                    neighbour_intensities, angles, weights = significance_weights, 
-                                    distribution = distribution, only_mus = only_mus,
-                                    exclude_lone_peaks = exclude_lone_peaks)
+                                # Filter neighbor directions with low significance out
+                                neighbor_directions = neighbor_directions[neighbor_significances
+                                                                                >= significance_threshold]
 
-                        # Filter neighbour directions with low significance out
-                        neighbour_directions = neighbour_directions[neighbour_significances
-                                                                        >= significance_threshold]
+                                neighbor_directions = neighbor_directions[neighbor_directions != -1]
 
-                        neighbour_directions = neighbour_directions[neighbour_directions != -1]
-
-                        if len(neighbour_directions) > 0:
-                            direction_diffs = np.empty(num_sig_combs, dtype = np.float64)
-                            dir_diff_indices = np.empty(num_sig_combs, dtype = np.int16)
-                            for k in range(num_sig_combs):
-                                directions = direction_combs[k]
-                                directions = directions[~matched_dir_mask[k]]
-                                unmatched_indices = (~matched_dir_mask[k]).nonzero()[0]
-
-                                differences = np.abs(neighbour_directions[:, np.newaxis] - directions)
-                                min_diff_index = np.argmin(differences)
-                                nbd_index, min_diff_dir_index = np.unravel_index(min_diff_index, differences.shape)
-                                dir_diff_indices[k] = unmatched_indices[min_diff_dir_index]
-                                # Insert minimum difference to neighbour directions into array for sorting later
-                                direction_diffs[k] = differences[nbd_index, min_diff_dir_index]
-
-                            if np.min(direction_diffs) < angle_threshold * np.pi / 180:
-                                # If minimum difference to neighbour direction is 
-                                # smaller than given threshold mark the matching directions
-                                best_combs_indices = np.where(direction_diffs == np.min(direction_diffs))[0]
-                                num_best_combs = len(best_combs_indices)
-                                for k in best_combs_indices:
-                                    matched_dir_mask[k, dir_diff_indices[k]] = True
-                                    if num_unvalid_differences[k] > 0:
-                                        # If a direction difference was too low,
-                                        # set the pair not so close to neighbour direction to unvalid
-                                        # and mark it as matched
-                                        if dir_diff_indices[k] in unvalid_dir_indices_1[k]:
-                                            matched_unvalid_dir_index = \
-                                                (unvalid_dir_indices_1[k] == dir_diff_indices[k]).nonzero()[0][0]
-                                            unvalid_dir_index = unvalid_dir_indices_2[k, matched_unvalid_dir_index]
-                                            valid_pairs_mask[k, unvalid_dir_index] = False
-                                            matched_dir_mask[k, unvalid_dir_index] = True
-                                        elif dir_diff_indices[k] in unvalid_dir_indices_2[k]:
-                                            matched_unvalid_dir_index = \
-                                                (unvalid_dir_indices_2[k] == dir_diff_indices[k]).nonzero()[0][0]
-                                            unvalid_dir_index = unvalid_dir_indices_1[k, matched_unvalid_dir_index]
-                                            valid_pairs_mask[k, unvalid_dir_index] = False
-                                            matched_dir_mask[k, unvalid_dir_index] = True
-
-                                if np.any(np.all(matched_dir_mask, axis = -1)) \
-                                    or (num_best_combs == 1 and num_peaks == num_found_peaks):
-                                    # if any combination is full matched
-                                    # Set unvalid pairs to [-1, -1] and move them to the end of pairs
+                                if len(neighbor_directions) > 0:
+                                    direction_diffs = np.empty(num_sig_combs, dtype = np.float64)
+                                    dir_diff_indices = np.empty(num_sig_combs, dtype = np.int16)
                                     for k in range(num_sig_combs):
-                                        valid_pairs = sig_peak_pair_combs[k, valid_pairs_mask[k]]
-                                        sig_peak_pair_combs[k, :len(valid_pairs)] = valid_pairs
-                                        sig_peak_pair_combs[k, len(valid_pairs):] = [-1, -1]
-                                    # Sort combs by the matched direction differences
-                                    sort_indices = np.argsort(direction_diffs)
-                                    sig_peak_pair_combs = sig_peak_pair_combs[sort_indices]
-                                    # save the sorted significant peak pair combinations
+                                        directions = direction_combs[k]
+                                        directions = directions[~matched_dir_mask[k]]
+                                        unmatched_indices = (~matched_dir_mask[k]).nonzero()[0]
+
+                                        differences = np.abs(neighbor_directions[:, np.newaxis] - directions)
+                                        min_diff_index = np.argmin(differences)
+                                        nbd_index, min_diff_dir_index = np.unravel_index(min_diff_index, differences.shape)
+                                        dir_diff_indices[k] = unmatched_indices[min_diff_dir_index]
+                                        # Insert minimum difference to neighbor directions into array for sorting later
+                                        direction_diffs[k] = differences[nbd_index, min_diff_dir_index]
+
+                                    if np.min(direction_diffs) < angle_threshold * np.pi / 180:
+                                        # If minimum difference to neighbor direction is 
+                                        # smaller than given threshold mark the matching directions
+                                        best_combs_indices = np.where(direction_diffs == np.min(direction_diffs))[0]
+                                        num_best_combs = len(best_combs_indices)
+                                        for k in best_combs_indices:
+                                            matched_dir_mask[k, dir_diff_indices[k]] = True
+                                            if num_unvalid_differences[k] > 0:
+                                                # If a direction difference was too low,
+                                                # set the pair not so close to neighbor direction to unvalid
+                                                # and mark it as matched
+                                                if dir_diff_indices[k] in unvalid_dir_indices_1[k]:
+                                                    matched_unvalid_dir_index = \
+                                                        (unvalid_dir_indices_1[k] == dir_diff_indices[k]).nonzero()[0][0]
+                                                    unvalid_dir_index = unvalid_dir_indices_2[k, matched_unvalid_dir_index]
+                                                    valid_pairs_mask[k, unvalid_dir_index] = False
+                                                    matched_dir_mask[k, unvalid_dir_index] = True
+                                                elif dir_diff_indices[k] in unvalid_dir_indices_2[k]:
+                                                    matched_unvalid_dir_index = \
+                                                        (unvalid_dir_indices_2[k] == dir_diff_indices[k]).nonzero()[0][0]
+                                                    unvalid_dir_index = unvalid_dir_indices_1[k, matched_unvalid_dir_index]
+                                                    valid_pairs_mask[k, unvalid_dir_index] = False
+                                                    matched_dir_mask[k, unvalid_dir_index] = True
+
+                                        if np.any(np.all(matched_dir_mask, axis = -1)) \
+                                            or (num_best_combs == 1 and num_peaks == num_found_peaks):
+                                            # if any combination is full matched
+                                            # Set unvalid pairs to [-1, -1] and move them to the end of pairs
+                                            for k in range(num_sig_combs):
+                                                valid_pairs = sig_peak_pair_combs[k, valid_pairs_mask[k]]
+                                                sig_peak_pair_combs[k, :len(valid_pairs)] = valid_pairs
+                                                sig_peak_pair_combs[k, len(valid_pairs):] = [-1, -1]
+                                            # Sort combs by the matched direction differences
+                                            sort_indices = np.argsort(direction_diffs)
+                                            sig_peak_pair_combs = sig_peak_pair_combs[sort_indices]
+                                            # save the sorted significant peak pair combinations
+                                            image_peak_pair_combs[x, y, 
+                                                        :sig_peak_pair_combs.shape[0],
+                                                        :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
+                                            direction_found_mask[x, y] = True
+                                            break
+                                        else:
+                                            continue
+                                
+                                check_mask[neighbor_x, neighbor_y] = False
+                                if attempt == max_attempts - 1 or not np.any(check_mask):
+                                    # When no neighboring pixel within max_attempts had
+                                    # a direction difference below the threshold
+                                    # save matched pairs if any
+
+                                    no_lone_matched_dir_mask = np.copy(matched_dir_mask)
+                                    no_lone_matched_dir_mask[lone_peak_pair_indices] = False
+                                    matched_comb_mask = np.any(no_lone_matched_dir_mask, axis = -1)
+                                    matched_combs = sig_peak_pair_combs[matched_comb_mask]
+                                    matched_indices = matched_comb_mask.nonzero()[k]
+
+                                    for matched_index, comb_index in enumerate(matched_indices):
+                                        matched_peak_pairs = \
+                                            sig_peak_pair_combs[comb_index, matched_dir_mask[comb_index]]
+                                        num_matched_pairs = len(matched_peak_pairs)
+                                        matched_combs[matched_index, :num_matched_pairs] = \
+                                                    matched_peak_pairs
+                                        if "significance" in method:
+                                            # sort unmatched peak pairs in matched combs by significance
+                                            unmatched_peak_pairs = matched_combs[matched_index, 
+                                                                        ~matched_dir_mask[comb_index]]
+                                            sort_indices = np.argsort(comb_significances[comb_index, 
+                                                                    ~matched_dir_mask[comb_index]])[::-1]
+                                            matched_combs[matched_index, num_matched_pairs:] \
+                                                 = unmatched_peak_pairs[sort_indices]
+                                        else:
+                                            # remove unmatched peak pairs
+                                            matched_combs[matched_index, num_matched_pairs:] = -1
+
+                                    # Sort matched combs by best direction significance
+                                    matched_significances = comb_significances[matched_comb_mask]
+                                    sort_indices = np.argsort(np.max(matched_significances, axis = -1))
+                                    matched_combs = matched_combs[sort_indices[::-1]]
+                                    matched_significances = matched_significances[sort_indices[::-1]]
+
+                                    # Rearrange arrays for other methods
+                                    num_matched_combs = len(matched_combs)
+                                    unmatched_combs = sig_peak_pair_combs[~matched_comb_mask]
+                                    unmatched_significances = comb_significances[~matched_comb_mask]
+                                    sig_peak_pair_combs[:num_matched_combs] = matched_combs
+                                    sig_peak_pair_combs[num_matched_combs:] = unmatched_combs
+                                    comb_significances[:num_matched_combs] = matched_significances
+                                    comb_significances[num_matched_combs:] = unmatched_significances
+                                    
                                     image_peak_pair_combs[x, y, 
-                                                :sig_peak_pair_combs.shape[0],
-                                                :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
-                                    direction_found_mask[x, y] = True
+                                        :matched_combs.shape[0],
+                                        :matched_combs.shape[1]] = matched_combs
+
                                     break
-                                else:
-                                    continue
-                        
-                        check_mask[neighbour_x, neighbour_y] = False
-                        if attempt == max_attempts - 1 or not np.any(check_mask):
-                            # When no neighbouring pixel within max_attempts had
-                            # a direction difference below the threshold
-                            # return matched pairs if any
-                            # and sort unmatched pairs by significance if enabled
-                            for k in range(num_sig_combs):
-                                matched_peak_pairs = sig_peak_pair_combs[k, matched_dir_mask[k]]
-                                num_matches = len(matched_peak_pairs)
-                                sig_peak_pair_combs[k, :num_matches] = matched_peak_pairs
-                                if fallback_significance:
-                                    unmatched_peak_pairs = sig_peak_pair_combs[k, ~matched_dir_mask[k]]
-                                    sort_indices = np.argsort(comb_significances[k, ~matched_dir_mask[k]])[::-1]
-                                    sig_peak_pair_combs[k, num_matches:] = unmatched_peak_pairs[sort_indices]
-                                else:
-                                    sig_peak_pair_combs[k, num_matches:] = -1
-
-                            matched_comb_mask = np.any(matched_dir_mask, axis = -1)
-                            matched_combs = sig_peak_pair_combs[matched_comb_mask]    
-                            if fallback_significance:
-                                unmatched_combs = sig_peak_pair_combs[~matched_comb_mask]
-                                sig_peak_pair_combs[len(matched_combs):] = unmatched_combs
-                            else:
-                                # remove unmatched combs
-                                sig_peak_pair_combs[len(matched_combs):] = -1
-                                comb_significances = comb_significances[matched_comb_mask]
-                            # Put matched combs first
-                            sig_peak_pair_combs[:len(matched_combs)] = matched_combs
-
-                            # Sort combs by best direction significance
-                            sort_indices = np.argsort(np.max(comb_significances, axis = -1))
-                            sig_peak_pair_combs = sig_peak_pair_combs[sort_indices[::-1]]
-                            
-                            image_peak_pair_combs[x, y, 
-                                :sig_peak_pair_combs.shape[0],
-                                :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
-
-                            break
 
         # Set the progress bar to 100%
         pbar.update(pbar.total - pbar.n)

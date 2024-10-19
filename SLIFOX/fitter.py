@@ -924,7 +924,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
             image_peaks_mask[pixel, 0:len(peaks_mask)] = peaks_mask
             if return_result_errors and rest:
                 params_errors = rest[0]
-                image_params_errors[pixel, 0:len(params_errors)-1] = params_errors
+                image_params_errors[pixel, 0:len(params_errors)-1] = params_errors[:-1]
                 image_params_errors[pixel, -1] = params_errors[-1]
 
             shared_counter[p.thread_num] += 1

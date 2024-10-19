@@ -288,6 +288,17 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
 - `image_peaks_mask`: np.ndarray (n, m, max_find_peaks, p)
     The mask defining which of the p-measurements corresponds to one of the peaks.
     The first two dimensions are the image dimensions.
+- `method`: string or list of strings
+    Method that is used to sort the possible peak pair combinations.  
+    Can be "single", "neighbor", "pli", "significance" or "random".  
+    "single" will only return a combination if there is only one possible (no sorting).
+    "neighbor" will sort the possible peak pair combinations by neighbouring peak pairs.
+    "pli" will sort the possible peak pair combinations by given 3d-pli measurement data.
+    "significance" will sort the peak pair combinations by direction significance.
+    "random" will sort the peak pair combinations randomly.
+    Can also be a list containing multiple methods that are used in order.
+    E.g. ["neighbor", "significance"] will sort remaining combinations of a pixel by significance 
+    if sorting by neighbor was not sucessfull.
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
     The name of the distribution.
 - `only_mus`: bool
@@ -331,9 +342,6 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
     unfound peak, this value should normally stay True. This is just for the 
     comparing process, so lone peaks will still be visible in the returned peak pairs 
     with with a pair like e.g. [2, -1] for the second peak index.
-- `fallback_significance`: bool
-    Whether to sort the possible peak pair combinations by significance, if no similar
-    neighbouring pixel direction could be found.
 
 ##### Returns
 - `image_peak_pairs`: np.ndarray (n, m, p, np.ceil(max_paired_peaks / 2), 2)
@@ -829,13 +837,13 @@ with h5py.File(output_file_path, "w") as h5f:
 #image_peaks_mask, _ = pick_data(output_file_path, dataset_path + "/peaks_mask")
     
 # Find the peak pairs (directions)
-image_peak_pairs = get_image_peak_pairs(data, image_params, image_peaks_mask, min_distance = 20,
-                            distribution = distribution, only_mus = False, num_processes = num_processes,
+image_peak_pairs = get_image_peak_pairs(data, image_params, image_peaks_mask, method = "neighbor",
+                            min_distance = 20, distribution = distribution, 
+                            only_mus = False, num_processes = num_processes,
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
                             gof_threshold = 0.5, significance_threshold = 0.3, 
                             significance_weights = [1, 1], angle_threshold = 20, 
-                            max_attempts = 1000, search_radius = 50, max_paired_peaks = 4,
-                            fallback_significance = True)
+                            max_attempts = 1000, search_radius = 50, max_paired_peaks = 4)
 
 # Use best pairs of all possible pairs
 best_image_peak_pairs = image_peak_pairs[:, :, 0, :, :]
@@ -861,7 +869,7 @@ image_direction_sig = map_direction_significances(data, best_image_peak_pairs, i
 #                image_direction_sig = image_direction_sig, significance_threshold = 0.8)
 
 # Create the fiber orientation map (fom) using the two direction files (for max 4 peaks)
-map_fom(image_directions, output_path = "maps", direction_offset = 0)
+map_fom(image_directions, output_path = "maps")
 
 # Create a mask for the significant peaks
 image_sig_peaks_mask = get_sig_peaks_mask(image_stack = image_stack, image_params = image_params, 
