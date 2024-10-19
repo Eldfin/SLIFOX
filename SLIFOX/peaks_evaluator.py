@@ -652,7 +652,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                                     no_lone_matched_dir_mask[lone_peak_pair_indices] = False
                                     matched_comb_mask = np.any(no_lone_matched_dir_mask, axis = -1)
                                     matched_combs = sig_peak_pair_combs[matched_comb_mask]
-                                    matched_indices = matched_comb_mask.nonzero()[k]
+                                    matched_indices = matched_comb_mask.nonzero()[0]
 
                                     for matched_index, comb_index in enumerate(matched_indices):
                                         matched_peak_pairs = \
