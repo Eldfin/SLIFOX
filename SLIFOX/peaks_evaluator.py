@@ -4,7 +4,7 @@ from numba import njit, prange
 from .fitter import full_fitfunction, angle_distance
 from .wrapped_distributions import distribution_pdf, wrapped_cauchy_pdf
 from .utils import find_closest_true_pixel, add_birefringence, calculate_inclination, \
-                    calculate_thickness, calculate_retardation
+                    calculate_birefringence, calculate_retardation
 from scipy.spatial import KDTree
 import os
 import imageio
@@ -1619,7 +1619,7 @@ def get_mean_peak_widths(image_stack = None, image_params = None, image_peaks_ma
     return image_mean_widths
 
 @njit(cache = True, fastmath = True)
-def SLI_to_PLI(peak_pairs, mus, heights, SLI_inclination = False):
+def SLI_to_PLI(peak_pairs, mus, heights, PLI_inclination = None, PLI_retardation = None):
     """
     Converts the results from a SLI measurement (peak pairs, mus, heights) to a virtual PLI measurement.
     "What whould be measured in a PLI measurement for the found nerve fibers in the SLI measurement?"
@@ -1634,9 +1634,12 @@ def SLI_to_PLI(peak_pairs, mus, heights, SLI_inclination = False):
         The center positions of the peaks.
     - heights: np.ndarray (m, )
         The height values of the peaks.
-    - SLI_inclination: boolean
-        Use the found inclination in the SLI measurement to produce a virtual PLI retardation?
-        Default is False, because SLI inclination could not be determined reliable to the point of writing.
+    - PLI_retardation: float
+        The full retardation value from a PLI measurement, that is used to (calculate the birefringence to) 
+        convert the SLI inclinations to fiber retardations.
+    - PLI_inclination: 
+        The full inclination value from a PLI measurement, that is used to (calculate the birefringence to) 
+        convert the SLI inclinations to fiber retardations.
 
     Returns:
     - new_dir: float
@@ -1656,30 +1659,21 @@ def SLI_to_PLI(peak_pairs, mus, heights, SLI_inclination = False):
         # For one directions return the direction
         return directions[0], 0
     else:
-        first_height = np.max(heights[peak_pairs[0]])
-        second_height = np.max(heights[peak_pairs[1]])
-        relative_height =  min(first_height, second_height) / max(first_height, second_height)
-    
-        if SLI_inclination:
-            #dummy t_rel, birefringence, wavelenght
-            t_rel, birefringence, wavelength = 1, 1, 1
+        
+        if not PLI_retardation is None and not PLI_Inclination is None:
             inclinations = peak_pairs_to_inclinations(peak_pairs, mus)
-            relative_thicknesses = np.array([relative_height, 1 / relative_height])
-            thicknesses = calculate_thicknesses(t_rel, birefringence, wavelength, relative_thicknesses)
-            retardations = calculate_retardation(thicknesses, birefringence, wavelength, inclinations)
+            birefringence = calculate_birefringence(PLI_retardation, PLI_inclination, thickness, wavelength)
+            retardations = calculate_retardation(inclinations, birefringence, thickness, wavelength)
         else:
-            retardations = np.array([relative_height, 1 - relative_height])
+            max_heights = np.max(heights[peak_pairs], axis = -1)
+            retardations = max_heights / np.sum(max_heights)
         
         new_dir, new_ret = add_birefringence(directions[0], retardations[0], 
                                                 directions[1], retardations[1])
         if num_directions == 3:
             # For three directions:
             # To-Do: better handling than again add_birefringence
-            first_height = np.max(heights[peak_pairs[0]]) + np.max(heights[peak_pairs[1]])
-            second_height = np.max(heights[peak_pairs[2]])
-            relative_height =  min(first_height, second_height) / max(first_height, second_height)
-            retardations = np.array([relative_height, 1 - relative_height])
-            new_dir, new_ret = add_birefringence(new_dir, retardations[0], 
-                                                    directions[2], retardations[1])
+            new_dir, new_ret = add_birefringence(new_dir, new_ret, 
+                                                directions[2], retardations[2])
 
     return new_dir, new_ret
