@@ -299,8 +299,12 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
     Can also be a list containing multiple methods that are used in order.
     E.g. ["neighbor", "significance"] will sort remaining combinations of a pixel by significance 
     if sorting by neighbor was not sucessfull.
+- `min_distance`: float
+    Defines the minimum distance between two paired peaks in degrees, when more than 2 peaks are present.
+    If this value is close to 180 the peak finding method converges to a method where neighbors
+    does not matter and only peaks with distances around 180 are paired.
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
-    The name of the distribution.
+    The name of the distribution used for calculation of the goodness-of-fit for gof thresholding.
 - `only_mus`: bool
     Defines if only the mus (for every pixel) are given in the image_params.
 - `num_processes`: int
@@ -312,12 +316,19 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
     Peaks with a relative amplitude (to maximum - minimum intensity of the pixel) below
     this threshold will not be evaluated.
 - `gof_threshold`: float
-    Value between 0 and 1.
+    Value between 0 and 1. If greater than 0, only fitted peaks can be paired.
     Peaks with a goodness-of-fit value below this threshold will not be evaluated.
 - `significance_threshold`: float
-    Value between 0 and 1. Peak Pairs with peaks that have a (mean) significance
+    Value between 0 and 1. Peak Pairs with peaks that have a significance
     lower than this threshold are not considered for possible pairs.
+    This Value should stay low, so that the number of possible pairs is not reduced too much.
+    A too high value can lead to wrong pairs, because of pairing only "good" peaks.
     See also "direction_significance" function for more info.
+- `nb_significance_threshold`: float
+    Value between 0 and 1. Neighboring directions with a lower significance are not considered
+    as match for the neighboring method. This threshold should be high, when using
+    the neighbor method. Lower value will lead to faster computing times, but increased
+    probability of wrong pairs.
 - `significance_weights`: list (2, )
     The weights for the amplitude and for the goodnes-of-fit, when calculating the significance.
     See also "direction_significance" function for more info.
@@ -325,11 +336,15 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
     Defines the maximum number of peaks that are paired.
     Value has to be smaller or equal the number of peaks in image_params (and max 6)
     (max_paired_peaks <= max_fit_peaks or max_find_peaks)
-- `angle_threshold`: float
-    Threshold defining when a neighbouring pixel direction is considered as same nerve fiber.
+- `nb_diff_threshold`: float
+    Threshold in degrees defining when a neighboring pixel direction is used to pair peaks
+    with the "neighbor" method.
+- `pli_diff_threshold`: float
+    If the difference between the measured PLI direction and the calculated PLI direction from SLI
+    is larger than this threshold, the "pli" method will not return any peak pair combination.
 - `max_attempts`: int
-    Number defining how many times it should be attempted to find a neighbouring pixel within
-    the given "angle_threshold".
+    Number defining how many times it should be attempted to find a neighboring pixel 
+    with a direction difference lower than the given "nb_diff_threshold".
 - `search_radius`: int
     The radius within which to search for the closest pixel with a defined direction.
 - `min_directions_diff`: float
@@ -342,6 +357,15 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
     unfound peak, this value should normally stay True. This is just for the 
     comparing process, so lone peaks will still be visible in the returned peak pairs 
     with with a pair like e.g. [2, -1] for the second peak index.
+- `image_num_peaks`: np.ndarray (n, m)
+    If the number of peaks are already calculated, they can be inserted here to speed up the process.
+- `image_sig_peaks_mask`: np.ndarray (n, m, max_find_peaks)
+    If the significant peaks mask is already calculated, 
+    it can be inserted here to speed up the process.
+- `image_pli_directions`: np.ndarray (n, m)
+    The directions in radians (0 to pi) from a pli measurement used for the method "pli".
+- `image_pli_inclinations`: np.ndarray (n, m)
+    The inclinations in radians (-pi/2 to pi/2) from a pli measurement used for the method "pli".
 
 ##### Returns
 - `image_peak_pairs`: np.ndarray (n, m, p, np.ceil(max_paired_peaks / 2), 2)
@@ -840,10 +864,10 @@ with h5py.File(output_file_path, "w") as h5f:
 image_peak_pairs = get_image_peak_pairs(data, image_params, image_peaks_mask, method = "neighbor",
                             min_distance = 20, distribution = distribution, 
                             only_mus = False, num_processes = num_processes,
-                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, significance_threshold = 0.3, 
-                            significance_weights = [1, 1], angle_threshold = 20, 
-                            max_attempts = 1000, search_radius = 50, max_paired_peaks = 4)
+                            amplitude_threshold = 1000, rel_amplitude_threshold = 0.1, 
+                            gof_threshold = 0.2, significance_threshold = 0, 
+                            significance_weights = [1, 1], nb_angle_threshold = 5, 
+                            max_attempts = 50, search_radius = 50, max_paired_peaks = 6)
 
 # Use best pairs of all possible pairs
 best_image_peak_pairs = image_peak_pairs[:, :, 0, :, :]
@@ -898,7 +922,7 @@ map_mean_peak_amplitudes(image_stack = data, image_params = image_params,
 # Create map for the mean peak widths
 map_mean_peak_widths(image_stack = data, image_params = image_params, 
                             image_peaks_mask = image_peaks_mask, distribution = "wrapped_cauchy", 
-                            directory = "maps", image_sig_peaks_mask = image_sig_peaks_mask)   
+                            directory = "maps", image_sig_peaks_mask = image_sig_peaks_mask)  
 ```
 
 

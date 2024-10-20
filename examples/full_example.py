@@ -55,10 +55,10 @@ with h5py.File(output_file_path, "w") as h5f:
 image_peak_pairs = get_image_peak_pairs(data, image_params, image_peaks_mask, method = "neighbor",
                             min_distance = 20, distribution = distribution, 
                             only_mus = False, num_processes = num_processes,
-                            amplitude_threshold = 3000, rel_amplitude_threshold = 0.1, 
-                            gof_threshold = 0.5, significance_threshold = 0.3, 
-                            significance_weights = [1, 1], angle_threshold = 20, 
-                            max_attempts = 1000, search_radius = 50, max_paired_peaks = 4)
+                            amplitude_threshold = 1000, rel_amplitude_threshold = 0.1, 
+                            gof_threshold = 0.2, significance_threshold = 0, 
+                            significance_weights = [1, 1], nb_angle_threshold = 5, 
+                            max_attempts = 50, search_radius = 50, max_paired_peaks = 6)
 
 # Use best pairs of all possible pairs
 best_image_peak_pairs = image_peak_pairs[:, :, 0, :, :]

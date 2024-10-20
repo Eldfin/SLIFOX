@@ -3,6 +3,7 @@ import h5py
 from numba import njit, prange
 from .fitter import full_fitfunction, angle_distance
 from .wrapped_distributions import distribution_pdf, wrapped_cauchy_pdf
+from .PLI_comparison import SLI_to_PLI
 from collections import deque
 from scipy.spatial import KDTree
 import os
@@ -172,13 +173,15 @@ def _find_closest_true_pixel(mask, start_pixel, radius):
     return (-1, -1)
 
 def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "neighbor", 
-                            min_distance = 20, distribution = "wrapped_cauchy", only_mus = False, 
-                            num_processes = 2, amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
-                            gof_threshold = 0.5, significance_threshold = 0.3, 
+                            min_distance = 30, distribution = "wrapped_cauchy", only_mus = False, 
+                            num_processes = 2, amplitude_threshold = 1000, rel_amplitude_threshold = 0.1,
+                            gof_threshold = 0.5, significance_threshold = 0,
+                            nb_significance_threshold = 0.9, 
                             significance_weights = [1, 1], max_paired_peaks = 4,
-                            angle_threshold = 20, max_attempts = 10000, 
+                            nb_diff_threshold = 5, pli_diff_threshold = 5, max_attempts = 100, 
                             search_radius = 50, min_directions_diff = 20, exclude_lone_peaks = True,
-                            image_num_peaks = None, image_sig_peaks_mask = None):
+                            image_num_peaks = None, image_sig_peaks_mask = None,
+                            image_pli_directions = None, image_pli_inclinations = None):
     """
     Finds all the peak_pairs for a whole image stack and sorts them by comparing with neighbor pixels.
 
@@ -225,7 +228,14 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
     - significance_threshold: float
         Value between 0 and 1. Peak Pairs with peaks that have a significance
         lower than this threshold are not considered for possible pairs.
+        This Value should stay low, so that the number of possible pairs is not reduced too much.
+        A too high value can lead to wrong pairs, because of pairing only "good" peaks.
         See also "direction_significance" function for more info.
+    - nb_significance_threshold: float
+        Value between 0 and 1. Neighboring directions with a lower significance are not considered
+        as match for the neighboring method. This threshold should be high, when using
+        the neighbor method. Lower value will lead to faster computing times, but increased
+        probability of wrong pairs.
     - significance_weights: list (2, )
         The weights for the amplitude and for the goodnes-of-fit, when calculating the significance.
         See also "direction_significance" function for more info.
@@ -233,11 +243,15 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
         Defines the maximum number of peaks that are paired.
         Value has to be smaller or equal the number of peaks in image_params (and max 6)
         (max_paired_peaks <= max_fit_peaks or max_find_peaks)
-    - angle_threshold: float
-        Threshold in degrees defining when a neighboring pixel direction is considered as same nerve fiber.
+    - nb_diff_threshold: float
+        Threshold in degrees defining when a neighboring pixel direction is used to pair peaks
+        with the "neighbor" method.
+    - pli_diff_threshold: float
+        If the difference between the measured PLI direction and the calculated PLI direction from SLI
+        is larger than this threshold, the "pli" method will not return any peak pair combination.
     - max_attempts: int
-        Number defining how many times it should be attempted to find a neighboring pixel within
-        the given "angle_threshold".
+        Number defining how many times it should be attempted to find a neighboring pixel 
+        with a direction difference lower than the given "nb_diff_threshold".
     - search_radius: int
         The radius within which to search for the closest pixel with a defined direction.
     - min_directions_diff: float
@@ -255,6 +269,10 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
     - image_sig_peaks_mask: np.ndarray (n, m, max_find_peaks)
         If the significant peaks mask is already calculated, 
         it can be inserted here to speed up the process.
+    - image_pli_directions: np.ndarray (n, m)
+        The directions in radians (0 to pi) from a pli measurement used for the method "pli".
+    - image_pli_inclinations: np.ndarray (n, m)
+        The inclinations in radians (-pi/2 to pi/2) from a pli measurement used for the method "pli".
 
     Returns:
     - image_peak_pair_combs: np.ndarray (n, m, p, np.ceil(max_paired_peaks / 2), 2)
@@ -318,9 +336,10 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
 
     max_sig_peaks = np.max(image_num_peaks)
 
-    # iterate from 2 to max_sig_peaks and 1, 0 at last
-    # so i is the number of significant peaks for every pixel in the nested loop
+    #iteration_list = np.append(np.arange(2, max_sig_peaks + 1, 2), np.arange(3, max_sig_peaks + 1, 2))
+    #iteration_list = np.append(iteration_list, [1, 0])
     iteration_list = np.append(np.arange(2, max_sig_peaks + 1), [1, 0])
+
     pbar = None
     for iteration_index, i in enumerate(iteration_list):
         mask = (image_num_peaks == i)
@@ -510,6 +529,9 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                     if isinstance(method, str):
                         method = [method]
                     for current_method in method:
+                        if current_method not in [None, "None", "single", "pli", 
+                                                    "neighbor", "random", "significance"]:
+                            raise Exception("Method not found.")
                         if current_method in [None, "None", "single"] or direction_found_mask[x, y]:
                             break
                         # Get the start_index for insertion
@@ -522,8 +544,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             # no method already used
                             start_index = 0
                         if current_method == "random":
-                            sig_peak_pair_combs[start_index:] = np.random.shuffle(
-                                                                    sig_peak_pair_combs[start_index:])
+                            np.random.shuffle(sig_peak_pair_combs[start_index:])
                             image_peak_pair_combs[x, y, 
                                         :sig_peak_pair_combs.shape[0],
                                         :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
@@ -537,7 +558,31 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                                         :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
                             break
                         elif current_method == "pli":
-                            to_do = "code will be inserted here"
+                            if not only_mus:
+                                heights = params[0:-1:3]
+                            else:
+                                heights = np.zeros(peaks_mask.shape[0])
+                                for k in range(len(heights)):
+                                    peak_intensities = intensities[peaks_mask[k]]
+                                    if len(peak_intensities) == 0: continue
+                                    heights[k] = np.max(peak_intensities) - np.min(intensities)
+
+                            sorted_peak_pairs = sig_peak_pair_combs[start_index:]
+                            SLI_directions = np.empty(sorted_peak_pairs.shape[:-1])
+                            SLI_retardations = np.empty(sorted_peak_pairs.shape[:-1])
+                            for k, peak_pairs in enumerate(sorted_peak_pairs):
+                                SLI_directions[k], SLI_retardations[i] = SLI_to_PLI(peak_pairs, 
+                                                                                    mus, heights)
+                            
+                            differences = np.abs(angle_distance(PLI_directions[x, y], SLI_directions, 
+                                                                wrap = np.pi))
+                            
+                            if np.min(difference) <= pli_diff_threshold * np.pi / 180:
+                                sorting_indices = np.argsort(differences)
+                                sorted_peak_pairs = sorted_peak_pairs[sorting_indices]
+                                image_peak_pair_combs[x, y, 
+                                            start_index:sorted_peak_pairs.shape[0],
+                                            :sorted_peak_pairs.shape[1]] = sorted_peak_pairs
 
                         elif current_method == "neighbor":
                             check_mask = np.copy(direction_found_mask)
@@ -565,8 +610,6 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                                 else:
                                     neighbor_mus = neighbor_params
 
-                                #To-Do: Filter neighbor peaks with amplitude and gof threshold
-
                                 neighbor_directions = peak_pairs_to_directions(neighbor_peak_pairs, 
                                                     neighbor_mus, 
                                                     exclude_lone_peaks = exclude_lone_peaks)
@@ -578,8 +621,13 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                                             exclude_lone_peaks = exclude_lone_peaks)
 
                                 # Filter neighbor directions with low significance out
-                                neighbor_directions = neighbor_directions[neighbor_significances
-                                                                                >= significance_threshold]
+                                # if the number of peaks is 2 
+                                # (more peak pixel directions are already filtered then by algorithm)
+                                nb_num_combs = np.sum(np.any(
+                                    image_peak_pair_combs[x, y] != -1, axis = (1, 2)))
+                                if nb_num_combs == 1:
+                                    neighbor_directions = neighbor_directions[neighbor_significances
+                                                                    >= nb_significance_threshold]
 
                                 neighbor_directions = neighbor_directions[neighbor_directions != -1]
 
@@ -591,14 +639,15 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                                         directions = directions[~matched_dir_mask[k]]
                                         unmatched_indices = (~matched_dir_mask[k]).nonzero()[0]
 
-                                        differences = np.abs(neighbor_directions[:, np.newaxis] - directions)
+                                        differences = np.abs(angle_distance(neighbor_directions[:, np.newaxis], 
+                                                    directions[np.newaxis, :], wrap = np.pi))
                                         min_diff_index = np.argmin(differences)
                                         nbd_index, min_diff_dir_index = np.unravel_index(min_diff_index, differences.shape)
                                         dir_diff_indices[k] = unmatched_indices[min_diff_dir_index]
                                         # Insert minimum difference to neighbor directions into array for sorting later
                                         direction_diffs[k] = differences[nbd_index, min_diff_dir_index]
 
-                                    if np.min(direction_diffs) < angle_threshold * np.pi / 180:
+                                    if np.min(direction_diffs) <= nb_diff_threshold * np.pi / 180:
                                         # If minimum difference to neighbor direction is 
                                         # smaller than given threshold mark the matching directions
                                         best_combs_indices = np.where(direction_diffs == np.min(direction_diffs))[0]

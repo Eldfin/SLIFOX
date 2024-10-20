@@ -116,7 +116,8 @@ def plot_peaks_gof(peaks_gof, heights, mus, scales,
         plt.plot((x_f*180/np.pi) % 360, peak_y_f, marker='None', linestyle="--", color=gof_color)
         plt.vlines((mus[k]*180/np.pi) % 360, 0, ymax , color = gof_color)
 
-def plot_directions(peak_pairs, mus, distribution, heights = None, scales = None):
+def plot_directions(peak_pairs, mus, distribution, heights = None, scales = None, 
+                        exclude_lone_peaks = False):
     """
     Plots the found directions (peak pairs) in the current plot.
 
@@ -131,11 +132,15 @@ def plot_directions(peak_pairs, mus, distribution, heights = None, scales = None
         The scales of the peaks.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
+    - exclude_lone_peaks: bool
+        Whether to exclude lone peak directions in the plot.
     """
     for k, pair in enumerate(peak_pairs):
         if pair[0] == -1 and pair[1] == -1: continue
+        if exclude_lone_peaks and (pair[0] == -1 or pair[1] == -1): continue
         mixed_colors = []
         for index in pair:
+            if index == -1: continue
             mixed_colors.append(norm_default_colormap[min(index, len(default_colormap))])
 
         if len(mixed_colors) == 1:
