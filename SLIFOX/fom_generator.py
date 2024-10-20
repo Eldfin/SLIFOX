@@ -354,7 +354,37 @@ def imwrite_rgb(filepath, data):
         tifffile.imwrite(filepath, save_data, photometric='rgb',
                          compression=8)
 
-def map_fom(image_directions = None, direction_files = None, output_path = None, direction_offset = 0):
+@njit(cache = True, fastmath = True, parallel = True)
+def apply_sig_on_fom(rgb_fom, image_sig, image_directions):
+    """
+    Apply direction significances on a fiber orientation map.
+
+    Parameters:
+    - rgb_fom: np.ndarray (2*n, 2*m, 3)
+        The fiber orientation map in rgb format.
+    - image_sig: np.ndarray (n, m, p)
+        The significances of every direction. p is the maximum number of directions.
+    - image_directions: np.ndarray (n, m, p)
+        The directions of the image. (Only the number of directions is used.)
+    """
+    for x in prange(image_direction_sig.shape[0]):
+        for y in prange(image_direction_sig.shape[1]):
+            colors = rgb_fom[2*x : 2*x+2, 2*y : 2*y+ 2]
+            num_directions = np.count_nonzero(image_directions[x, y] != -1)
+            if num_directions == 0: continue
+            significances = image_sig[x, y, :num_directions]
+            
+            # Repeat the significances after num_directions
+            muls = np.empty(4)
+            muls[:num_directions] = significances
+            muls[num_directions:] = significances[:4-num_directions]
+
+            muls = muls.reshape((2, 2))[..., np.newaxis]
+            rgb_fom[2*x : 2*x+2, 2*y : 2*y+ 2] = colors * muls
+
+
+def map_fom(image_directions = None, direction_files = None, output_path = None, 
+            direction_offset = 0, image_direction_sig = None):
     """
     Maps the fiber orientation map (fom) from given direction (files).
 
@@ -367,8 +397,11 @@ def map_fom(image_directions = None, direction_files = None, output_path = None,
         If None, image_directions should be used as input instead.
     - output_path: string
         Path to the output directory.
-    - direction_offset
+    - direction_offset: float
         The offset of the direction in degree. Default is zero.
+    - image_direction_sig: np.ndarray (n, m, p)
+        Significances of the directions that will be multiplied with the fom image,
+        to darken directions with low significance. 
 
     Returns:
     - rgb_fom: np.ndarray (2*n, 2*m, 3)
@@ -384,6 +417,10 @@ def map_fom(image_directions = None, direction_files = None, output_path = None,
     else:
         rgb_fom = create_fom(np.swapaxes(image_directions, 0, 1), direction_offset = direction_offset)
         
+    # Apply direction significance on fom by multiplying it (darkening)
+    if not image_direction_sig is None:
+        rgb_fom = apply_sig_on_fom(rgb_fom, image_direction_sig, image_directions)
+    
     imwrite_rgb(f"{output_path}/fom.tiff", rgb_fom)
     imwrite_rgb(f"{output_path}/color_bubble.tiff", color_bubble(Colormap.hsv_black))
 
