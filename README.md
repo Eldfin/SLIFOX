@@ -485,6 +485,9 @@ Maps the significances of all found directions from given "image_peak_pairs".
     Path to the output directory.
 - `direction_offset`: float
     The direction offset in degree. Default is zero.
+- `image_direction_sig`: np.ndarray (n, m, p)
+    Significances of the directions that will be multiplied with the fom image,
+    to darken directions with low significance. 
 
 ##### Returns
 - `rgb_fom`: np.ndarray (2*n, 2*m, 3)
