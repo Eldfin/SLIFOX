@@ -3,7 +3,8 @@ import h5py
 from numba import njit, prange
 from .fitter import full_fitfunction, angle_distance
 from .wrapped_distributions import distribution_pdf, wrapped_cauchy_pdf
-from collections import deque
+from .utils import find_closest_true_pixel, add_birefringence, calculate_inclination, \
+                    calculate_thickness, calculate_retardation
 from scipy.spatial import KDTree
 import os
 import imageio
@@ -130,46 +131,6 @@ def calculate_image_peaks_gof(image_stack, image_model_y, peaks_mask, method = "
             peaks_gof[peak_number] = max(1 - mae, 0)
 
     return peaks_gof
-
-def _find_closest_true_pixel(mask, start_pixel, radius):
-    """
-    Finds the closest true pixel for a given 2d-mask and a start_pixel within a given radius.
-
-    Parameters:
-    - mask: np.ndarray (n, m)
-        The boolean mask defining which pixels are False or True.
-    - start_pixel: tuple
-        The x- and y-coordinates of the start_pixel.
-    - radius: int
-        The radius within which to search for the closest true pixel.
-
-    Returns:
-    - closest_true_pixel: tuple
-        The x- and y-coordinates of the closest true pixel, or (-1, -1) if no true pixel is found.
-    """
-    rows, cols = mask.shape
-    sr, sc = start_pixel
-
-    visited = np.zeros_like(mask, dtype=bool)
-    queue = deque([(sr, sc)])
-    visited[sr, sc] = True
-
-    while queue:
-        r, c = queue.popleft()
-
-        if mask[r, c]:
-            return (r, c)
-
-        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            nr, nc = r + dr, c + dc
-
-            if 0 <= nr < rows and 0 <= nc < cols and not visited[nr, nc]:
-                if abs(nr - sr) <= radius and abs(nc - sc) <= radius:
-                    visited[nr, nc] = True
-                    queue.append((nr, nc))
-
-    # When no true pixel in the mask within the radius, return (-1, -1)
-    return (-1, -1)
 
 def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "neighbor", 
                             min_distance = 30, distribution = "wrapped_cauchy", only_mus = False, 
@@ -1722,75 +1683,3 @@ def SLI_to_PLI(peak_pairs, mus, heights, SLI_inclination = False):
                                                     directions[2], retardations[1])
 
     return new_dir, new_ret
-
-
-@njit(cache = True, fastmath = True)
-def calculate_inclination(thickness, birefringence, wavelength, retardation):
-    inclination = np.arccos(np.sqrt(np.arcsin(retardation) * wavelength 
-                                / (2 * np.pi * thickness * birefringence)))
-
-    return inclination
-
-@njit(cache = True, fastmath = True)
-def calculate_retardation(thickness, birefringence, wavelength, inclination):
-    retardation = np.abs(np.sin(2 * np.pi * thickness * birefringence * np.cos(inclination)**2 
-                                    / wavelength))
-
-    return retardation
-
-@njit(cache = True, fastmath = True)
-def calculate_thicknesses(t_rel, birefringence, wavelength, relative_thicknesses):
-    thicknesses = t_rel * wavelength / (4 * birefringence * (1 + relative_thicknesses))
-
-    return thicknesses
-
-@njit(cache = True, fastmath = True)
-def add_birefringence(
-    dir_1,
-    ret_1,
-    dir_2,
-    ret_2,
-    symmetric=False,
-):
-    """Add birefringence from 1 to 2"""
-    dir_1 = np.asarray(dir_1)
-    ret_1 = np.asarray(ret_1)
-    dir_2 = np.asarray(dir_2)
-    ret_2 = np.asarray(ret_2)
-
-    if symmetric:
-        delta_1 = np.arcsin(ret_1)
-        delta_2 = np.arcsin(ret_2)
-        real_part_1, im_part_1 = mod2cplx(dir_1, np.sin(delta_1 / 2) * np.cos(delta_2 / 2))
-        real_part_2, im_part_2 = mod2cplx(dir_2, np.sin(delta_2 / 2) * np.cos(delta_1 / 2))
-        dir_new, ret_new = cplx2mod(real_part_1 + real_part_2, im_part_1 + im_part_2)
-        ret_new = np.sin(np.arcsin(ret_new) * 2)
-    else:
-        delta_1 = np.arcsin(ret_1)
-        delta_2 = np.arcsin(ret_2)
-        real_part_1, im_part_1 = mod2cplx(dir_1, np.sin(delta_1) * np.cos(delta_2))
-        real_part_2, im_part_2 = mod2cplx(dir_2, np.cos(delta_1 / 2) ** 2 * np.sin(delta_2))
-        real_part_3, im_part_3 = mod2cplx(
-            2 * dir_1 - dir_2, -np.sin(delta_1 / 2) ** 2 * np.sin(delta_2)
-        )
-        dir_new, ret_new = cplx2mod(
-            real_part_1 + real_part_2 + real_part_3,
-            im_part_1 + im_part_2 + im_part_3,
-        )
-
-    return dir_new, ret_new
-
-@njit(cache = True, fastmath = True)
-def cplx2mod(real_part, im_part, scale=2.0):
-    """Convert complex number to direction and retardation"""
-    retardation = np.sqrt(real_part**2 + im_part**2)
-    direction = np.arctan2(im_part, real_part) / scale
-    
-    return direction, retardation
-
-@njit(cache = True, fastmath = True)
-def mod2cplx(direction, retardation, scale=2.0):
-    """Convert direction and retardation to complex number"""
-    im_part = retardation * np.sin(scale * direction)
-    real_part = retardation * np.cos(scale * direction)
-    return real_part, im_part
