@@ -3,7 +3,6 @@ import h5py
 from numba import njit, prange
 from .fitter import full_fitfunction, angle_distance
 from .wrapped_distributions import distribution_pdf, wrapped_cauchy_pdf
-from .PLI_comparison import SLI_to_PLI
 from collections import deque
 from scipy.spatial import KDTree
 import os
@@ -1657,3 +1656,141 @@ def get_mean_peak_widths(image_stack = None, image_params = None, image_peaks_ma
     print("Done")
 
     return image_mean_widths
+
+@njit(cache = True, fastmath = True)
+def SLI_to_PLI(peak_pairs, mus, heights, SLI_inclination = False):
+    """
+    Converts the results from a SLI measurement (peak pairs, mus, heights) to a virtual PLI measurement.
+    "What whould be measured in a PLI measurement for the found nerve fibers in the SLI measurement?"
+
+    Parameters:
+    - peak_pairs: np.ndarray (np.ceil(m / 2), 2)
+        Array ontaining both peak numbers of a pair (e.g. [1, 3], 
+        which means peak 1 and peak 3 is paired). A pair with -1 defines a unpaired peak.
+        The first dimension (m equals number of peaks)
+        is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
+    - mus: np.ndarray (m, )
+        The center positions of the peaks.
+    - heights: np.ndarray (m, )
+        The height values of the peaks.
+    - SLI_inclination: boolean
+        Use the found inclination in the SLI measurement to produce a virtual PLI retardation?
+        Default is False, because SLI inclination could not be determined reliable to the point of writing.
+
+    Returns:
+    - new_dir: float
+        Virtual direction value of the PLI measurement.
+    - new_ret: float
+        Virtual retardation value of the PLI measurement.
+        Does not store usable information when not using SLI inclination (SLI_inclination = False).
+
+    """
+
+    directions = peak_pairs_to_directions(peak_pairs, mus)
+    num_directions = len(directions)
+    
+    if num_directions == 0:
+        return -1, 0
+    elif num_directions == 1:
+        # For one directions return the direction
+        return directions[0], 0
+    else:
+        first_height = np.max(heights[peak_pairs[0]])
+        second_height = np.max(heights[peak_pairs[1]])
+        relative_height =  min(first_height, second_height) / max(first_height, second_height)
+    
+        if SLI_inclination:
+            #dummy t_rel, birefringence, wavelenght
+            t_rel, birefringence, wavelength = 1, 1, 1
+            inclinations = peak_pairs_to_inclinations(peak_pairs, mus)
+            relative_thicknesses = np.array([relative_height, 1 / relative_height])
+            thicknesses = calculate_thicknesses(t_rel, birefringence, wavelength, relative_thicknesses)
+            retardations = calculate_retardation(thicknesses, birefringence, wavelength, inclinations)
+        else:
+            retardations = np.array([relative_height, 1 - relative_height])
+        
+        new_dir, new_ret = add_birefringence(directions[0], retardations[0], 
+                                                directions[1], retardations[1])
+        if num_directions == 3:
+            # For three directions:
+            # To-Do: better handling than again add_birefringence
+            first_height = np.max(heights[peak_pairs[0]]) + np.max(heights[peak_pairs[1]])
+            second_height = np.max(heights[peak_pairs[2]])
+            relative_height =  min(first_height, second_height) / max(first_height, second_height)
+            retardations = np.array([relative_height, 1 - relative_height])
+            new_dir, new_ret = add_birefringence(new_dir, retardations[0], 
+                                                    directions[2], retardations[1])
+
+    return new_dir, new_ret
+
+
+@njit(cache = True, fastmath = True)
+def calculate_inclination(thickness, birefringence, wavelength, retardation):
+    inclination = np.arccos(np.sqrt(np.arcsin(retardation) * wavelength 
+                                / (2 * np.pi * thickness * birefringence)))
+
+    return inclination
+
+@njit(cache = True, fastmath = True)
+def calculate_retardation(thickness, birefringence, wavelength, inclination):
+    retardation = np.abs(np.sin(2 * np.pi * thickness * birefringence * np.cos(inclination)**2 
+                                    / wavelength))
+
+    return retardation
+
+@njit(cache = True, fastmath = True)
+def calculate_thicknesses(t_rel, birefringence, wavelength, relative_thicknesses):
+    thicknesses = t_rel * wavelength / (4 * birefringence * (1 + relative_thicknesses))
+
+    return thicknesses
+
+@njit(cache = True, fastmath = True)
+def add_birefringence(
+    dir_1,
+    ret_1,
+    dir_2,
+    ret_2,
+    symmetric=False,
+):
+    """Add birefringence from 1 to 2"""
+    dir_1 = np.asarray(dir_1)
+    ret_1 = np.asarray(ret_1)
+    dir_2 = np.asarray(dir_2)
+    ret_2 = np.asarray(ret_2)
+
+    if symmetric:
+        delta_1 = np.arcsin(ret_1)
+        delta_2 = np.arcsin(ret_2)
+        real_part_1, im_part_1 = mod2cplx(dir_1, np.sin(delta_1 / 2) * np.cos(delta_2 / 2))
+        real_part_2, im_part_2 = mod2cplx(dir_2, np.sin(delta_2 / 2) * np.cos(delta_1 / 2))
+        dir_new, ret_new = cplx2mod(real_part_1 + real_part_2, im_part_1 + im_part_2)
+        ret_new = np.sin(np.arcsin(ret_new) * 2)
+    else:
+        delta_1 = np.arcsin(ret_1)
+        delta_2 = np.arcsin(ret_2)
+        real_part_1, im_part_1 = mod2cplx(dir_1, np.sin(delta_1) * np.cos(delta_2))
+        real_part_2, im_part_2 = mod2cplx(dir_2, np.cos(delta_1 / 2) ** 2 * np.sin(delta_2))
+        real_part_3, im_part_3 = mod2cplx(
+            2 * dir_1 - dir_2, -np.sin(delta_1 / 2) ** 2 * np.sin(delta_2)
+        )
+        dir_new, ret_new = cplx2mod(
+            real_part_1 + real_part_2 + real_part_3,
+            im_part_1 + im_part_2 + im_part_3,
+        )
+
+    return dir_new, ret_new
+
+@njit(cache = True, fastmath = True)
+def cplx2mod(real_part, im_part, scale=2.0):
+    """Convert complex number to direction and retardation"""
+    retardation = np.sqrt(real_part**2 + im_part**2)
+    direction = np.arctan2(im_part, real_part) / scale
+    
+    return direction, retardation
+
+@njit(cache = True, fastmath = True)
+def mod2cplx(direction, retardation, scale=2.0):
+    """Convert direction and retardation to complex number"""
+    im_part = retardation * np.sin(scale * direction)
+    real_part = retardation * np.cos(scale * direction)
+    return real_part, im_part
