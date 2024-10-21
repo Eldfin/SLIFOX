@@ -355,14 +355,14 @@ def imwrite_rgb(filepath, data):
                          compression=8)
 
 @njit(cache = True, fastmath = True, parallel = True)
-def apply_sig_on_fom(rgb_fom, image_sig, image_directions):
+def apply_sig_on_fom(rgb_fom, image_direction_sig, image_directions):
     """
     Apply direction significances on a fiber orientation map.
 
     Parameters:
     - rgb_fom: np.ndarray (2*n, 2*m, 3)
         The fiber orientation map in rgb format.
-    - image_sig: np.ndarray (n, m, p)
+    - image_direction_sig: np.ndarray (n, m, p)
         The significances of every direction. p is the maximum number of directions.
     - image_directions: np.ndarray (n, m, p)
         The directions of the image. (Only the number of directions is used.)
@@ -372,7 +372,7 @@ def apply_sig_on_fom(rgb_fom, image_sig, image_directions):
             colors = rgb_fom[2*x : 2*x+2, 2*y : 2*y+ 2]
             num_directions = np.count_nonzero(image_directions[x, y] != -1)
             if num_directions == 0: continue
-            significances = image_sig[x, y, :num_directions]
+            significances = image_direction_sig[x, y, :num_directions]
             
             # Repeat the significances after num_directions
             muls = np.empty(4)
