@@ -555,7 +555,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
 
                             for attempt in range(max_attempts):
 
-                                neighbor_x, neighbor_y = _find_closest_true_pixel(check_mask, (x, y), 
+                                neighbor_x, neighbor_y = find_closest_true_pixel(check_mask, (x, y), 
                                                                                 search_radius)
                                 if neighbor_x == -1 and neighbor_y == -1:
                                     # When no true pixel within radius: return no pairs
