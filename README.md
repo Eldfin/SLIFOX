@@ -332,6 +332,9 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
 - `significance_weights`: list (2, )
     The weights for the amplitude and for the goodnes-of-fit, when calculating the significance.
     See also "direction_significance" function for more info.
+- `significance_sens`: list (2, )
+    The sensitivity values for the amplitude (first value) and for the goodness-of-fit (second value),
+    when calculating the significance.
 - `max_paired_peaks`: int
     Defines the maximum number of peaks that are paired.
     Value has to be smaller or equal the number of peaks in image_params (and max 6)
@@ -450,6 +453,9 @@ Maps the significances of all found directions from given "image_peak_pairs".
     Peaks with a goodness-of-fit value below this threshold will not be evaluated.  
 - `weights`: list (2, )
     The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
+- `sens`: list (2, )
+    The sensitivity values for the amplitude (first value) and for the goodness-of-fit (second value),
+    when calculating the significance.
 - `only_mus`: boolean
     Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
 - `directory`: string
@@ -869,7 +875,8 @@ image_peak_pairs = get_image_peak_pairs(data, image_params, image_peaks_mask, me
                             only_mus = False, num_processes = num_processes,
                             amplitude_threshold = 1000, rel_amplitude_threshold = 0.1, 
                             gof_threshold = 0.2, significance_threshold = 0, 
-                            significance_weights = [1, 1], nb_angle_threshold = 5, 
+                            significance_weights = [1, 1], significance_sens = [1, 1],
+                            nb_angle_threshold = 5, 
                             max_attempts = 50, search_radius = 50, max_paired_peaks = 6)
 
 # Use best pairs of all possible pairs
@@ -887,7 +894,7 @@ image_directions = map_directions(best_image_peak_pairs, image_mus, directory = 
 # Map the significance of the directions
 image_direction_sig = map_direction_significances(data, best_image_peak_pairs, image_params, 
                                 image_peaks_mask, distribution = distribution, 
-                                weights = [1, 1], num_processes = num_processes)
+                                weights = [1, 1], sens = [1, 1], num_processes = num_processes)
 
 # Optional: Map the threshold filtered direction images 
 # (when pairs filtered with same threshold redundant)
@@ -925,7 +932,7 @@ map_mean_peak_amplitudes(image_stack = data, image_params = image_params,
 # Create map for the mean peak widths
 map_mean_peak_widths(image_stack = data, image_params = image_params, 
                             image_peaks_mask = image_peaks_mask, distribution = "wrapped_cauchy", 
-                            directory = "maps", image_sig_peaks_mask = image_sig_peaks_mask)  
+                            directory = "maps", image_sig_peaks_mask = image_sig_peaks_mask)   
 ```
 
 

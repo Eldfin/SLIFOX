@@ -137,7 +137,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             num_processes = 2, amplitude_threshold = 1000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, significance_threshold = 0,
                             nb_significance_threshold = 0.9, 
-                            significance_weights = [1, 1], max_paired_peaks = 4,
+                            significance_weights = [1, 1], significance_sens = [1, 1],
+                            max_paired_peaks = 4,
                             nb_diff_threshold = 5, pli_diff_threshold = 5, max_attempts = 100, 
                             search_radius = 50, min_directions_diff = 20, exclude_lone_peaks = True,
                             image_num_peaks = None, image_sig_peaks_mask = None,
@@ -200,6 +201,9 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
         The weights for the amplitude (first value) and for the goodnes-of-fit (second value), 
         when calculating the significance.
         See also "direction_significance" function for more info.
+    - significance_sens: list (2, )
+        The sensitivity values for the amplitude (first value) and for the goodness-of-fit (second value),
+        when calculating the significance.
     - max_paired_peaks: int
         Defines the maximum number of peaks that are paired.
         Value has to be smaller or equal the number of peaks in image_params (and max 6)
@@ -398,7 +402,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
 
                         peak_pairs = peak_pairs[valid_pairs_mask[k]]
                         significances = direction_significances(peak_pairs, params, peaks_mask, 
-                                    intensities, angles, weights = significance_weights, 
+                                    intensities, angles, weights = significance_weights,
+                                    sens = significance_sens, 
                                     distribution = distribution, only_mus = only_mus,
                                     exclude_lone_peaks = exclude_lone_peaks)
 
@@ -577,7 +582,9 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
 
                                 neighbor_significances = direction_significances(neighbor_peak_pairs, 
                                             neighbor_params, neighbor_peaks_mask, 
-                                            neighbor_intensities, angles, weights = significance_weights, 
+                                            neighbor_intensities, angles, 
+                                            weights = significance_weights,
+                                            sens = significance_sens, 
                                             distribution = distribution, only_mus = only_mus,
                                             exclude_lone_peaks = exclude_lone_peaks)
 
@@ -939,7 +946,8 @@ def get_possible_pairs(num_peaks):
     return pair_combinations
 
 #@njit(cache = True, fastmath = True)
-def direction_significances(peak_pairs, params, peaks_mask, intensities, angles, weights = [1, 1],
+def direction_significances(peak_pairs, params, peaks_mask, intensities, angles, 
+                            weights = [1, 1], sens = [1, 1],
                             distribution = "wrapped_cauchy", only_mus = False,
                             exclude_lone_peaks = True):
     """
@@ -961,6 +969,9 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
         The angles at which the intensities are measured.
     - weights: list (2, )
         The weights for the amplitude (first value) and for the goodnes-of-fit (second value), 
+        when calculating the significance.
+    - sens: list (2, )
+        The sensitivity values for the amplitude (first value) and for the goodness-of-fit (second value),
         when calculating the significance.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
@@ -1036,7 +1047,9 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
             amplitude_significance = (np.mean(amplitudes[peak_pair]) - malus_amplitude) / global_amplitude
             gof_significance = np.mean(peaks_gof[peak_pair])
 
-        significances[i] = (amplitude_significance * weights[0] + gof_significance * weights[1]) / np.sum(weights)
+        significances[i] = ((weights[0] * amplitude_significance**sens[0] 
+                            + weights[1] * gof_significance**sens[1]) 
+                            / np.sum(weights))
 
     significances = np.clip(significances, 0, 1)
 
@@ -1046,7 +1059,7 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
                             distribution = "wrapped_cauchy", 
                             amplitude_threshold = 0, rel_amplitude_threshold = 0,
                             gof_threshold = 0,
-                            weights = [1, 1], only_mus = False, num_processes = 2):
+                            weights = [1, 1], sens = [1, 1], only_mus = False, num_processes = 2):
 
     angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)
     n_rows = image_stack.shape[0]
@@ -1076,7 +1089,7 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
             
             image_direction_sig[i] = direction_significances(flat_image_peak_pairs[i], 
                         flat_image_params[i], flat_image_peaks_mask[i], flat_image_stack[i], 
-                            angles, weights = weights, distribution = distribution, 
+                            angles, weights = weights, sens = sens, distribution = distribution, 
                             only_mus = only_mus)
 
     # Set the progress bar to 100%
@@ -1091,7 +1104,8 @@ def get_image_direction_significances_vectorized(image_stack, image_peak_pairs, 
                             distribution = "wrapped_cauchy", 
                             amplitude_threshold = 0, rel_amplitude_threshold = 0,
                             gof_threshold = 0,
-                            weights = [1, 1], only_mus = False, image_sign_peaks_mask = None):
+                            weights = [1, 1], sens = [1, 1],
+                            only_mus = False, image_sign_peaks_mask = None):
     """
     Returns the direction significances for every pixel.
     To-Do: This function is missing "malus_amplitude",
@@ -1127,6 +1141,9 @@ def get_image_direction_significances_vectorized(image_stack, image_peak_pairs, 
     - weights: list (2, )
         The weights for the amplitude and for the goodnes-of-fit, when calculating the significance.
         First weight is for amplitude, second for goodness-of-fit.
+    - sens: list (2, )
+        The sensitivity values for the amplitude (first value) and for the goodness-of-fit (second value),
+        when calculating the significance.
     - only_mus: boolean
         Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
     - image_sig_peaks_mask: np.ndarray (n, m, max_find_peaks)
@@ -1195,7 +1212,9 @@ def get_image_direction_significances_vectorized(image_stack, image_peak_pairs, 
         image_peaks_gof = np.mean(image_peaks_gof, axis = -1)
         image_peaks_gof[image_peaks_gof < 0] = 0
 
-        image_direction_sig = (image_rel_amplitudes * weights[0] + image_peaks_gof * weights[1]) / np.sum(weights)
+        image_direction_sig = ((image_rel_amplitudes**sens[0] * weights[0] 
+                                    + image_peaks_gof**sens[1] * weights[1]) 
+                                    / np.sum(weights))
     else:
         image_direction_sig = image_rel_amplitudes
 

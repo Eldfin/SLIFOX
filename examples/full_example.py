@@ -57,7 +57,8 @@ image_peak_pairs = get_image_peak_pairs(data, image_params, image_peaks_mask, me
                             only_mus = False, num_processes = num_processes,
                             amplitude_threshold = 1000, rel_amplitude_threshold = 0.1, 
                             gof_threshold = 0.2, significance_threshold = 0, 
-                            significance_weights = [1, 1], nb_angle_threshold = 5, 
+                            significance_weights = [1, 1], significance_sens = [1, 1],
+                            nb_angle_threshold = 5, 
                             max_attempts = 50, search_radius = 50, max_paired_peaks = 6)
 
 # Use best pairs of all possible pairs
@@ -75,7 +76,7 @@ image_directions = map_directions(best_image_peak_pairs, image_mus, directory = 
 # Map the significance of the directions
 image_direction_sig = map_direction_significances(data, best_image_peak_pairs, image_params, 
                                 image_peaks_mask, distribution = distribution, 
-                                weights = [1, 1], num_processes = num_processes)
+                                weights = [1, 1], sens = [1, 1], num_processes = num_processes)
 
 # Optional: Map the threshold filtered direction images 
 # (when pairs filtered with same threshold redundant)

@@ -698,7 +698,7 @@ def map_directions(image_peak_pairs = None, image_mus = None, only_peaks_count =
 def map_direction_significances(image_stack = None, image_peak_pairs = None, image_params = None, 
                                 image_peaks_mask = None, distribution = "wrapped_cauchy", 
                                 amplitude_threshold = 0, rel_amplitude_threshold = 0,
-                                gof_threshold = 0, weights = [1, 1], 
+                                gof_threshold = 0, weights = [1, 1], sens = [1, 1],
                                 only_mus = False, directory = "maps",
                                 normalize = False, normalize_to = [None, None],
                                 num_processes = 2, image_direction_sig = None):
@@ -734,6 +734,9 @@ def map_direction_significances(image_stack = None, image_peak_pairs = None, ima
         Peak-Pairs with a goodness-of-fit value below this threshold will not be evaluated.
     - weights: list (2, )
         The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
+    - sens: list (2, )
+        The sensitivity values for the amplitude (first value) and for the goodness-of-fit (second value),
+        when calculating the significance.
     - only_mus: boolean
         Whether only the mus are provided in image_params. If so, only amplitude_threshold is used.
     - directory: string
@@ -762,7 +765,7 @@ def map_direction_significances(image_stack = None, image_peak_pairs = None, ima
                                     amplitude_threshold = amplitude_threshold,
                                     rel_amplitude_threshold = rel_amplitude_threshold, 
                                     gof_threshold = gof_threshold,
-                                    weights = weights, only_mus = only_mus, 
+                                    weights = weights, sens = sens, only_mus = only_mus, 
                                     num_processes = num_processes)
     
     if directory != None:
