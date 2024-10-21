@@ -467,10 +467,10 @@ def map_peak_distances(image_stack = None, image_params = None, image_peaks_mask
                                 image_num_peaks = image_num_peaks)
 
     image_distances[image_distances != -1] = image_distances[image_distances != -1] * 180 / np.pi
-    file_name = "peak_distances"
+    file_name = "peak_distances_map"
     if deviation:
         image_distances[image_distances != -1] = 180 - image_distances[image_distances != -1]
-        file_name = "peak_distance_deviations"
+        file_name = "peak_distances_deviation_map"
 
     if len(image_distances.shape) == 3:
         for dir_n in range(image_distances.shape[-1]):    
