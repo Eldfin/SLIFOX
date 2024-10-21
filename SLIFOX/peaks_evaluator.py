@@ -197,7 +197,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
         the neighbor method. Lower value will lead to faster computing times, but increased
         probability of wrong pairs.
     - significance_weights: list (2, )
-        The weights for the amplitude and for the goodnes-of-fit, when calculating the significance.
+        The weights for the amplitude (first value) and for the goodnes-of-fit (second value), 
+        when calculating the significance.
         See also "direction_significance" function for more info.
     - max_paired_peaks: int
         Defines the maximum number of peaks that are paired.
@@ -959,7 +960,8 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
     - angles: np.ndarray (n, )
         The angles at which the intensities are measured.
     - weights: list (2, )
-        The weights for the amplitude and for the goodnes-of-fit, when calculating the significance
+        The weights for the amplitude (first value) and for the goodnes-of-fit (second value), 
+        when calculating the significance.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution.
     - only_mus: bool
@@ -1034,7 +1036,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
             amplitude_significance = (np.mean(amplitudes[peak_pair]) - malus_amplitude) / global_amplitude
             gof_significance = np.mean(peaks_gof[peak_pair])
 
-        significances[i] = (amplitude_significance * weights[0] + gof_significance * weights[1]) / 2
+        significances[i] = (amplitude_significance * weights[0] + gof_significance * weights[1]) / np.sum(weights)
 
     significances = np.clip(significances, 0, 1)
 
@@ -1193,7 +1195,7 @@ def get_image_direction_significances_vectorized(image_stack, image_peak_pairs, 
         image_peaks_gof = np.mean(image_peaks_gof, axis = -1)
         image_peaks_gof[image_peaks_gof < 0] = 0
 
-        image_direction_sig = (image_rel_amplitudes * weights[0] + image_peaks_gof * weights[1]) / 2
+        image_direction_sig = (image_rel_amplitudes * weights[0] + image_peaks_gof * weights[1]) / np.sum(weights)
     else:
         image_direction_sig = image_rel_amplitudes
 
