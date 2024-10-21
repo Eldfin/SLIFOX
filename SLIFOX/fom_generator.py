@@ -382,6 +382,8 @@ def apply_sig_on_fom(rgb_fom, image_direction_sig, image_directions):
             muls = muls.reshape((2, 2))[..., np.newaxis]
             rgb_fom[2*x : 2*x+2, 2*y : 2*y+ 2] = colors * muls
 
+    return rgb_fom
+
 
 def map_fom(image_directions = None, direction_files = None, output_path = None, 
             direction_offset = 0, image_direction_sig = None):
