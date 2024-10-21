@@ -491,6 +491,16 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             direction_found_mask[x, y] = True
                         continue
 
+                    # If a pair is in every significant combination, its a match
+                    # what can only happen for more than 4 peaks and only once (for up to 6 peaks)
+                    all_match_indices = None
+                    if num_peaks > 4:
+                        for pair in sig_peak_pair_combs[0]:
+                            if np.all(pair == -1): continue
+                            isin_mask = (sig_peak_pair_combs == pair).all(axis=-1)
+                            if np.all(np.any(isin_mask, axis = -1)):
+                                all_match_indices = isin_mask.nonzero()
+
                     # Try method(s) with loop
                     if isinstance(method, str):
                         method = [method]
@@ -499,6 +509,10 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                                                     "neighbor", "random", "significance"]:
                             raise Exception("Method not found.")
                         if current_method in [None, "None", "single"] or direction_found_mask[x, y]:
+                            if not all_match_indices is None:
+                                # if a matched pair is in every comb use it
+                                index = (all_match_indices[0][0], all_match_indices[1][0])
+                                image_peak_pair_combs[x, y, 0, 0] = sig_peak_pair_combs[index]
                             break
                         # Get the start_index for insertion
                         start_index = np.where(np.any(
@@ -553,6 +567,10 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                         elif current_method == "neighbor":
                             check_mask = np.copy(direction_found_mask)
                             matched_dir_mask = np.zeros(direction_combs.shape, dtype = np.bool_)
+
+                            # Set matched pairs in every comb as already matched
+                            if not all_match_indices is None:
+                                matched_dir_mask[all_match_indices] = True
 
                             # Set lone peak pairs as already matched
                             lone_peak_pair_indices = np.where(np.any(sig_peak_pair_combs == -1, axis = -1))
