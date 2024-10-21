@@ -870,21 +870,21 @@ def find_closest_true_pixel(mask, start_pixel, radius):
     return (-1, -1)
 
 @njit(cache = True, fastmath = True)
-def calculate_inclination(thickness, birefringence, wavelength, retardation):
+def calculate_inclination(retardation, birefringence, thickness , wavelength,):
     inclination = np.arccos(np.sqrt(np.arcsin(retardation) * wavelength 
                                 / (2 * np.pi * thickness * birefringence)))
 
     return inclination
 
 @njit(cache = True, fastmath = True)
-def calculate_retardation(thickness, birefringence, wavelength, inclination):
+def calculate_retardation(inclination, birefringence, thickness, wavelength):
     retardation = np.abs(np.sin(2 * np.pi * thickness * birefringence * np.cos(inclination)**2 
                                     / wavelength))
 
     return retardation
 
 @njit(cache = True, fastmath = True)
-def calculate_thicknesses(t_rel, birefringence, wavelength, relative_thicknesses):
-    thicknesses = t_rel * wavelength / (4 * birefringence * (1 + relative_thicknesses))
+def calculate_birefringence(retardation, inclination, thickness, wavelength):
+    birefringence = np.arcsin(retardation) * wavelength / (2 * np.pi * thickness * np.cos(inclination)**2)
 
-    return thicknesses
+    return birefringence
