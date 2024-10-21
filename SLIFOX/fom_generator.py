@@ -374,12 +374,18 @@ def apply_sig_on_fom(rgb_fom, image_direction_sig, image_directions):
             if num_directions == 0: continue
             significances = image_direction_sig[x, y, :num_directions]
             
-            # Repeat the significances after num_directions
-            muls = np.empty(4)
-            muls[:num_directions] = significances
-            muls[num_directions:] = significances[:4-num_directions]
-
-            muls = muls.reshape((2, 2))[..., np.newaxis]
+            muls = np.zeros((2, 2, 1))
+            if num_directions == 1:
+                muls[...] = significances[0]
+            else:
+                muls[:2, 0, 0] = significances[:2]
+                if num_directions == 2:
+                    muls[:2, 1, 0] = significances[:2]
+                elif num_directions == 3:
+                    muls[0, 1, 0] = significances[2]
+                else:
+                    muls[:2, 1, 0] = significances[2:]
+            
             rgb_fom[2*x : 2*x+2, 2*y : 2*y+ 2] = colors * muls
 
     return rgb_fom
@@ -409,7 +415,7 @@ def map_fom(image_directions = None, direction_files = None, output_path = None,
     - rgb_fom: np.ndarray (2*n, 2*m, 3)
         Fiber orientation map (fom) from the directions of the image.
     """
-    
+    print("Creating fom...")
     if not isinstance(image_directions, np.ndarray):
         if isinstance(direction_files, list):
             image_directions = _merge_direction_images(direction_files)
@@ -417,13 +423,14 @@ def map_fom(image_directions = None, direction_files = None, output_path = None,
         else:
             raise Exception("You have to input image_directions array or direction_files list.")
     else:
-        rgb_fom = create_fom(np.swapaxes(image_directions, 0, 1), direction_offset = direction_offset)
+        rgb_fom = create_fom(image_directions, direction_offset = direction_offset)
         
     # Apply direction significance on fom by multiplying it (darkening)
     if not image_direction_sig is None:
         rgb_fom = apply_sig_on_fom(rgb_fom, image_direction_sig, image_directions)
     
-    imwrite_rgb(f"{output_path}/fom.tiff", rgb_fom)
+    imwrite_rgb(f"{output_path}/fom.tiff", np.swapaxes(rgb_fom, 0, 1))
     imwrite_rgb(f"{output_path}/color_bubble.tiff", color_bubble(Colormap.hsv_black))
+    print("Done")
 
     return rgb_fom
