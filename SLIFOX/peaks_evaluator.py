@@ -707,7 +707,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
     
     return image_peak_pair_combs
 
-@njit(cache = True, fastmath = True)
+@njit(cache = True, fastmath = True, parallel = True)
 def peak_pairs_to_directions(peak_pairs, mus, exclude_lone_peaks = True):
     """
     Calculates the directions from given peak_pairs of a pixel.
@@ -774,6 +774,7 @@ def peak_pairs_to_inclinations(peak_pairs, mus):
 
     return inclinations
 
+@njit(cache = True, fastmath = True, parallel = True)
 def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exclude_lone_peaks = True):
     """
     Calculates the directions from given image_peak_pairs.
@@ -789,10 +790,6 @@ def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exc
     - directory: string
         The directory path defining where direction images should be writen to.
         If None, no images will be writen.
-    - only_peaks_count: int (or list of ints)
-        Defines a filter for the number of peaks, so that only pixels will be processed that have
-        this number of peaks. 
-        Note: This functionallity is a bit deprecated here, since it uses the maximum peak index.
     - exclude_lone_peaks: bool
         Whether to exclude the directions for lone peaks 
         (for peak pairs with only one number unequal -1 e.g. [2, -1]).
@@ -802,25 +799,16 @@ def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exc
         The calculated directions for everyoe of the (n * m) pixels.
         Max 3 directions (for 6 peaks).
     """
-    print("Calculating image directions...")
 
     x_range = image_peak_pairs.shape[0]
     y_range = image_peak_pairs.shape[1]
     max_directions = image_peak_pairs.shape[2]
     image_directions = np.full((x_range, y_range, max_directions), -1, dtype=np.float64)
-    for x in range(x_range):
-        for y in range(y_range):
-            if only_peaks_count != -1:
-                num_peaks = int(np.max(image_peak_pairs[x, y]) + 1)
-                if isinstance(only_peaks_count, list):
-                    if num_peaks not in only_peaks_count: continue
-                else:
-                    if num_peaks != only_peaks_count: continue
-            
+    only_peaks_count_array = np.array(only_peaks_count)
+    for x in prange(x_range):
+        for y in prange(y_range):
             image_directions[x, y] = peak_pairs_to_directions(image_peak_pairs[x, y], image_mus[x, y],
                                                                 exclude_lone_peaks = exclude_lone_peaks)
-
-    print("Done")
 
     return image_directions
 
@@ -1453,11 +1441,7 @@ def get_peak_distances(image_stack = None, image_params = None, image_peaks_mask
         for i in p.range(total_pixels):
             image_distances[i, ...] = -1
 
-    if only_peaks_count > 1:
-        # Get the image mask where only defined significant peak counts are
-        mask = (image_num_peaks == only_peaks_count)
-        image_sig_peaks_mask[~mask, :] = False
-
+    flat_image_num_peaks = image_num_peaks.reshape(total_pixels)
     flat_image_sig_peaks_mask = image_sig_peaks_mask.reshape((total_pixels, image_sig_peaks_mask.shape[2]))
     flat_image_mus = image_mus.reshape((total_pixels, image_mus.shape[2]))
 
@@ -1475,6 +1459,8 @@ def get_peak_distances(image_stack = None, image_params = None, image_peaks_mask
             status = np.sum(shared_counter)
             pbar.update(status - pbar.n)
 
+            if only_peaks_count > 1 and flat_image_num_peaks[i] != only_peaks_count:
+                continue
             if not np.any(flat_image_sig_peaks_mask[i]): continue
             if only_peaks_count == 2:
                 sig_peak_indices = flat_image_sig_peaks_mask[i].nonzero()[0]

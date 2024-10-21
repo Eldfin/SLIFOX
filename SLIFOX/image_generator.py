@@ -672,8 +672,10 @@ def map_directions(image_peak_pairs = None, image_mus = None, only_peaks_count =
     """
 
     if not isinstance(image_directions, np.ndarray):
+        print("Calculating directions...")
         image_directions = calculate_directions(image_peak_pairs, image_mus, 
                             only_peaks_count = only_peaks_count, exclude_lone_peaks = exclude_lone_peaks)
+        print("Done")
 
     # Apply significance threshold filter if given
     if isinstance(image_direction_sig, np.ndarray) and significance_threshold > 0:
@@ -702,7 +704,7 @@ def map_direction_significances(image_stack = None, image_peak_pairs = None, ima
                                 num_processes = 2, image_direction_sig = None):
     """
     Maps the significance of the directions for every pixel.
-    -Old function that could be updated without need for multi processing and in similar manner
+    -Function that could be updated without need for multi processing and in similar manner
     as the other map functions.-
 
     Parameters:
