@@ -500,6 +500,20 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             isin_mask = (sig_peak_pair_combs == pair).all(axis=-1)
                             if np.all(np.any(isin_mask, axis = -1)):
                                 all_match_indices = isin_mask.nonzero()
+                                break
+
+                        if not all_match_indices is None:
+                            # Check if a comb has only this match and a lone peak
+                            # and if so use this comb and continue to next pixel
+                            lone_peaks_mask = np.any(sig_peak_pair_combs == -1, axis = -1)
+                            full_comb_mask = np.all(isin_mask | lone_peaks_mask, axis = -1)
+                            full_comb_indices = full_comb_mask.nonzero()[0]
+                            num_full_combs = len(full_comb_indices)
+                            if num_full_combs > 0:
+                                image_peak_pair_combs[x, y, 
+                                    :num_full_combs,
+                                    :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs[full_comb_indices]
+                                continue
 
                     # Try method(s) with loop
                     if isinstance(method, str):
