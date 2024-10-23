@@ -354,6 +354,18 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
 
                     if num_peaks == 0:
                         continue
+                    elif num_peaks == 1:
+                        significances = direction_significances(peak_pairs, params, peaks_mask, 
+                                    intensities, angles, weights = significance_weights,
+                                    sens = significance_sens, 
+                                    distribution = distribution, only_mus = only_mus,
+                                    exclude_lone_peaks = False)
+                        if significance[0] > significance_threshold:
+                            sig_peak_pair_combs = sig_peak_indices[peak_pairs_combinations]
+                            image_peak_pair_combs[x, y, 
+                                        :sig_peak_pair_combs.shape[0],
+                                        :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
+                        continue
 
                     params = image_params[x, y]
                     peaks_mask = image_peaks_mask[x, y]
