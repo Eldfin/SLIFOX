@@ -360,7 +360,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                                     sens = significance_sens, 
                                     distribution = distribution, only_mus = only_mus,
                                     exclude_lone_peaks = False)
-                        if significance[0] > significance_threshold:
+                        if significances[0] > significance_threshold:
                             sig_peak_pair_combs = sig_peak_indices[peak_pairs_combinations]
                             image_peak_pair_combs[x, y, 
                                         :sig_peak_pair_combs.shape[0],
