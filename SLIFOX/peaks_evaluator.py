@@ -361,7 +361,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                                     distribution = distribution, only_mus = only_mus,
                                     exclude_lone_peaks = False)
                         if significances[0] > significance_threshold:
-                            sig_peak_pair_combs = sig_peak_indices[peak_pairs_combinations]
+                            sig_peak_pair_combs = np.where(peak_pairs_combinations == -1, -1, 
+                                                sig_peak_indices[peak_pairs_combinations])
                             image_peak_pair_combs[x, y, 
                                         :sig_peak_pair_combs.shape[0],
                                         :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
