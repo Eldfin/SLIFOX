@@ -34,7 +34,7 @@ def _inverse_fourier_transform(fft_result):
             result[n] += fft_result[k] * np.exp(2j * np.pi * k * n / N)
     return result / N
 
-@njit(cache=True, fastmath=True)
+#@njit(cache=True, fastmath=True)
 def fourier_smoothing(signal, threshold, window):
     """
     Finds the closest true pixel for a given 2d-mask and a start_pixel.
@@ -43,24 +43,28 @@ def fourier_smoothing(signal, threshold, window):
     - signal: np.ndarray (n, )
         Array of values (e.g. intensities) that should be filtered.
     - threshold: float
-        Threshold value between 0 and 1. Lower threshold leads to stronger smoothing.
+        Threshold value between 0 and 1. Frequencies above the threshold will be cut off.
+        Value of 1 is the Nyquist (maximum) frequency possible for the amount of points.
+        Lower threshold leads to more filtering.
     - window: float
         Value between 0 and 1 that defines the transition region around the threshold.
-        Should be smaller than the threshold value. Increasing window leads to smoother transition
-        between peaks/edges, smoothing occurs more gradually.
+        Should be smaller than the threshold value. Increasing window leads to smoother transition.
+        For low values the frequencies will be cut off more hardly.
+        Value of 0 completly removes the frequencies above the threshold.
 
     Returns:
     - result: np.ndarray (n, )
         The filtered signal.
     """
-    fft_result = _fourier_transform(signal)
-    frequencies = _fftfreq(len(fft_result))
-    frequencies = frequencies / frequencies.max()
-
+    fft_result = np.fft.fft(signal)
+    frequencies = np.fft.fftfreq(len(signal), d=2*np.pi/len(signal))
+    nyquist_frequency = len(signal) / (4 * np.pi)
+    frequencies = frequencies / nyquist_frequency
     multiplier = 1 - (0.5 + 0.5 * np.tanh((np.abs(frequencies) - threshold) / window))
     fft_result = fft_result * multiplier
+    filtered_signal = np.real(_inverse_fourier_transform(fft_result)).astype(signal.dtype)
 
-    return np.real(_inverse_fourier_transform(fft_result)).astype(signal.dtype)
+    return filtered_signal
 
 @njit(cache = True, fastmath = True)
 def circular_moving_average_filter(data, window_size):
