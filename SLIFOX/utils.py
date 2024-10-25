@@ -466,7 +466,7 @@ def cartesian_product(arrays):
     return result
 
 @njit(cache = True, fastmath = True)
-def calculate_chi2(model_y, ydata, xdata, ydata_err, num_params = 0):
+def calculate_chi2(model_y, ydata, ydata_err, num_params = 0):
     """
     Calculates the (reduces) chi2 of given data.
 
@@ -475,12 +475,11 @@ def calculate_chi2(model_y, ydata, xdata, ydata_err, num_params = 0):
         The model values.
     - ydata: np.ndarray (n, )
         The y-data values.
-    - xdata: np.ndarray (n, )
-        The x-data values (only the number of them is used).
     - ydata_err: np.ndarray (n, )
         The error (standard deviation) of the y-data values.
     - num_params: int
         The number of parameters for calculating the reduced chi2.
+        If 0, normal chi2 will be calculated.
 
     Returns:
     - chi2: float
@@ -490,7 +489,7 @@ def calculate_chi2(model_y, ydata, xdata, ydata_err, num_params = 0):
     n_res = residuals/ydata_err # normalized Residuals
     chi2 = np.sum(n_res**2) # Chi-squared
     if num_params > 0:
-        dof = len(xdata) - num_params # Degrees of Freedom = amount of data - amount of parameters
+        dof = ydata.shape[-1] - num_params # Degrees of Freedom = amount of data - amount of parameters
         chi2 = chi2 / dof
 
     return chi2

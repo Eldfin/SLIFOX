@@ -66,7 +66,7 @@ def full_fitfunction(x, params, distribution = "wrapped_cauchy"):
         for i, height in enumerate(heights):
             if height == 0:
                 continue
-            y += params[i * 3] * distribution_pdf(x, params[i * 3 + 1], params[i * 3 + 2], distribution)
+            y += heights[i] * distribution_pdf(x, mus[i], scales[i], distribution)
     else:
         # If the input is params of a whole image, create output for the whole image
         # so first fill y with offsets
@@ -349,7 +349,7 @@ def create_init_guesses(angles, intensities, intensities_err, bounds_min, bounds
                 initial_guess[num_parameters - 1] = np.min(intensities)
 
                 model_y = full_fitfunction(angles, initial_guess, distribution)
-                chi2 = calculate_chi2(model_y, intensities, angles, 
+                chi2 = calculate_chi2(model_y, intensities, 
                                 intensities_err, len(initial_guess))
                 indices = np.array([index_height, index_mu, index_scale])
                 similar_init = False
@@ -431,8 +431,7 @@ def _create_init_guesses_individual(angles, intensities, intensities_err,
                         initial_guess = np.concatenate((initial_guess, peak_guesses[j]))
                     initial_guess = np.append(initial_guess, min_int)
                     model_y = full_fitfunction(peak_angles, initial_guess, distribution)
-                    chi2 = calculate_chi2(model_y, peak_intensities, peak_angles, 
-                                    intensities_err[peaks_mask[i]])
+                    chi2 = calculate_chi2(model_y, peak_intensities, intensities_err[peaks_mask[i]])
                     if chi2 < best_chi2:
                         best_chi2 = chi2
                         peak_guesses[i] = [init_height, init_mu, init_scale]
@@ -441,7 +440,7 @@ def _create_init_guesses_individual(angles, intensities, intensities_err,
     initial_guesses[:, 1:-1] = peak_guesses.ravel()
     initial_guesses[:, -1] = min_int
     model_y = full_fitfunction(angles, initial_guesses[0, 1:], distribution)
-    chi2 = calculate_chi2(model_y, intensities, angles, intensities_err)
+    chi2 = calculate_chi2(model_y, intensities, intensities_err)
     initial_guesses[:, 0] = chi2
 
     return initial_guesses
@@ -608,6 +607,8 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
     # Ensure no overflow in (subtract) operations happen:
     if intensities.dtype != np.int32:
         intensities = intensities.astype(np.int32)
+
+    if intensities_err.dtype != np.int32:
         intensities_err = intensities_err.astype(np.int32)
 
     min_int = np.min(intensities)
@@ -680,7 +681,7 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
                     result.x = np.append(result.x, offset)
 
                 model_y = full_fitfunction(angles, result.x, distribution)
-                redchi = calculate_chi2(model_y, intensities, angles, intensities_err, len(result.x))
+                redchi = calculate_chi2(model_y, intensities, intensities_err, len(result.x))
             else:
 
                 wcm_model = Model(_lmfit_fitfunction)
@@ -779,7 +780,7 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
             best_parameters[0::3] = corrected_heights
     
     #model_y = full_fitfunction(angles, best_parameters, distribution)
-    #best_redchi = calculate_chi2(model_y, intensities, angles, intensities_err, len(best_parameters))
+    #best_redchi = calculate_chi2(model_y, intensities, intensities_err, len(best_parameters))
 
     if return_result_errors:
         return best_parameters, peaks_mask, params_err

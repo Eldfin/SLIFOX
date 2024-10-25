@@ -24,6 +24,7 @@ def wrapped_cauchy_pdf(x, mu, scale):
     mu = mu % (2 * np.pi)
 
     pdf = 1 / (2*np.pi) * np.sinh(scale) / (np.cosh(scale) - np.cos(x - mu))
+    pdf = np.where(scale == np.inf, 0, pdf)
     
     return pdf
 
@@ -76,7 +77,10 @@ def von_mises_pdf(x, mu, scale):
     mu = mu % (2 * np.pi)
 
     I0_scale = bessel_i0(scale)
-    return np.exp(scale * np.cos(x - mu)) / (2 * np.pi * I0_scale)
+    pdf = np.exp(scale * np.cos(x - mu)) / (2 * np.pi * I0_scale)
+    pdf = np.where(scale == np.inf, 0, pdf)
+    
+    return pdf
 
 @njit(cache = True, fastmath = True)
 def wrapped_laplace_pdf(x, mu, scale):
@@ -104,7 +108,10 @@ def wrapped_laplace_pdf(x, mu, scale):
     pdf = np.exp(-np.abs((x - mu) / scale)) / (2 * scale)
     for k in range(1, 10):
         pdf = pdf + np.exp(-np.abs((x - mu + 2*k*np.pi) / scale)) / (2 * scale)
-    return pdf / (2 * scale)
+    pdf = pdf / (2 * scale)
+    pdf = np.where(scale == np.inf, 0, pdf)
+
+    return pdf
 
 
 @njit(cache = True, fastmath = True)
