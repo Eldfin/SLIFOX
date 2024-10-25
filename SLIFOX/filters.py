@@ -35,7 +35,7 @@ def _inverse_fourier_transform(fft_result):
     return result / N
 
 #@njit(cache=True, fastmath=True)
-def fourier_smoothing(signal, threshold, window):
+def fourier_smoothing(signal, threshold, sigma):
     """
     Finds the closest true pixel for a given 2d-mask and a start_pixel.
 
