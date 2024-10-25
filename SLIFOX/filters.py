@@ -47,8 +47,7 @@ def fourier_smoothing(signal, threshold, sigma = 0):
         Value of 1 is the Nyquist (maximum) frequency possible for the amount of points.
         Lower threshold leads to more filtering.
     - sigma: float
-        Standard deviation of the gaussian window used to smooth frequencies in the frequency domain.
-        Increasing sigma leads to smoother transition.
+        Standard deviation of the gaussian filter used to smooth frequencies in the frequency domain.
 
     Returns:
     - result: np.ndarray (n, )
