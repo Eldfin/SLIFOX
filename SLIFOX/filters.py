@@ -58,11 +58,12 @@ def fourier_smoothing(signal, threshold, sigma = 0):
     frequencies = np.fft.fftfreq(len(signal), d=2*np.pi/len(signal))
     nyquist_frequency = len(signal) / (4 * np.pi)
     frequencies = frequencies / nyquist_frequency
-    if sigma == 0:
-        gaussian_window = np.where(np.abs(frequencies) <= threshold, 1, 0)
-    else:
-        gaussian_window = np.exp(-0.5 * (frequencies / sigma) ** 2)
-    fft_result = fft_result * gaussian_window
+    mask = np.abs(frequencies) < threshold
+    if sigma > 0:
+        gaussian_filter = np.exp(-0.5 * (frequencies / sigma) ** 2)
+        mask = mask * gaussian_filter
+
+    fft_result = fft_result * mask
     filtered_signal = np.real(np.fft.ifft(fft_result)).astype(signal.dtype)
     filtered_signal[filtered_signal < 0] = 0
 
