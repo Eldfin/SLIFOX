@@ -35,7 +35,7 @@ def _inverse_fourier_transform(fft_result):
     return result / N
 
 #@njit(cache=True, fastmath=True)
-def fourier_smoothing(signal, threshold, sigma):
+def fourier_smoothing(signal, threshold, sigma = 0):
     """
     Finds the closest true pixel for a given 2d-mask and a start_pixel.
 
@@ -47,10 +47,8 @@ def fourier_smoothing(signal, threshold, sigma):
         Value of 1 is the Nyquist (maximum) frequency possible for the amount of points.
         Lower threshold leads to more filtering.
     - sigma: float
-        Standard deviation of the gaussian window used to smooth frequencies above the threshold value.
+        Standard deviation of the gaussian window used to smooth frequencies in the frequency domain.
         Increasing sigma leads to smoother transition.
-        For low values the frequencies will be cut off more hardly.
-        Value of 0 completly removes the frequencies above the threshold.
 
     Returns:
     - result: np.ndarray (n, )
