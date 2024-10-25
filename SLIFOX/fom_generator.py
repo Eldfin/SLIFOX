@@ -398,7 +398,7 @@ def map_fom(image_directions = None, direction_files = None, output_path = None,
 
     Parameters:
     - image_directions: np.ndarray (n, m, p)
-        Directions for every pixel in the image. "p" is the number of directions per pixel.
+        Directions (in degrees) for every pixel in the image. "p" is the number of directions per pixel.
         If None, direction_files should be defined instead.
     - direction_files: list (of strings)
         List of the paths to the direction files that should be used to create the fom.

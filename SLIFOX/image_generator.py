@@ -685,7 +685,6 @@ def map_directions(image_peak_pairs = None, image_mus = None, only_peaks_count =
         if not os.path.exists(directory):
             os.makedirs(directory)
 
-        image_directions[image_directions != -1] = image_directions[image_directions != -1] * 180 / np.pi
         for dir_n in range(image_directions.shape[-1]):
             image = np.swapaxes(image_directions[:, :, dir_n], 0, 1)
             if normalize:

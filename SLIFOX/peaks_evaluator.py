@@ -31,8 +31,8 @@ def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2"):
     """
 
     # Ensure intensity dtype is sufficient for calculations
-    data_dtype = intensities.dtype
-    intensities = intensities.astype(np.int32)
+    if intensities.dtype != np.int32:
+        intensities = intensities.astype(np.int32)
 
     peaks_gof = np.zeros(peaks_mask.shape[:-1])
     peak_intensities = np.where(peaks_mask, np.expand_dims(intensities, axis = -2), np.nan)
@@ -71,9 +71,6 @@ def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2"):
     
         peaks_gof = 1 - np.nanmean(np.abs(peak_intensities - peak_model_y), axis = -1)
         peaks_gof = np.where(peaks_gof < 0, 0, peaks_gof)
-
-    # recast intensities dtype
-    intensities = intensities.astype(data_dtype)
 
     return peaks_gof
 
@@ -862,7 +859,7 @@ def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exc
 
     Returns:
     - image_directions: (n, m, np.ceil(max_paired_peaks / 2))
-        The calculated directions for everyoe of the (n * m) pixels.
+        The calculated directions (in degrees) for everyoe of the (n * m) pixels.
         Max 3 directions (for 6 peaks).
     """
 
@@ -873,8 +870,10 @@ def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exc
     only_peaks_count_array = np.array(only_peaks_count)
     for x in prange(x_range):
         for y in prange(y_range):
-            image_directions[x, y] = peak_pairs_to_directions(image_peak_pairs[x, y], image_mus[x, y],
+            directions = peak_pairs_to_directions(image_peak_pairs[x, y], image_mus[x, y],
                                                                 exclude_lone_peaks = exclude_lone_peaks)
+            directions[directions != -1] = directions[directions != -1] * 180 / np.pi
+            image_directions[x, y] = directions
 
     return image_directions
 
@@ -1307,13 +1306,12 @@ def get_peak_rel_amplitudes(image_stack, image_amplitudes):
     return image_rel_amplitudes
 
 def get_peak_gofs(image_stack, image_params, image_peaks_mask, distribution = "wrapped_cauchy"):
-    image_heights = image_params[:, :, 0:-1:3]
-    image_scales = image_params[:, :, 2::3]
+    image_heights = image_params[..., 0:-1:3]
     max_fit_peaks = image_heights.shape[-1]
-    angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False) 
+    angles = np.linspace(0, 2*np.pi, num = image_stack.shape[-1], endpoint = False) 
     image_model_y = full_fitfunction(angles, image_params, distribution)
     image_peaks_gof = calculate_peaks_gof(image_stack, image_model_y, 
-                            image_peaks_mask[:, :, :max_fit_peaks, :], method = "r2")
+                            image_peaks_mask[..., :max_fit_peaks, :], method = "r2")
 
     return image_peaks_gof
 
