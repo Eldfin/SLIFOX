@@ -46,9 +46,9 @@ def fourier_smoothing(signal, threshold, window):
         Threshold value between 0 and 1. Frequencies above the threshold will be cut off.
         Value of 1 is the Nyquist (maximum) frequency possible for the amount of points.
         Lower threshold leads to more filtering.
-    - window: float
-        Value between 0 and 1 that defines the transition region around the threshold.
-        Should be smaller than the threshold value. Increasing window leads to smoother transition.
+    - sigma: float
+        Standard deviation of the gaussian window used to smooth frequencies above the threshold value.
+        Increasing sigma leads to smoother transition.
         For low values the frequencies will be cut off more hardly.
         Value of 0 completly removes the frequencies above the threshold.
 
@@ -60,8 +60,11 @@ def fourier_smoothing(signal, threshold, window):
     frequencies = np.fft.fftfreq(len(signal), d=2*np.pi/len(signal))
     nyquist_frequency = len(signal) / (4 * np.pi)
     frequencies = frequencies / nyquist_frequency
-    multiplier = 1 - (0.5 + 0.5 * np.tanh((np.abs(frequencies) - threshold) / window))
-    fft_result = fft_result * multiplier
+    if sigma == 0:
+        gaussian_window = np.where(np.abs(frequencies) <= threshold, 1, 0)
+    else:
+        gaussian_window = np.exp(-0.5 * (frequencies / sigma) ** 2)
+    fft_result = fft_result * gaussian_window
     filtered_signal = np.real(_inverse_fourier_transform(fft_result)).astype(signal.dtype)
 
     return filtered_signal
