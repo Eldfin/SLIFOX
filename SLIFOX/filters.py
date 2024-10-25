@@ -66,6 +66,7 @@ def fourier_smoothing(signal, threshold, sigma):
         gaussian_window = np.exp(-0.5 * (frequencies / sigma) ** 2)
     fft_result = fft_result * gaussian_window
     filtered_signal = np.real(np.fft.ifft(fft_result)).astype(signal.dtype)
+    filtered_signal[filtered_signal < 0] = 0
 
     return filtered_signal
 
