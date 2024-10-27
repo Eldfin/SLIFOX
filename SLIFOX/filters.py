@@ -34,8 +34,39 @@ def _inverse_fourier_transform(fft_result):
             result[n] += fft_result[k] * np.exp(2j * np.pi * k * n / N)
     return result / N
 
+def fourier_smoothing(signal, threshold, window):
+    """
+    Filters a one dimensional signal with the fourier filter.
+
+    Parameters:
+    - signal: np.ndarray (n, )
+        Array of values (e.g. intensities) that should be filtered.
+    - threshold: float
+        Threshold value between 0 and 1. Frequencies above the threshold will be cut off.
+        Value of 1 is the Nyquist (maximum) frequency possible for the amount of points.
+        Lower threshold leads to more filtering.
+    - window: float
+        Window value between 0 and 1.
+        Controls the sharpness of the cutoff. 
+        A larger value allows a smoother transition, blending frequencies more gradually.
+
+    Returns:
+    - result: np.ndarray (n, )
+        The filtered signal.
+    """
+    fft = np.fft.fft(image, axis=-1)
+    frequencies = numpy.fft.fftfreq(fft.shape[-1], d=2*np.pi/len(signal)))
+    nyquist_frequency = len(signal) / (4 * np.pi)
+    frequencies = frequencies / nyquist_frequency
+
+    multiplier = 1 - (0.5 + 0.5 * numpy.tanh(
+        (numpy.abs(frequencies) - threshold) / window))
+    fft = numpy.multiply(fft, multiplier[numpy.newaxis, numpy.newaxis, ...])
+
+    return numpy.real(numpy.fft.ifft(fft)).astype(image.dtype)
+
 #@njit(cache=True, fastmath=True)
-def fourier_smoothing(signal, threshold, sigma = 0):
+def fourier_smoothing_gauss(signal, threshold, sigma = 0):
     """
     Finds the closest true pixel for a given 2d-mask and a start_pixel.
 
