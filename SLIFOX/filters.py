@@ -43,8 +43,7 @@ def fourier_smoothing(signal, threshold, window):
         Array of values (e.g. intensities) that should be filtered.
         Could also be multidimensional (image), with last axis as signals.
     - threshold: float
-        Threshold value between 0 and 1. Frequencies above the threshold will be cut off.
-        Value of 1 is the Nyquist (maximum) frequency possible for the amount of points.
+        Threshold value between 0 and 1. Frequencies (normalized) above the threshold will be cut off.
         Lower threshold leads to more filtering.
     - window: float
         Window value between 0 and 1.
@@ -57,9 +56,8 @@ def fourier_smoothing(signal, threshold, window):
     """
     num_values = signal.shape[-1]
     fft = np.fft.fft(signal, axis=-1)
-    frequencies = np.fft.fftfreq(num_values, d=2*np.pi/num_values)
-    nyquist_frequency = num_values / (4 * np.pi)
-    frequencies = frequencies / nyquist_frequency
+    frequencies = np.fft.fftfreq(num_values)
+    frequencies = frequencies / np.max(frequencies)
 
     if window == 0:
         multiplier = np.ones(num_values)
