@@ -41,6 +41,7 @@ def fourier_smoothing(signal, threshold, window):
     Parameters:
     - signal: np.ndarray (n, )
         Array of values (e.g. intensities) that should be filtered.
+        Could also be multidimensional (image), with last axis as signals.
     - threshold: float
         Threshold value between 0 and 1. Frequencies above the threshold will be cut off.
         Value of 1 is the Nyquist (maximum) frequency possible for the amount of points.
@@ -54,16 +55,23 @@ def fourier_smoothing(signal, threshold, window):
     - result: np.ndarray (n, )
         The filtered signal.
     """
+    num_values = signal.shape[-1]
     fft = np.fft.fft(signal, axis=-1)
-    frequencies = numpy.fft.fftfreq(fft.shape[-1], d=2*np.pi/len(signal)))
-    nyquist_frequency = len(signal) / (4 * np.pi)
+    frequencies = np.fft.fftfreq(num_values, d=2*np.pi/num_values)
+    nyquist_frequency = num_values / (4 * np.pi)
     frequencies = frequencies / nyquist_frequency
 
-    multiplier = 1 - (0.5 + 0.5 * numpy.tanh(
-        (numpy.abs(frequencies) - threshold) / window))
-    fft = numpy.multiply(fft, multiplier[numpy.newaxis, numpy.newaxis, ...])
+    if window == 0:
+        multiplier = np.ones(num_values)
+        mask = (np.abs(frequencies) >= threshold) 
+        multiplier[mask] = 0
+    else:
+        multiplier = 1 - (0.5 + 0.5 * np.tanh((np.abs(frequencies) - threshold) / window))
 
-    return numpy.real(numpy.fft.ifft(fft)).astype(signal.dtype)
+    fft = np.multiply(fft, multiplier)
+    result = np.real(np.fft.ifft(fft)).astype(signal.dtype)
+
+    return result
 
 #@njit(cache=True, fastmath=True)
 def fourier_smoothing_gauss(signal, threshold, sigma = 0):
