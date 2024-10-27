@@ -54,7 +54,7 @@ def fourier_smoothing(signal, threshold, window):
     - result: np.ndarray (n, )
         The filtered signal.
     """
-    fft = np.fft.fft(image, axis=-1)
+    fft = np.fft.fft(signal, axis=-1)
     frequencies = numpy.fft.fftfreq(fft.shape[-1], d=2*np.pi/len(signal)))
     nyquist_frequency = len(signal) / (4 * np.pi)
     frequencies = frequencies / nyquist_frequency
@@ -63,7 +63,7 @@ def fourier_smoothing(signal, threshold, window):
         (numpy.abs(frequencies) - threshold) / window))
     fft = numpy.multiply(fft, multiplier[numpy.newaxis, numpy.newaxis, ...])
 
-    return numpy.real(numpy.fft.ifft(fft)).astype(image.dtype)
+    return numpy.real(numpy.fft.ifft(fft)).astype(signal.dtype)
 
 #@njit(cache=True, fastmath=True)
 def fourier_smoothing_gauss(signal, threshold, sigma = 0):
