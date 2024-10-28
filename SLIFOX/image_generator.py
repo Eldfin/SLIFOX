@@ -643,8 +643,6 @@ def map_directions(image_peak_pairs = None, image_mus = None, only_peaks_count =
         The first two dimensions are the image dimensions.
     - image_mus: np.ndarray (n, m, q)
         The mus (peak centers) for every pixel.
-    - only_peaks_count: int or list of ints
-        Only use pixels where the number of peaks equals this number. -1 uses every number of peaks.
     - exclude_lone_peaks: bool
         Whether to exclude the directions for lone peaks 
         (for peak pairs with only one number unequal -1 e.g. [2, -1]).
@@ -674,7 +672,7 @@ def map_directions(image_peak_pairs = None, image_mus = None, only_peaks_count =
     if not isinstance(image_directions, np.ndarray):
         print("Calculating directions...")
         image_directions = calculate_directions(image_peak_pairs, image_mus, 
-                            only_peaks_count = only_peaks_count, exclude_lone_peaks = exclude_lone_peaks)
+                                exclude_lone_peaks = exclude_lone_peaks)
         print("Done")
 
     # Apply significance threshold filter if given
