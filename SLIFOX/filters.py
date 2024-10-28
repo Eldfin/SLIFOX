@@ -68,7 +68,6 @@ def fourier_smoothing(signal, threshold, window):
 
     fft = np.multiply(fft, multiplier)
     result = np.real(np.fft.ifft(fft)).astype(signal.dtype)
-    result[result < 0] = 0
 
     return result
 
@@ -95,7 +94,6 @@ def fourier_gauss_smoothing(signal, sigma):
     multiplier = np.exp(-0.5 * (frequencies / sigma) ** 2)
     fft = np.multiply(fft, multiplier)
     result = np.real(np.fft.ifft(fft)).astype(signal.dtype)
-    result[result < 0] = 0
 
     return result
 
@@ -168,23 +166,26 @@ def apply_filter(data, filter_params, num_processes = 2):
 
     def apply_filter_1d(data_1d):
         if filter_params[0] == "fourier":
-            return fourier_smoothing(data_1d, filter_params[1], filter_params[2])
+            result =  fourier_smoothing(data_1d, filter_params[1], filter_params[2])
         elif filter_params[0] == "fourier_gauss":
-            return fourier_gauss_smoothing(data_1d, filter_params[1])    
+            result =  fourier_gauss_smoothing(data_1d, filter_params[1])    
         elif filter_params[0] == "gauss":
             order = filter_params[2] if len(filter_params) == 3 else 0
-            return gaussian_filter1d(data_1d, filter_params[1], order=order, mode="wrap")
+            result =  gaussian_filter1d(data_1d, filter_params[1], order=order, mode="wrap")
             #return apply_gaussian_filter1d(data_1d, filter_params[1])
         elif filter_params[0] == "uniform":
-            return uniform_filter1d(data_1d, filter_params[1], mode="wrap")
+            retresult = urn uniform_filter1d(data_1d, filter_params[1], mode="wrap")
         elif filter_params[0] == "median":
-            return median_filter(data_1d, size=filter_params[1], mode="wrap")
+            result =  median_filter(data_1d, size=filter_params[1], mode="wrap")
         elif filter_params[0] == "moving_average":
-            return circular_moving_average_filter(data_1d, filter_params[1])
+            result =  circular_moving_average_filter(data_1d, filter_params[1])
         elif filter_params[0] == "savgol":
             order = filter_params[2] if len(filter_params) == 3 else 3
-            return savgol_filter(data_1d, filter_params[1], order, mode="wrap")
-        return data_1d
+            result =  savgol_filter(data_1d, filter_params[1], order, mode="wrap")
+        
+        result[result < 0] = 0
+        return result
+
 
     if data.ndim == 1:
         return apply_filter_1d(data)
