@@ -165,11 +165,15 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
         Can also be a list containing multiple methods that are used in order.
         E.g. ["neighbor", "significance"] will sort remaining combinations of a pixel by significance 
         if sorting by neighbor was not sucessfull.
-    - min_distance: float
+    - min_distance: float or list of floats
         Defines the minimum (180 degree periodic) distance between two paired peaks in degree.
-    - max_distance: float
+        Can also be a list to define different values for pixels with different number of peaks.
+        E.g. [30, 60, 120] for [2, 3, >4] Peaks.
+    - max_distance: float or list of floats
         Defines the maximum (180 degree periodic) distance between two paired peaks in degree.
         Default is 180 degree (no limit).
+        Can also be a list to define different values for pixels with different number of peaks.
+        E.g. [30, 60, 120] for [2, 3, >4] Peaks.
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution used for calculation of the goodness-of-fit for gof thresholding.
     - only_mus: bool
@@ -258,8 +262,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
     angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)
 
     # Convert to radians
-    min_distance = min_distance * np.pi / 180
-    max_distance = max_distance * np.pi / 180
+    min_distance = np.array(min_distance) * np.pi / 180
+    max_distance = np.array(max_distance) * np.pi / 180
     nb_diff_threshold = nb_diff_threshold * np.pi / 180
     pli_diff_threshold = pli_diff_threshold * np.pi / 180
     
@@ -378,6 +382,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                     peaks_mask = image_peaks_mask[x, y]
                     intensities = image_stack[x, y]
                     num_found_peaks = np.count_nonzero(np.any(peaks_mask, axis = -1))
+                    min_distance_val = min_distance[min(i - 2, len(min_distance) - 1)]
+                    max_distance_val = max_distance[min(i - 2, len(max_distance) - 1)]
 
                     if not only_mus:
                         mus = params[1::3]
@@ -401,7 +407,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                         for pair_index, pair in enumerate(peak_pairs):
                             if np.any(pair == -1): continue
                             distance = np.abs(angle_distance(mus[pair[0]], mus[pair[1]]))
-                            if distance < min_distance or distance > max_distance:
+                            if distance < min_distance_val or distance > max_distance_val:
                                 if num_peaks == num_found_peaks:
                                     valid_combs_mask[k] = False
                                 else:
