@@ -177,8 +177,8 @@ def apply_filter(data, filter_params, num_processes = 2):
             return fourier_smoothing(data_1d, filter_params[1], filter_params[2])
         elif filter_params[0] == "gauss":
             order = filter_params[2] if len(filter_params) == 3 else 0
-            #return gaussian_filter1d(data_1d, filter_params[1], order=order, mode="wrap")
-            return apply_gaussian_filter1d(data_1d, filter_params[1])
+            return gaussian_filter1d(data_1d, filter_params[1], order=order, mode="wrap")
+            #return apply_gaussian_filter1d(data_1d, filter_params[1])
         elif filter_params[0] == "uniform":
             return uniform_filter1d(data_1d, filter_params[1], mode="wrap")
         elif filter_params[0] == "median":
