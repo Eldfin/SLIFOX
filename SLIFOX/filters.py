@@ -68,6 +68,7 @@ def fourier_smoothing(signal, threshold, window):
 
     fft = np.multiply(fft, multiplier)
     result = np.real(np.fft.ifft(fft)).astype(signal.dtype)
+    result[result < 0] = 0
 
     return result
 
