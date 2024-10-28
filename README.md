@@ -300,9 +300,10 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
     E.g. ["neighbor", "significance"] will sort remaining combinations of a pixel by significance 
     if sorting by neighbor was not sucessfull.
 - `min_distance`: float
-    Defines the minimum distance between two paired peaks in degrees, when more than 2 peaks are present.
-    If this value is close to 180 the peak finding method converges to a method where neighbors
-    does not matter and only peaks with distances around 180 are paired.
+    Defines the minimum (180 degree periodic) distance between two paired peaks in degree.
+- `max_distance`: float
+    Defines the maximum (180 degree periodic) distance between two paired peaks in degree.
+    Default is 180 degree (no limit).
 - `distribution`: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
     The name of the distribution used for calculation of the goodness-of-fit for gof thresholding.
 - `only_mus`: bool

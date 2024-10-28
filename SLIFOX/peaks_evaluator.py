@@ -130,7 +130,8 @@ def calculate_image_peaks_gof(image_stack, image_model_y, peaks_mask, method = "
     return peaks_gof
 
 def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "neighbor", 
-                            min_distance = 30, distribution = "wrapped_cauchy", only_mus = False, 
+                            min_distance = 30, max_distance = 180, 
+                            distribution = "wrapped_cauchy", only_mus = False, 
                             num_processes = 2, amplitude_threshold = 1000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, significance_threshold = 0,
                             nb_significance_threshold = 0.9, 
@@ -165,9 +166,10 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
         E.g. ["neighbor", "significance"] will sort remaining combinations of a pixel by significance 
         if sorting by neighbor was not sucessfull.
     - min_distance: float
-        Defines the minimum distance between two paired peaks in degrees, when more than 2 peaks are present.
-        If this value is close to 180 the peak finding method converges to a method where neighbors
-        does not matter and only peaks with distances around 180 are paired.
+        Defines the minimum (180 degree periodic) distance between two paired peaks in degree.
+    - max_distance: float
+        Defines the maximum (180 degree periodic) distance between two paired peaks in degree.
+        Default is 180 degree (no limit).
     - distribution: string ("wrapped_cauchy", "von_mises", or "wrapped_laplace")
         The name of the distribution used for calculation of the goodness-of-fit for gof thresholding.
     - only_mus: bool
@@ -254,6 +256,12 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
     n_cols = image_stack.shape[1]
     total_pixels = n_rows * n_cols
     angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)
+
+    # Convert to radians
+    min_distance = min_distance * np.pi / 180
+    max_distance = max_distance * np.pi / 180
+    nb_diff_threshold = nb_diff_threshold * np.pi / 180
+    pli_diff_threshold = pli_diff_threshold * np.pi / 180
     
     if only_mus:
         max_peaks = image_params.shape[2]
@@ -389,11 +397,11 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                         peak_pairs = np.where(peak_pairs_combinations[k] == -1, -1, 
                                                         sig_peak_indices[peak_pairs_combinations[k]])
 
-                        # Check if a pair has a smaller distance than min_distance
+                        # Check if a pair has a smaller/larger distance than min/max distance
                         for pair_index, pair in enumerate(peak_pairs):
                             if np.any(pair == -1): continue
                             distance = np.abs(angle_distance(mus[pair[0]], mus[pair[1]]))
-                            if distance < min_distance * np.pi / 180:
+                            if distance < min_distance or distance > max_distance:
                                 if num_peaks == num_found_peaks:
                                     valid_combs_mask[k] = False
                                 else:
@@ -584,7 +592,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             differences = np.abs(angle_distance(PLI_directions[x, y], SLI_directions, 
                                                                 wrap = np.pi))
                             
-                            if np.min(differences) <= pli_diff_threshold * np.pi / 180:
+                            if np.min(differences) <= pli_diff_threshold:
                                 sorting_indices = np.argsort(differences)
                                 sorted_peak_pairs = sorted_peak_pairs[sorting_indices]
                                 image_peak_pair_combs[x, y, 
@@ -663,7 +671,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                                         # Insert minimum difference to neighbor directions into array for sorting later
                                         direction_diffs[k] = differences[nbd_index, min_diff_dir_index]
 
-                                    if np.min(direction_diffs) <= nb_diff_threshold * np.pi / 180:
+                                    if np.min(direction_diffs) <= nb_diff_threshold:
                                         # If minimum difference to neighbor direction is 
                                         # smaller than given threshold mark the matching directions
                                         min_diff = np.min(direction_diffs)
