@@ -262,8 +262,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
     angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)
 
     # Convert to radians
-    min_distance = np.array(min_distance) * np.pi / 180
-    max_distance = np.array(max_distance) * np.pi / 180
+    min_distance = np.atleast_1d(min_distance) * np.pi / 180
+    max_distance = np.atleast_1d(max_distance) * np.pi / 180
     nb_diff_threshold = nb_diff_threshold * np.pi / 180
     pli_diff_threshold = pli_diff_threshold * np.pi / 180
     
