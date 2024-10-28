@@ -73,17 +73,14 @@ def fourier_smoothing(signal, threshold, window):
     return result
 
 #@njit(cache=True, fastmath=True)
-def fourier_smoothing_gauss(signal, threshold, sigma = 0):
+def fourier_gauss_smoothing(signal, sigma):
     """
-    Finds the closest true pixel for a given 2d-mask and a start_pixel.
+    Filters a one dimensional signal in the fourier domain using a gaussian window.
 
     Parameters:
     - signal: np.ndarray (n, )
         Array of values (e.g. intensities) that should be filtered.
-    - threshold: float
-        Threshold value between 0 and 1. Frequencies above the threshold will be cut off.
-        Value of 1 is the Nyquist (maximum) frequency possible for the amount of points.
-        Lower threshold leads to more filtering.
+        Could also be multidimensional (image), with last axis as signals.
     - sigma: float
         Standard deviation of the gaussian filter used to smooth frequencies in the frequency domain.
 
@@ -91,20 +88,16 @@ def fourier_smoothing_gauss(signal, threshold, sigma = 0):
     - result: np.ndarray (n, )
         The filtered signal.
     """
-    fft_result = np.fft.fft(signal)
-    frequencies = np.fft.fftfreq(len(signal), d=2*np.pi/len(signal))
-    nyquist_frequency = len(signal) / (4 * np.pi)
-    frequencies = frequencies / nyquist_frequency
-    mask = np.abs(frequencies) < threshold
-    if sigma > 0:
-        gaussian_filter = np.exp(-0.5 * (frequencies / sigma) ** 2)
-        mask = mask * gaussian_filter
+    num_values = signal.shape[-1]
+    fft = np.fft.fft(signal, axis=-1)
+    frequencies = np.fft.fftfreq(num_values)
+    frequencies = frequencies / np.max(frequencies)
+    multiplier = np.exp(-0.5 * (frequencies / sigma) ** 2)
+    fft = np.multiply(fft, multiplier)
+    result = np.real(np.fft.ifft(fft)).astype(signal.dtype)
+    result[result < 0] = 0
 
-    fft_result = fft_result * mask
-    filtered_signal = np.real(np.fft.ifft(fft_result)).astype(signal.dtype)
-    filtered_signal[filtered_signal < 0] = 0
-
-    return filtered_signal
+    return result
 
 @njit(cache = True, fastmath = True)
 def circular_moving_average_filter(data, window_size):
@@ -176,6 +169,8 @@ def apply_filter(data, filter_params, num_processes = 2):
     def apply_filter_1d(data_1d):
         if filter_params[0] == "fourier":
             return fourier_smoothing(data_1d, filter_params[1], filter_params[2])
+        elif filter_params[0] == "fourier_gauss":
+            return fourier_gauss_smoothing(data_1d, filter_params[1])    
         elif filter_params[0] == "gauss":
             order = filter_params[2] if len(filter_params) == 3 else 0
             return gaussian_filter1d(data_1d, filter_params[1], order=order, mode="wrap")
@@ -190,6 +185,9 @@ def apply_filter(data, filter_params, num_processes = 2):
             order = filter_params[2] if len(filter_params) == 3 else 0
             return savgol_filter(data_1d, filter_params[1], order, mode="wrap")
         return data_1d
+
+    if data.ndim == 1:
+        return apply_filter_1d(data)
 
     n_rows, n_cols = data.shape[0], data.shape[1]
     total_pixels = n_rows * n_cols

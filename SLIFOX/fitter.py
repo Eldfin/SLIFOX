@@ -614,6 +614,7 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
     min_int = np.min(intensities)
     max_int = np.max(intensities)
     global_amplitude = max_int - min_int
+    intensities_err[intensities_err == 0] = 1
     
     if init_fit_filter:
         original_intensities = intensities
@@ -906,7 +907,6 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                 intensities_err = image_stack_err
             else:
                 intensities_err = np.ceil(np.sqrt(intensities)).astype(intensities.dtype)
-                intensities_err[intensities_err == 0] = 1
             best_parameters, peaks_mask, *rest = fit_pixel_stack(angles, intensities, 
                                     intensities_err, 
                                     distribution, n_steps_height, n_steps_mu, n_steps_scale,
