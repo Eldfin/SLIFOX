@@ -182,7 +182,7 @@ def apply_filter(data, filter_params, num_processes = 2):
         elif filter_params[0] == "moving_average":
             return circular_moving_average_filter(data_1d, filter_params[1])
         elif filter_params[0] == "savgol":
-            order = filter_params[2] if len(filter_params) == 3 else 0
+            order = filter_params[2] if len(filter_params) == 3 else 3
             return savgol_filter(data_1d, filter_params[1], order, mode="wrap")
         return data_1d
 
