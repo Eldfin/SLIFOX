@@ -174,7 +174,7 @@ def apply_filter(data, filter_params, num_processes = 2):
             result =  gaussian_filter1d(data_1d, filter_params[1], order=order, mode="wrap")
             #return apply_gaussian_filter1d(data_1d, filter_params[1])
         elif filter_params[0] == "uniform":
-            retresult = urn uniform_filter1d(data_1d, filter_params[1], mode="wrap")
+            result = uniform_filter1d(data_1d, filter_params[1], mode="wrap")
         elif filter_params[0] == "median":
             result =  median_filter(data_1d, size=filter_params[1], mode="wrap")
         elif filter_params[0] == "moving_average":
