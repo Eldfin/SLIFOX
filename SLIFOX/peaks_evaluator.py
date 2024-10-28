@@ -838,7 +838,7 @@ def peak_pairs_to_inclinations(peak_pairs, mus):
     return inclinations
 
 @njit(cache = True, fastmath = True, parallel = True)
-def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exclude_lone_peaks = True):
+def calculate_directions(image_peak_pairs, image_mus, exclude_lone_peaks = True):
     """
     Calculates the directions from given image_peak_pairs.
 
@@ -850,9 +850,6 @@ def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exc
         The first two dimensions are the image dimensions.
     - image_mus: np.ndarray (n, m, max_find_peaks)
         The mus (centers) of the found (max_find_peaks) peaks for everyone of the (n * m) pixels.
-    - directory: string
-        The directory path defining where direction images should be writen to.
-        If None, no images will be writen.
     - exclude_lone_peaks: bool
         Whether to exclude the directions for lone peaks 
         (for peak pairs with only one number unequal -1 e.g. [2, -1]).
@@ -867,9 +864,9 @@ def calculate_directions(image_peak_pairs, image_mus, only_peaks_count = -1, exc
     y_range = image_peak_pairs.shape[1]
     max_directions = image_peak_pairs.shape[2]
     image_directions = np.full((x_range, y_range, max_directions), -1, dtype=np.float64)
-    only_peaks_count_array = np.array(only_peaks_count)
     for x in prange(x_range):
         for y in prange(y_range):
+
             directions = peak_pairs_to_directions(image_peak_pairs[x, y], image_mus[x, y],
                                                                 exclude_lone_peaks = exclude_lone_peaks)
             directions[directions != -1] = directions[directions != -1] * 180 / np.pi
