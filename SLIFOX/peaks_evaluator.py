@@ -1721,7 +1721,7 @@ def SLI_to_PLI(peak_pairs, mus):
     else:
         
         peak_distances = np.zeros(num_directions)
-        for i in range(num_directions)
+        for i in range(num_directions):
             peak_indices = peak_pairs[i]
             peak_distances[i] = np.abs(angle_distance(mus[peak_indices[0]], mus[peak_indices[1]]))
         
