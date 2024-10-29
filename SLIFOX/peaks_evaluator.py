@@ -140,7 +140,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             nb_diff_threshold = 5, pli_diff_threshold = 5, max_attempts = 100, 
                             search_radius = 50, min_directions_diff = 20, exclude_lone_peaks = True,
                             image_num_peaks = None, image_sig_peaks_mask = None,
-                            image_pli_directions = None, image_pli_inclinations = None):
+                            image_pli_directions = None):
     """
     Finds all the peak_pairs for a whole image stack and sorts them by comparing with neighbor pixels.
 
@@ -239,8 +239,6 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
         it can be inserted here to speed up the process.
     - image_pli_directions: np.ndarray (n, m)
         The directions in radians (0 to pi) from a pli measurement used for the method "pli".
-    - image_pli_inclinations: np.ndarray (n, m)
-        The inclinations in radians (-pi/2 to pi/2) from a pli measurement used for the method "pli".
 
     Returns:
     - image_peak_pair_combs: np.ndarray (n, m, p, np.ceil(max_paired_peaks / 2), 2)
@@ -590,10 +588,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
 
                             sorted_peak_pairs = sig_peak_pair_combs[start_index:]
                             SLI_directions = np.empty(sorted_peak_pairs.shape[:-1])
-                            SLI_retardations = np.empty(sorted_peak_pairs.shape[:-1])
                             for k, peak_pairs in enumerate(sorted_peak_pairs):
-                                SLI_directions[k], SLI_retardations[i] = SLI_to_PLI(peak_pairs, 
-                                                                                    mus, heights)
+                                SLI_directions[k] = SLI_to_PLI(peak_pairs, mus)
                             
                             differences = np.abs(angle_distance(PLI_directions[x, y], SLI_directions, 
                                                                 wrap = np.pi))
@@ -1693,10 +1689,10 @@ def get_mean_peak_widths(image_stack = None, image_params = None, image_peaks_ma
     return image_mean_widths
 
 @njit(cache = True, fastmath = True)
-def SLI_to_PLI(peak_pairs, mus, heights, PLI_inclination = None, PLI_retardation = None):
+def SLI_to_PLI(peak_pairs, mus):
     """
     Converts the results from a SLI measurement (peak pairs, mus, heights) to a virtual PLI measurement.
-    "What whould be measured in a PLI measurement for the found nerve fibers in the SLI measurement?"
+    "What would be measured in a PLI measurement for the found nerve fibers in the SLI measurement?"
 
     Parameters:
     - peak_pairs: np.ndarray (np.ceil(m / 2), 2)
@@ -1706,48 +1702,40 @@ def SLI_to_PLI(peak_pairs, mus, heights, PLI_inclination = None, PLI_retardation
         is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
     - mus: np.ndarray (m, )
         The center positions of the peaks.
-    - heights: np.ndarray (m, )
-        The height values of the peaks.
-    - PLI_retardation: float
-        The full retardation value from a PLI measurement, that is used to (calculate the birefringence to) 
-        convert the SLI inclinations to fiber retardations.
-    - PLI_inclination: 
-        The full inclination value from a PLI measurement, that is used to (calculate the birefringence to) 
-        convert the SLI inclinations to fiber retardations.
 
     Returns:
-    - new_dir: float
+    - PLI_direction: float
         Virtual direction value of the PLI measurement.
-    - new_ret: float
-        Virtual retardation value of the PLI measurement.
-        Does not store usable information when not using SLI inclination (SLI_inclination = False).
 
     """
 
-    directions = peak_pairs_to_directions(peak_pairs, mus)
+    directions = peak_pairs_to_directions(peak_pairs, mus, exclude_lone_peaks = True)
+    directions = directions[directions != -1]
     num_directions = len(directions)
     
     if num_directions == 0:
-        return -1, 0
+        PLI_direction = -1
     elif num_directions == 1:
         # For one directions return the direction
-        return directions[0], 0
+        PLI_direction = direction[0]
     else:
         
-        if not PLI_retardation is None and not PLI_Inclination is None:
-            inclinations = peak_pairs_to_inclinations(peak_pairs, mus)
-            birefringence = calculate_birefringence(PLI_retardation, PLI_inclination, thickness, wavelength)
-            retardations = calculate_retardation(inclinations, birefringence, thickness, wavelength)
-        else:
-            max_heights = np.max(heights[peak_pairs], axis = -1)
-            retardations = max_heights / np.sum(max_heights)
+        peak_distances = np.zeros(num_directions)
+        for i in range(num_directions)
+            peak_indices = peak_pairs[i]
+            peak_distances[i] = np.abs(angle_distance(mus[peak_indices[0]], mus[peak_indices[1]]))
         
-        new_dir, new_ret = add_birefringence(directions[0], retardations[0], 
-                                                directions[1], retardations[1])
+        # Assume retardation1 / retardation2 = distance1 / distance2
+        # and only the ratio (approximately) does matter for add_birefringence
+        # so retardation = distance / sum(distances) is a valid choice
+        normalized_distances = peak_distances / np.sum(peak_distances)
+
+        PLI_direction, ret = add_birefringence(directions[0], normalized_distances[0], 
+                                                directions[1], normalized_distances[1])
         if num_directions == 3:
             # For three directions:
             # To-Do: better handling than again add_birefringence
-            new_dir, new_ret = add_birefringence(new_dir, new_ret, 
-                                                directions[2], retardations[2])
+            PLI_direction, _ = add_birefringence(PLI_direction, ret, 
+                                                directions[2], normalized_distances[2])
 
-    return new_dir, new_ret
+    return PLI_direction

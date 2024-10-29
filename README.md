@@ -368,8 +368,6 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
     it can be inserted here to speed up the process.
 - `image_pli_directions`: np.ndarray (n, m)
     The directions in radians (0 to pi) from a pli measurement used for the method "pli".
-- `image_pli_inclinations`: np.ndarray (n, m)
-    The inclinations in radians (-pi/2 to pi/2) from a pli measurement used for the method "pli".
 
 ##### Returns
 - `image_peak_pairs`: np.ndarray (n, m, p, np.ceil(max_paired_peaks / 2), 2)
