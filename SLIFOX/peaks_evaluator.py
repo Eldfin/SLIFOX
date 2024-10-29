@@ -591,7 +591,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             for k, peak_pairs in enumerate(sorted_peak_pairs):
                                 SLI_directions[k] = SLI_to_PLI(peak_pairs, mus)
                             
-                            differences = np.abs(angle_distance(PLI_directions[x, y], SLI_directions, 
+                            differences = np.abs(angle_distance(image_pli_directions[x, y], SLI_directions, 
                                                                 wrap = np.pi))
                             
                             if np.min(differences) <= pli_diff_threshold:
