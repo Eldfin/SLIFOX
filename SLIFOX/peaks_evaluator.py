@@ -577,29 +577,20 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                                         :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
                             break
                         elif current_method == "pli":
-                            if not only_mus:
-                                heights = params[0:-1:3]
-                            else:
-                                heights = np.zeros(peaks_mask.shape[0])
-                                for k in range(len(heights)):
-                                    peak_intensities = intensities[peaks_mask[k]]
-                                    if len(peak_intensities) == 0: continue
-                                    heights[k] = np.max(peak_intensities) - np.min(intensities)
-
-                            sorted_peak_pairs = sig_peak_pair_combs[start_index:]
-                            SLI_directions = np.empty(sorted_peak_pairs.shape[:-1])
-                            for k, peak_pairs in enumerate(sorted_peak_pairs):
+                            sorted_peak_pair_combs = sig_peak_pair_combs[start_index:]
+                            SLI_directions = np.empty(sorted_peak_pair_combs.shape[0])
+                            for k, peak_pairs in enumerate(sorted_peak_pair_combs):
                                 SLI_directions[k] = SLI_to_PLI(peak_pairs, mus)
-                            
+
                             differences = np.abs(angle_distance(image_pli_directions[x, y], SLI_directions, 
                                                                 wrap = np.pi))
                             
                             if np.min(differences) <= pli_diff_threshold:
                                 sorting_indices = np.argsort(differences)
-                                sorted_peak_pairs = sorted_peak_pairs[sorting_indices]
+                                sorted_peak_pair_combs = sorted_peak_pair_combs[sorting_indices]
                                 image_peak_pair_combs[x, y, 
-                                            start_index:sorted_peak_pairs.shape[0],
-                                            :sorted_peak_pairs.shape[1]] = sorted_peak_pairs
+                                            start_index:sorted_peak_pair_combs.shape[0],
+                                            :sorted_peak_pair_combs.shape[1]] = sorted_peak_pair_combs
 
                         elif current_method == "neighbor":
                             check_mask = np.copy(direction_found_mask)
