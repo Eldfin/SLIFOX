@@ -1717,7 +1717,7 @@ def SLI_to_PLI(peak_pairs, mus):
         PLI_direction = -1
     elif num_directions == 1:
         # For one directions return the direction
-        PLI_direction = direction[0]
+        PLI_direction = directions[0]
     else:
         
         peak_distances = np.zeros(num_directions)
