@@ -41,26 +41,10 @@ class Colormap:
         return np.clip(hsv_to_rgb(hsv_stack), 0, 1)
 
 def _merge_direction_images(direction_files):
-    # Could be simplified with:
-    #direction_images = [imread(file) for file in direction_files]
-    #direction_image = [img[:, :, np.newaxis] for img in direction_images]
-    #direction_image = np.concatenate(direction_image, axis=-1)
-
-    direction_image = None
-    for direction_file in direction_files:
-        single_direction_image = imread(direction_file)
-        if direction_image is None:
-            direction_image = single_direction_image
-        else:
-            if len(direction_image.shape) == 2:
-                direction_image = np.stack((direction_image,
-                                               single_direction_image),
-                                              axis=-1)
-            else:
-                direction_image = np.concatenate((direction_image,
-                                                     single_direction_image
-                                                     [:, :, np.newaxis]),
-                                                    axis=-1)
+    direction_images = [imread(file) for file in direction_files]
+    direction_image = [img[:, :, np.newaxis] for img in direction_images]
+    direction_image = np.concatenate(direction_image, axis=-1)
+    direction_image = np.swapaxes(direction_image, 0, 1)
 
     return direction_image
 
@@ -419,11 +403,10 @@ def map_fom(image_directions = None, direction_files = None, output_path = None,
     if not isinstance(image_directions, np.ndarray):
         if isinstance(direction_files, list):
             image_directions = _merge_direction_images(direction_files)
-            rgb_fom = create_fom(image_directions, direction_offset = direction_offset)
         else:
             raise Exception("You have to input image_directions array or direction_files list.")
-    else:
-        rgb_fom = create_fom(image_directions, direction_offset = direction_offset)
+
+    rgb_fom = create_fom(image_directions, direction_offset = direction_offset)
         
     # Apply direction significance on fom by multiplying it (darkening)
     if not image_direction_sig is None:
