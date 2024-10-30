@@ -948,7 +948,7 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
 
 
 def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(image_stack)",
-                        init_fit_filter = None, only_peaks_count = -1, max_find_peaks = 12,
+                        pre_filter = None, only_peaks_count = -1, max_find_peaks = 12,
                         max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
                         num_processes = 2):
@@ -965,11 +965,8 @@ def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(imag
     - image_stack_err: np.ndarray (n, m, p)
         The standard deviation (error) of the measured intensities in the image stack.
         Default options is the sqrt of the intensities.
-    - init_fit_filter: None or list
-        List that defines which filter to apply before the first fit. 
-        This filter will be applied on the intensities before doing anything and
-        will be remove after one fit is done. Then the normal fitting process starts with
-        this result as initial guess.
+    - pre_filter: None or list
+        List that defines which filter to apply before finding peaks.
         First value of the list is a string with:
         "fourier", "gauss", "uniform", "median", "moving_average", or "savgol".
         The following one to two values are the params for this filter (scipy docs).
@@ -1032,6 +1029,10 @@ def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(imag
             else:
                 intensities_err = np.ceil(np.sqrt(intensities)).astype(intensities.dtype)
                 intensities_err[intensities_err == 0] = 1
+
+            if pre_filter:
+                intensities = apply_filter(intensities, pre_filter)
+                intensities_err = apply_filter(intensities_err, pre_filter)
 
             peaks_mask, peaks_mus = find_peaks(angles, intensities, intensities_err, 
                             only_peaks_count = only_peaks_count, max_find_peaks = max_find_peaks,
