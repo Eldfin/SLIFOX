@@ -839,7 +839,7 @@ def peak_pairs_to_inclinations(peak_pairs, mus):
     return inclinations
 
 @njit(cache = True, fastmath = True, parallel = True)
-def calculate_directions(image_peak_pairs, image_mus, exclude_lone_peaks = True, sort = False):
+def calculate_directions(image_peak_pairs, image_mus, exclude_lone_peaks = True):
     """
     Calculates the directions from given image_peak_pairs.
 
@@ -854,8 +854,6 @@ def calculate_directions(image_peak_pairs, image_mus, exclude_lone_peaks = True,
     - exclude_lone_peaks: bool
         Whether to exclude the directions for lone peaks 
         (for peak pairs with only one number unequal -1 e.g. [2, -1]).
-    - sort: bool
-        Whether to sort the directions in the array.
 
     Returns:
     - image_directions: (n, m, np.ceil(max_paired_peaks / 2))
@@ -874,10 +872,10 @@ def calculate_directions(image_peak_pairs, image_mus, exclude_lone_peaks = True,
                                                                 exclude_lone_peaks = exclude_lone_peaks)
             mask = (directions != -1)
             directions[mask] = directions[mask] * 180 / np.pi
-            if sort:
-                num_valid = np.count_nonzero(mask)
-                directions[:num_valid] = np.sort(directions[mask])
-                directions[num_valid:] = -1
+            #if sort:
+            #    num_valid = np.count_nonzero(mask)
+            #    directions[:num_valid] = np.sort(directions[mask])
+            #    directions[num_valid:] = -1
                 
             image_directions[x, y] = directions
 
