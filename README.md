@@ -209,11 +209,8 @@ Finds the peaks of an image stack using only the peak finder (no fitting).
 - `image_stack_err`: np.ndarray (n, m, p)
     The standard deviation (error) of the measured intensities in the image stack.
     Default options is the sqrt of the intensities. 
-- `init_fit_filter`: None or list  
-    List that defines which filter to apply before the first fit.   
-    This filter will be applied on the intensities before doing anything and  
-    will be remove after one fit is done. Then the normal fitting process starts with  
-    this result as initial guess.  
+- `pre_filter`: None or list  
+    List that defines which filter to apply before the peak finding.   
     First value of the list is a string with:  
     "fourier", "gauss", "uniform", "median", "moving_average", or "savgol".  
     The following one to two values are the params for this filter (scipy docs).  
@@ -798,7 +795,7 @@ data, indices = pick_data(data_file_path, dataset_path, area = area, randoms = r
 #    group.create_dataset("indices", data=indices)
 
 # Find the peaks from the picked data
-image_mus, image_peaks_mask = find_image_peaks(data, threshold = 1000, init_fit_filter = None, 
+image_mus, image_peaks_mask = find_image_peaks(data, threshold = 1000, pre_filter = None, 
                         only_peaks_count = -1, num_processes = 2)
 
 

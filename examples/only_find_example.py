@@ -21,7 +21,7 @@ data, indices = pick_data(data_file_path, dataset_path, area = area, randoms = r
 #    group.create_dataset("indices", data=indices)
 
 # Find the peaks from the picked data
-image_mus, image_peaks_mask = find_image_peaks(data, threshold = 1000, init_fit_filter = None, 
+image_mus, image_peaks_mask = find_image_peaks(data, threshold = 1000, pre_filter = None, 
                         only_peaks_count = -1, num_processes = 2)
 
 
