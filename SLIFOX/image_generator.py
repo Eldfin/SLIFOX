@@ -777,3 +777,13 @@ def map_direction_significances(image_stack = None, image_peak_pairs = None, ima
             imageio.imwrite(filepath, image, format = 'tiff')
 
     return image_direction_sig
+
+def map_data(data, directory = "maps", normalize = False, normalize_to = [None, None]):
+    # map any data to tiff file
+    data = np.swapaxes(data, 0, 1)
+    if normalize:
+        data = normalize_to_rgb(data, normalize_to)
+
+    imageio.imwrite(f'{directory}/data_map.tiff', data, format = 'tiff')
+
+    return data
