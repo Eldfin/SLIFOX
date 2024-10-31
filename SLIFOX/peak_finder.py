@@ -544,77 +544,88 @@ def _find_best_center(angles, current_angles, intensities, current_intensities,
                         peak_angles, peak_intensities, angles_left, index_maximum,
                         angles_right, intensities_left, intensities_right, angle_spacing, mu_maximum, 
                         max_peak_hwhm, local_minima, local_minima_angles, closest_left_border,
-                        closest_right_border):
-    shortest_len = min(len(intensities_left), len(intensities_right))
+                        closest_right_border, first_diff, global_amplitude):
+    
+    len_left = len(angles_left)
+    len_right = len(angles_right)
+    shortest_len = min(len_left, len_right)
     if shortest_len >= 2:
-        # Find left/right values with lowest diff (most symmetric) and caculate best center
-        # check diff also for neighbours (k)
-        right_index = (index_maximum + 1) % len(angles)
-        lowest_diff = np.abs(intensities[index_maximum] - intensities[right_index])
-        best_left, best_right = angles[index_maximum], angles[right_index]
-        for i in range(1, shortest_len + 1):
-            for k in range(4):
-                if (i + k - 1) > shortest_len: break
-                left_index = (index_maximum - i) % len(angles)
-                right_index = (index_maximum + i + k - 1) % len(angles)
-                if not (angles[right_index] in peak_angles): break
-                #if left_index == right_index: continue
-                diff_mirrow = np.abs(intensities[left_index] - intensities[right_index])
-                if diff_mirrow < lowest_diff:
-                    lowest_diff = diff_mirrow
-                    best_left, best_right = angles[left_index], angles[right_index]
 
-        # if peak is over 180 degrees wide and best angles are on bottom
-        # angle_distance is negative, and the right distance the rest of the angle
-        best_distance = angle_distance(best_left, best_right)
-        if best_distance < 0:
-            best_distance = 2 * np.pi - np.abs(best_distance)
+        intensity_maximum = intensities[index_maximum]
+        slope = first_diff / angle_spacing
+        angle_steps = np.linspace(0, angle_spacing, 100)
 
-        best_center = (best_left + best_distance / 2) % (2 * np.pi)
+        sum_wx = 0
+        sum_y = 0
+        cut_off_index = min(len_left, len_right)
+        cut_off_dx_index = -1
+        for i in range(cut_off_index):
+            for k in [-1, 1]:
+                index = (index_maximum + i * k) % len(angles)
+                current_intensity = intensities[index]
+                current_angle = angles[index]
+                current_slope = slope[index] * k
+                for dx_index, dx in enumerate(angle_steps):
+                    y = current_intensity + current_slope * dx
+                    sum_wx += y * current_angle + dx
+                    sum_y += y
+                    if (intensity_maximum - y) >= 0.06 * global_amplitude:
+                        if cut_off_dx_index != -1:
+                            index = (index_maximum - i * k) % len(angles)
+                            sum_y -= np.sum(intensities[index] 
+                                        + slope[index] * angle_steps[dx_index:cut_off_dx_index])
+                        cut_off_dx_index = dx_index
+                        cut_off_index = i
+                        break
+            if cut_off_dx_index != -1:
+                break
+         
+        if cut_off_dx_index != -1:
+            best_center = sum_wx / sum_y
 
-        if np.abs(angle_distance(best_center, mu_maximum)) > 0.25 * angle_spacing:
-            # Rearrange peak and correct peak values
+            if np.abs(angle_distance(best_center, mu_maximum)) <= angle_spacing:
+                # Rearrange peak and correct peak values
 
-            mu_maximum = best_center
+                mu_maximum = best_center
 
-            left_border = (mu_maximum - 1.5 * max_peak_hwhm) % (2 * np.pi)
-            right_border = (mu_maximum + 1.5 * max_peak_hwhm) % (2 * np.pi)
+                left_border = (mu_maximum - 1.5 * max_peak_hwhm) % (2 * np.pi)
+                right_border = (mu_maximum + 1.5 * max_peak_hwhm) % (2 * np.pi)
 
-            left_border, right_border, index_left_min, index_right_min, \
-                left_minima_distances, right_minima_distances = _adjust_borders(left_border, right_border, 
-                                mu_maximum, local_minima_angles, angles, local_minima)
+                left_border, right_border, index_left_min, index_right_min, \
+                    left_minima_distances, right_minima_distances = _adjust_borders(left_border, right_border, 
+                                    mu_maximum, local_minima_angles, angles, local_minima)
 
-            if left_border < right_border:
-                condition = (current_angles < left_border) | (current_angles > right_border)
-            else:
-                condition = (current_angles < left_border) & (current_angles > right_border)
+                if left_border < right_border:
+                    condition = (current_angles < left_border) | (current_angles > right_border)
+                else:
+                    condition = (current_angles < left_border) & (current_angles > right_border)
 
-            peak_angles = current_angles[~ condition]
-            peak_intensities = current_intensities[~ condition]
+                peak_angles = current_angles[~ condition]
+                peak_intensities = current_intensities[~ condition]
 
-            if len(local_minima) > 0:
-                left_min = angles[index_left_min]
-                right_min = angles[index_right_min]
-                if len(left_minima_distances) > 0 and left_min not in peak_angles:
-                    if np.abs(angle_distance(left_min, left_border)) <= angle_spacing:
-                        insert_index = np.searchsorted(peak_angles, left_min)
-                        peak_angles = numba_insert(peak_angles, insert_index, left_min)
-                        peak_intensities = numba_insert(peak_intensities, 
-                                        insert_index, intensities[index_left_min])
-                if len(right_minima_distances) > 0 and right_min not in peak_angles:
-                    if np.abs(angle_distance(right_min, right_border)) <= angle_spacing:
-                        insert_index = np.searchsorted(peak_angles, right_min)
-                        peak_angles = numba_insert(peak_angles, insert_index, right_min)
-                        peak_intensities = numba_insert(peak_intensities, insert_index, 
-                                        intensities[index_right_min])
+                if len(local_minima) > 0:
+                    left_min = angles[index_left_min]
+                    right_min = angles[index_right_min]
+                    if len(left_minima_distances) > 0 and left_min not in peak_angles:
+                        if np.abs(angle_distance(left_min, left_border)) <= angle_spacing:
+                            insert_index = np.searchsorted(peak_angles, left_min)
+                            peak_angles = numba_insert(peak_angles, insert_index, left_min)
+                            peak_intensities = numba_insert(peak_intensities, 
+                                            insert_index, intensities[index_left_min])
+                    if len(right_minima_distances) > 0 and right_min not in peak_angles:
+                        if np.abs(angle_distance(right_min, right_border)) <= angle_spacing:
+                            insert_index = np.searchsorted(peak_angles, right_min)
+                            peak_angles = numba_insert(peak_angles, insert_index, right_min)
+                            peak_intensities = numba_insert(peak_intensities, insert_index, 
+                                            intensities[index_right_min])
 
-            closest_left_border = left_border
-            closest_right_border = right_border
-            relative_angles = angle_distance(mu_maximum, peak_angles)
-            angles_left = peak_angles[relative_angles < 0]
-            angles_right = peak_angles[relative_angles > 0]
-            intensities_left = peak_intensities[relative_angles < 0]
-            intensities_right = peak_intensities[relative_angles > 0]
+                closest_left_border = left_border
+                closest_right_border = right_border
+                relative_angles = angle_distance(mu_maximum, peak_angles)
+                angles_left = peak_angles[relative_angles < 0]
+                angles_right = peak_angles[relative_angles > 0]
+                intensities_left = peak_intensities[relative_angles < 0]
+                intensities_right = peak_intensities[relative_angles > 0]
 
     return mu_maximum, peak_angles, peak_intensities, angles_left, \
             angles_right, intensities_left, intensities_right, closest_left_border, closest_right_border
@@ -859,7 +870,7 @@ def _find_extremas_full(angles, intensities, first_diff, second_diff, params):
     return local_maxima, local_minima, turning_points, turning_points_directions
 
 @njit(cache = True, fastmath = True)
-def _find_peaks_from_extrema(angles, intensities, intensities_err, params):
+def _find_peaks_from_extrema(angles, intensities, intensities_err, params, first_diff):
     peaks_found = 0
     angle_spacing = 2 * np.pi / len(angles)
 
@@ -976,7 +987,7 @@ def _find_peaks_from_extrema(angles, intensities, intensities_err, params):
                         current_intensities, peak_angles, peak_intensities, angles_left, index_maximum,
                         angles_right, intensities_left, intensities_right, angle_spacing, mu_maximum, 
                         max_peak_hwhm, local_minima, local_minima_angles, closest_left_border,
-                        closest_right_border)
+                        closest_right_border, first_diff, global_amplitude)
 
             is_peak[n] = _is_real_peak(angles, intensities, peak_angles, peak_intensities, intensities_left,
                 intensities_right, angles_left, angles_right, global_amplitude, 
@@ -1132,7 +1143,7 @@ def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1,
     )
 
     peaks_mask, peaks_mus = _find_peaks_from_extrema(angles, intensities, intensities_err, 
-                params)
+                params, first_diff)
 
     # unflatten peaks_mask array
     peaks_mask = np.reshape(peaks_mask, (len(peaks_mus), len(angles))).astype(np.bool_)
