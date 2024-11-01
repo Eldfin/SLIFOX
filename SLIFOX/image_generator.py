@@ -403,8 +403,8 @@ def map_peak_distances(image_stack = None, image_params = None, image_peaks_mask
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, only_mus = False, deviation = False,
                             image_peak_pairs = None, only_peaks_count = -1, 
-                            normalize = False, val_range = [None, None],
-                            percentiles = [0.5, 99.5],
+                            normalize = False, normalize_to = (None, None),
+                            percentiles = (None, None),
                             directory = "maps", num_processes = 2,
                             image_num_peaks = None, image_sig_peaks_mask = None,
                             image_distances = None):
