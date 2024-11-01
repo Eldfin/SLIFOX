@@ -544,7 +544,7 @@ def _find_best_center(angles, current_angles, intensities, current_intensities,
                         peak_angles, peak_intensities, angles_left, index_maximum,
                         angles_right, intensities_left, intensities_right, angle_spacing, mu_maximum, 
                         max_peak_hwhm, local_minima, local_minima_angles, closest_left_border,
-                        closest_right_border, first_diff, global_amplitude, centroid = True):
+                        closest_right_border, global_amplitude, centroid = True):
     
     len_left = len(angles_left)
     len_right = len(angles_right)
@@ -616,8 +616,8 @@ def _find_best_center(angles, current_angles, intensities, current_intensities,
         elif centroid:
             steps = np.linspace(0, 1, 100)
             target_intensity = max(0, intensities[index_maximum] - 0.06 * global_amplitude)
-            sum_wx = 0
-            sum_y = 0
+            sum_weighted_x = 0
+            sum_weights = 0
             target_reached = np.zeros(2, dtype = np.bool_)
             lens = [len_left, len_right]
             for i in range(max(lens)):
@@ -627,17 +627,17 @@ def _find_best_center(angles, current_angles, intensities, current_intensities,
                     next_index = (index_maximum + (i + 1) * k) % len(angles)
                     current_intensity = intensities[index]
                     current_angle = angles[index]
-                    diff_intensity = first_diff[index] * k
+                    diff_intensity = current_intensity - intensities[next_index]
                     for step in steps:
                         val = current_intensity + diff_intensity * step
-                        sum_wx += val * (current_angle + step * angle_spacing * k)
-                        sum_y += val
+                        sum_weighted_x += val * (current_angle + step * angle_spacing * k)
+                        sum_weights += val
                         if val < target_intensity:
                             target_reached[target_index] = True
                             break
             
-            if np.all(target_reached) and sum_y > 0:
-                best_center = sum_wx / sum_y
+            if np.all(target_reached) and sum_weights > 0:
+                best_center = sum_weighted_x / sum_weights
 
                 if np.abs(angle_distance(best_center, mu_maximum)) <= angle_spacing:
                     # Rearrange peak and correct peak values
@@ -1033,7 +1033,7 @@ def _find_peaks_from_extrema(angles, intensities, intensities_err, params, first
                         current_intensities, peak_angles, peak_intensities, angles_left, index_maximum,
                         angles_right, intensities_left, intensities_right, angle_spacing, mu_maximum, 
                         max_peak_hwhm, local_minima, local_minima_angles, closest_left_border,
-                        closest_right_border, first_diff, global_amplitude)
+                        closest_right_border, global_amplitude)
 
             # If peak is so strongly merged that only half of the peak visible
             # so that local_maximum = local_minimum, then make the empty side contain this point
