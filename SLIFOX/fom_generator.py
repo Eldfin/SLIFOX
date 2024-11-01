@@ -409,7 +409,7 @@ def map_fom(image_directions = None, direction_files = None, directory = "maps",
             raise Exception("You have to input image_directions array or direction_files list.")
 
     if sort:
-        sort_indices = np.argsort(image_directions, axis=-1)[:, :, ::-1]
+        sort_indices = np.argsort(image_directions, axis=-1)[..., ::-1]
         image_directions = np.take_along_axis(image_directions, sort_indices, axis = -1)
     
     rgb_fom = create_fom(image_directions, direction_offset = direction_offset)
