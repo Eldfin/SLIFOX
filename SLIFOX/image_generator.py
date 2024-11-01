@@ -790,6 +790,10 @@ def map_data(data, directory = "maps", normalize = False, normalize_to = [None, 
     if normalize:
         data = normalize_to_rgb(data, normalize_to)
 
+    if directory != None:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            
     imageio.imwrite(f'{directory}/data_map.tiff', data, format = 'tiff')
 
     return data

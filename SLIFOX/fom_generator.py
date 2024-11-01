@@ -421,8 +421,12 @@ def map_fom(image_directions = None, direction_files = None, directory = "maps",
 
         rgb_fom = apply_sig_on_fom(rgb_fom, image_direction_sig, image_directions)
     
-    imwrite_rgb(f"{output_path}/fom.tiff", np.swapaxes(rgb_fom, 0, 1))
-    imwrite_rgb(f"{output_path}/color_bubble.tiff", color_bubble(Colormap.hsv_black))
+    if directory != None:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+    imwrite_rgb(f"{directory}/fom.tiff", np.swapaxes(rgb_fom, 0, 1))
+    imwrite_rgb(f"{directory}/color_bubble.tiff", color_bubble(Colormap.hsv_black))
     print("Done")
 
     return rgb_fom
