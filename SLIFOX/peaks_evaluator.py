@@ -801,12 +801,12 @@ def peak_pairs_to_directions(peak_pairs, mus, exclude_lone_peaks = True):
             if exclude_lone_peaks:
                 direction = -1
             else:
-                direction = (270 - mus[pair[pair != -1][0]]) % np.pi
+                direction = ((270 * np.pi / 180) - mus[pair[pair != -1][0]]) % np.pi
         else:
             # Two peak direction
             #distance = angle_distance(mus[pair[0]], mus[pair[1]])
             #direction = (mus[pair[0]] + distance / 2) % (np.pi)
-            direction = (270 - (mus[pair[0]] + mus[pair[1]]) / 2) % np.pi
+            direction = ((270 * np.pi / 180) - (mus[pair[0]] + mus[pair[1]]) / 2) % np.pi
 
         directions[k] = direction
 

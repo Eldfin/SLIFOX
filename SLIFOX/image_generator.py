@@ -117,7 +117,7 @@ def plot_peaks_gof(peaks_gof, heights, mus, scales,
         plt.vlines((mus[k]*180/np.pi) % 360, 0, ymax , color = gof_color)
 
 def plot_directions(peak_pairs, mus, distribution, heights = None, scales = None, 
-                        exclude_lone_peaks = False):
+                        exclude_lone_peaks = False, dirs_in_mid = False):
     """
     Plots the found directions (peak pairs) in the current plot.
 
@@ -134,6 +134,8 @@ def plot_directions(peak_pairs, mus, distribution, heights = None, scales = None
         The name of the distribution.
     - exclude_lone_peaks: bool
         Whether to exclude lone peak directions in the plot.
+    - dirs_in_mid: bool
+        Whether to plot directions in the midpoint between peaks or corrected with 270 degree
     """
     for k, pair in enumerate(peak_pairs):
         if pair[0] == -1 and pair[1] == -1: continue
@@ -147,6 +149,8 @@ def plot_directions(peak_pairs, mus, distribution, heights = None, scales = None
             ax = plt.gca()
             limit_min, limit_max = ax.get_ylim()
             direction = mus[pair[0]] % (np.pi)
+            if not dirs_in_mid:
+                direction = (270 * np.pi / 180 - direction) % np.pi
             if isinstance(heights, np.ndarray) and isinstance(scales , np.ndarray):
                 if direction == mus[pair[0]]:
                     ymin = heights[pair[0]] * distribution_pdf(0, 0, scales[pair[0]], distribution)
@@ -163,6 +167,8 @@ def plot_directions(peak_pairs, mus, distribution, heights = None, scales = None
         else:
             distance = angle_distance(mus[pair[0]], mus[pair[1]])
             direction = (mus[pair[0]] + distance / 2) % (np.pi)
+            if not dirs_in_mid:
+                direction = (270 * np.pi / 180 - direction) % np.pi
             direction = direction * 180/np.pi
             alternating_vline(direction, colors=mixed_colors, num_segments=10)
             alternating_vline(direction + 180, colors=mixed_colors, num_segments=10)
