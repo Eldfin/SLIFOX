@@ -55,7 +55,7 @@ def _visualize_one_direction(direction, rgb_stack):
     return output_image.astype('float32')
 
 
-@njit(cache = True, parallel = True)
+@njit(parallel = True)
 def _visualize_multiple_direction(direction, valid_directions, rgb_stack):
     output_image = np.zeros((direction.shape[0] * 2,
                                 direction.shape[1] * 2,
@@ -376,7 +376,7 @@ def apply_sig_on_fom(rgb_fom, image_direction_sig, image_directions):
 
 
 def map_fom(image_directions = None, direction_files = None, output_path = None, 
-            direction_offset = 0, image_direction_sig = None):
+            direction_offset = 0, image_direction_sig = None, sort = True):
     """
     Maps the fiber orientation map (fom) from given direction (files).
 
@@ -394,6 +394,8 @@ def map_fom(image_directions = None, direction_files = None, output_path = None,
     - image_direction_sig: np.ndarray (n, m, p)
         Significances of the directions that will be multiplied with the fom image,
         to darken directions with low significance. 
+    - sort: bool
+        Whether to sort the directions (from high to low angles) to improve appearance of fom.
 
     Returns:
     - rgb_fom: np.ndarray (2*n, 2*m, 3)
@@ -406,10 +408,17 @@ def map_fom(image_directions = None, direction_files = None, output_path = None,
         else:
             raise Exception("You have to input image_directions array or direction_files list.")
 
+    if sort:
+        sort_indices = np.argsort(array, axis=-1)[:, :, ::-1]
+        image_directions = np.take_along_axis(image_directions, sort_indices, axis = -1)
+    
     rgb_fom = create_fom(image_directions, direction_offset = direction_offset)
         
     # Apply direction significance on fom by multiplying it (darkening)
     if not image_direction_sig is None:
+        if sort:
+            image_direction_sig = np.take_along_axis(image_direction_sig, sort_indices, axis = -1)
+            
         rgb_fom = apply_sig_on_fom(rgb_fom, image_direction_sig, image_directions)
     
     imwrite_rgb(f"{output_path}/fom.tiff", np.swapaxes(rgb_fom, 0, 1))
