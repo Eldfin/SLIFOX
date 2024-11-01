@@ -784,8 +784,31 @@ def map_direction_significances(image_stack = None, image_peak_pairs = None, ima
 
     return image_direction_sig
 
-def map_data(data, directory = "maps", normalize = False, normalize_to = [None, None]):
-    # map any data to tiff file
+def map_data(data, directory = "maps", normalize = False, normalize_to = [None, None],
+                output_name = "data_map"):
+    """
+    Maps any data to a tiff file.
+
+    Parameters:
+    - data: np.ndarray (n, m)
+        The data that should be mapped.
+    - directory: string
+        The directory path defining where the resulting image should be writen to.
+        If None, no image will be writen.
+    - normalize: bool
+        Whether the created image should be normalized (amd displayed with colors).
+    - normalize_to: list
+        List of min and max value that defines the range the image is normalized to.
+        If min (or max) is None, the minimum (or maximum) of the image will be used.
+    - output_name: string
+        The name of the output file.
+        If None, the output name will be "data_map".
+
+    Returns:
+    - data: np.ndarray (n, m)
+        The mapped data.
+    """
+    
     data = np.swapaxes(data, 0, 1)
     if normalize:
         data = normalize_to_rgb(data, normalize_to)
@@ -794,6 +817,6 @@ def map_data(data, directory = "maps", normalize = False, normalize_to = [None, 
         if not os.path.exists(directory):
             os.makedirs(directory)
             
-    imageio.imwrite(f'{directory}/data_map.tiff', data, format = 'tiff')
+    imageio.imwrite(f'{directory}/{output_name}.tiff', data, format = 'tiff')
 
     return data
