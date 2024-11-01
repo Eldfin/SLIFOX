@@ -22,25 +22,37 @@ default_colormap = np.array([
 ])
 norm_default_colormap = default_colormap / 255
 
-def normalize_to_rgb(array, value_range = [None, None], colormap = "viridis"):
+def normalize_to_rgb(array, value_range = (None, None), percentiles = (None, None), colormap = "viridis"):
     # Normalizes an 2d-array using a colormap
     # if min (or max) in range is None, it will be the min (or max) of the image
     
     cmap = plt.get_cmap(colormap)
-    if value_range[0] == None:
-        value_range[0] = np.min(array[array > 0])
-    if value_range[1] == None:
-        value_range[1] = np.max(array)
-    normalized_image = np.clip(array, value_range[0], value_range[1])
-    normalized_image = (normalized_image - value_range[0]) / (value_range[1] - value_range[0])
-    image = cmap(normalized_image)[:, :, :3] * 255  # Apply colormap and convert to 0-255 range
-    image = image.astype(np.uint8)
+    if value_range[0] != None:
+        min_val = np.min(array)
+    if value_range[1] != None:
+        max_val = np.max(array)
+
+    if percentiles[0] != None or percentiles[1] != None:
+        if percentiles[0] != None and percentiles[1] != None:
+            p_low, p_high = np.percentile(array, percentiles)
+        elif percentiles[0] != None:
+            p_low = np.percentile(array, percentiles[0])
+            p_high = max_val
+        elif percentiles[1] != None:
+            p_low = min_val
+            p_high = np.percentiles(array, percentiles[1])
+        min_val = min(min_val, p_low)
+        max_val = max(max_val, p_high)
+        
+    normalized_array = (array - min_val) / (max_val - min_val)
+    normalized_array = cmap(normalized_array)[:, :, :3] * 255  # Apply colormap and convert to 0-255 range
+    normalized_array = normalized_array.astype(np.uint8)
     
     # Set values below normalization range to black and above to white
-    image[array < value_range[0]] = [0, 0, 0]
-    image[array > value_range[1]] = [255, 255, 255]
+    normalized_array[array < min_val] = [0, 0, 0]
+    normalized_array[array > max_val] = [255, 255, 255]
 
-    return image
+    return normalized_array
 
 def alternating_vline(x, ax=None, colors=['blue', 'red'], num_segments=100, **kwargs):
     """
@@ -392,7 +404,8 @@ def map_peak_distances(image_stack = None, image_params = None, image_peaks_mask
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, only_mus = False, deviation = False,
                             image_peak_pairs = None, only_peaks_count = -1, 
-                            normalize = False, normalize_to = [None, None],
+                            normalize = False, val_range = [None, None],
+                            percentiles = [0.5, 99.5],
                             directory = "maps", num_processes = 2,
                             image_num_peaks = None, image_sig_peaks_mask = None,
                             image_distances = None):
@@ -437,10 +450,12 @@ def map_peak_distances(image_stack = None, image_params = None, image_peaks_mask
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
     - normalize: bool
-        Whether the created image should be normalized (amd displayed with colors)
-    - normalize_to: list
-        List of min and max value that defines the range the image is normalized to.
+        Whether the created image should be normalized (amd displayed with colors).
+    - normalize_to: tuple
+        Tuple of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
+    - percentiles: tuple
+        Tuple of percentiles used for normalization.
     - num_processes: int
         Defines the number of processes to split the task into.
     - image_sig_peaks_mask: np.ndarray (n, m, max_find_peaks)
@@ -482,13 +497,13 @@ def map_peak_distances(image_stack = None, image_params = None, image_peaks_mask
         for dir_n in range(image_distances.shape[-1]):    
             image = np.swapaxes(image_distances[:, :, dir_n], 0, 1)
             if normalize:
-                image = normalize_to_rgb(image, normalize_to)
+                image = normalize_to_rgb(image, normalize_to, percentiles)
             filepath = f'{directory}/{file_name}_{dir_n + 1}.tiff'
             imageio.imwrite(filepath, image, format = 'tiff')
     else:
         image = np.swapaxes(image_distances, 0, 1)
         if normalize:
-            image = normalize_to_rgb(image, normalize_to)
+            image = normalize_to_rgb(image, normalize_to, percentiles)
         filepath = f'{directory}/{file_name}.tiff'
         imageio.imwrite(filepath, image, format = 'tiff')
 
@@ -499,7 +514,7 @@ def map_mean_peak_amplitudes(image_stack = None, image_params = None, image_peak
                             distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, only_mus = False, directory = "maps", 
-                            normalize = False, normalize_to = [None, None],
+                            normalize = False, normalize_to = (None, None), percentiles = (None, None),
                             image_sig_peaks_mask = None, image_mean_amplitudes = None):
     """
     Maps the mean peak amplitude for every pixel.
@@ -530,11 +545,12 @@ def map_mean_peak_amplitudes(image_stack = None, image_params = None, image_peak
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
     - normalize: bool
-        Whether the created image should be normalized (amd displayed with colors)
-    - normalize_to: list
-        List of min and max value that defines the range the image is normalized to.
+        Whether the created image should be normalized (amd displayed with colors).
+    - normalize_to: tuple
+        Tuple of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
-    - image_sig_peaks_mask: np.ndarray (n, m)
+    - percentiles: tuple
+        Tuple of percentiles used for normalization.- image_sig_peaks_mask: np.ndarray (n, m)
         If significant peaks mask is already calculated, 
         it can be provided here to speed up the process.
     - image_mean_ampplitudes: np.ndarray (n, m)
@@ -558,7 +574,7 @@ def map_mean_peak_amplitudes(image_stack = None, image_params = None, image_peak
 
     image = np.swapaxes(image_mean_amplitudes, 0, 1)
     if normalize:
-        image = normalize_to_rgb(image, normalize_to)
+        image = normalize_to_rgb(image, normalize_to, percentiles)
 
     imageio.imwrite(f'{directory}/peak_amplitudes_map.tiff', image, format = 'tiff')
 
@@ -568,7 +584,7 @@ def map_mean_peak_widths(image_stack = None, image_params = None,
                             image_peaks_mask = None, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, directory = "maps",
-                            normalize = False, normalize_to = [None, None],
+                            normalize = False, normalize_to = (None, None), percentiles = (None, None),
                             image_sig_peaks_mask = None, image_mean_widths = None):
     """
     Maps the mean peak width for every pixel.
@@ -597,10 +613,12 @@ def map_mean_peak_widths(image_stack = None, image_params = None,
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
     - normalize: bool
-        Whether the created image should be normalized (amd displayed with colors)
-    - normalize_to: list
+        Whether the created image should be normalized (amd displayed with colors).
+    - normalize_to: tuple
         List of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
+    - percentiles: tuple
+        Tuple of percentiles used for normalization.
     - image_sig_peaks_mask: np.ndarray (n, m, max_find_peaks)
         If the significant peaks mask is already calculated,
         it can be provided here to speed up the process.
@@ -627,7 +645,7 @@ def map_mean_peak_widths(image_stack = None, image_params = None,
 
     image = np.swapaxes(image_mean_widths, 0, 1)
     if normalize:
-        image = normalize_to_rgb(image, normalize_to)
+        image = normalize_to_rgb(image, normalize_to, percentiles)
 
     imageio.imwrite(f'{directory}/peak_widths_map.tiff', image, format = 'tiff')
 
@@ -635,8 +653,8 @@ def map_mean_peak_widths(image_stack = None, image_params = None,
 
 def map_directions(image_peak_pairs = None, image_mus = None, only_peaks_count = -1, 
                     exclude_lone_peaks = True,
-                    image_direction_sig = None, significance_threshold = 0,
-                    directory = "maps", normalize = False, normalize_to = [0, 180],
+                    image_direction_sig = None, significance_threshold = 0, directory = "maps",
+                    normalize = False, normalize_to = (0, 180), percentiles = (None, None),
                     image_directions = None):
     """
     Maps the directions for every pixel.
@@ -663,10 +681,12 @@ def map_directions(image_peak_pairs = None, image_mus = None, only_peaks_count =
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
     - normalize: bool
-        Whether the created image should be normalized (amd displayed with colors)
-    - normalize_to: list
+        Whether the created image should be normalized (amd displayed with colors).
+    - normalize_to: tuple
         List of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
+    - percentiles: tuple
+        Tuple of percentiles used for normalization.
     - image_directions: np.ndarray (n, m, 3)
         If the directions have already been calculated, they can be inserted here.
 
@@ -692,7 +712,7 @@ def map_directions(image_peak_pairs = None, image_mus = None, only_peaks_count =
         for dir_n in range(image_directions.shape[-1]):
             image = np.swapaxes(image_directions[:, :, dir_n], 0, 1)
             if normalize:
-                image = normalize_to_rgb(image, normalize_to)
+                image = normalize_to_rgb(image, normalize_to, percentiles)
             filepath = f'{directory}/dir_{dir_n + 1}.tiff'
             imageio.imwrite(filepath, image, format = 'tiff')
 
@@ -703,7 +723,7 @@ def map_direction_significances(image_stack = None, image_peak_pairs = None, ima
                                 amplitude_threshold = 0, rel_amplitude_threshold = 0,
                                 gof_threshold = 0, weights = [1, 1], sens = [1, 1],
                                 only_mus = False, directory = "maps",
-                                normalize = False, normalize_to = [None, None],
+                                normalize = False, normalize_to = (None, None), percentiles = (None, None),
                                 num_processes = 2, image_direction_sig = None):
     """
     Maps the significance of the directions for every pixel.
@@ -746,12 +766,12 @@ def map_direction_significances(image_stack = None, image_peak_pairs = None, ima
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
     - normalize: bool
-        Whether the created image should be normalized (amd displayed with colors)
-    - normalize_to: list
+        Whether the created image should be normalized (amd displayed with colors).
+    - normalize_to: tuple
         List of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
-    - num_processes: int
-        Defines the number of processes to split the task into.
+    - percentiles: tuple
+        Tuple of percentiles used for normalization.
     - image_direction_sig: np.ndarray (n, m, 3)
         If the direction significances have already been calculated, they can be inserted here.
 
@@ -778,14 +798,14 @@ def map_direction_significances(image_stack = None, image_peak_pairs = None, ima
         for dir_n in range(image_direction_sig.shape[-1]):
             image = np.swapaxes(image_direction_sig[:, :, dir_n], 0, 1)
             if normalize:
-                image = normalize_to_rgb(image, normalize_to)
+                image = normalize_to_rgb(image, normalize_to, percentiles)
             filepath = f'{directory}/dir_{dir_n + 1}_sig.tiff'
             imageio.imwrite(filepath, image, format = 'tiff')
 
     return image_direction_sig
 
-def map_data(data, directory = "maps", normalize = False, normalize_to = [None, None],
-                output_name = "data_map"):
+def map_data(data, directory = "maps", normalize = False, normalize_to = (None, None), 
+                percentiles = (None, None), output_name = "data_map"):
     """
     Maps any data to a tiff file.
 
@@ -797,9 +817,11 @@ def map_data(data, directory = "maps", normalize = False, normalize_to = [None, 
         If None, no image will be writen.
     - normalize: bool
         Whether the created image should be normalized (amd displayed with colors).
-    - normalize_to: list
+    - normalize_to: tuple
         List of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
+    - percentiles: tuple
+        Tuple of percentiles used for normalization.
     - output_name: string
         The name of the output file.
         If None, the output name will be "data_map".
@@ -811,7 +833,7 @@ def map_data(data, directory = "maps", normalize = False, normalize_to = [None, 
     
     data = np.swapaxes(data, 0, 1)
     if normalize:
-        data = normalize_to_rgb(data, normalize_to)
+        data = normalize_to_rgb(data, normalize_to, percentiles)
 
     if directory != None:
         if not os.path.exists(directory):
