@@ -27,10 +27,8 @@ def normalize_to_rgb(array, value_range = (None, None), percentiles = (None, Non
     # if min (or max) in range is None, it will be the min (or max) of the image
     
     cmap = plt.get_cmap(colormap)
-    if value_range[0] != None:
-        min_val = np.min(array)
-    if value_range[1] != None:
-        max_val = np.max(array)
+    min_val = value_range[0] if value_range[0] is not None else np.min(array)
+    max_val = value_range[1] if value_range[1] is not None else np.max(array)
 
     if percentiles[0] != None or percentiles[1] != None:
         if percentiles[0] != None and percentiles[1] != None:
@@ -384,14 +382,15 @@ def map_number_of_peaks(image_stack = None, image_params = None,
                                 gof_threshold = gof_threshold,
                                 only_mus = only_mus, image_sig_peaks_mask = image_sig_peaks_mask)
 
-    if directory != None:
+    if directory is not None:
         if not os.path.exists(directory):
             os.makedirs(directory)
 
         if not isinstance(colormap, np.ndarray):
             colormap = np.insert(default_colormap, 0, (0, 0, 0), axis = 0).astype(np.uint8)
         
-        image = np.swapaxes(image_num_peaks, 0, 1)
+        image = np.copy(image_num_peaks)
+        image = np.swapaxes(image, 0, 1)
         image = np.clip(image, 0, 7)
         image = colormap[image]
 
@@ -487,25 +486,33 @@ def map_peak_distances(image_stack = None, image_params = None, image_peaks_mask
                                 image_sig_peaks_mask = image_sig_peaks_mask,
                                 image_num_peaks = image_num_peaks)
 
-    image_distances[image_distances != -1] = image_distances[image_distances != -1] * 180 / np.pi
-    file_name = "peak_distances_map"
-    if deviation:
-        image_distances[image_distances != -1] = 180 - image_distances[image_distances != -1]
-        file_name = "peak_distances_deviation_map"
+    if directory is not None:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
 
-    if len(image_distances.shape) == 3:
-        for dir_n in range(image_distances.shape[-1]):    
-            image = np.swapaxes(image_distances[:, :, dir_n], 0, 1)
+        image = np.copy(image_distances)
+
+        image[image != -1] = image[image != -1] * 180 / np.pi
+        file_name = "peak_distances_map"
+        if deviation:
+            image[image != -1] = 180 - image[image != -1]
+            file_name = "peak_distances_deviation_map"
+
+        image = np.swapaxes(image, 0, 1)
+
+        if image_distances.ndim > 2:
+            for dir_n in range(image_distances.shape[-1]):    
+                image = image[:, :, dir_n]
+                if normalize:
+                    image = normalize_to_rgb(image, normalize_to, percentiles)
+                filepath = f'{directory}/{file_name}_{dir_n + 1}.tiff'
+                imageio.imwrite(filepath, image, format = 'tiff')
+        else:
+            image = np.swapaxes(image, 0, 1)
             if normalize:
                 image = normalize_to_rgb(image, normalize_to, percentiles)
-            filepath = f'{directory}/{file_name}_{dir_n + 1}.tiff'
+            filepath = f'{directory}/{file_name}.tiff'
             imageio.imwrite(filepath, image, format = 'tiff')
-    else:
-        image = np.swapaxes(image_distances, 0, 1)
-        if normalize:
-            image = normalize_to_rgb(image, normalize_to, percentiles)
-        filepath = f'{directory}/{file_name}.tiff'
-        imageio.imwrite(filepath, image, format = 'tiff')
 
 
     return image_distances
@@ -572,11 +579,16 @@ def map_mean_peak_amplitudes(image_stack = None, image_params = None, image_peak
                             only_mus = only_mus, 
                             image_sig_peaks_mask = image_sig_peaks_mask)
 
-    image = np.swapaxes(image_mean_amplitudes, 0, 1)
-    if normalize:
-        image = normalize_to_rgb(image, normalize_to, percentiles)
+    if directory is not None:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
 
-    imageio.imwrite(f'{directory}/peak_amplitudes_map.tiff', image, format = 'tiff')
+        image = np.copy(image_mean_amplitudes)
+        image = np.swapaxes(image, 0, 1)
+        if normalize:
+            image = normalize_to_rgb(image, normalize_to, percentiles)
+
+        imageio.imwrite(f'{directory}/peak_amplitudes_map.tiff', image, format = 'tiff')
 
     return image_mean_amplitudes
 
@@ -640,14 +652,21 @@ def map_mean_peak_widths(image_stack = None, image_params = None,
                                 gof_threshold = gof_threshold,
                                 image_sig_peaks_mask = image_sig_peaks_mask)
 
-    # scale = hwhm for wrapped cauchy distribution
-    image_mean_widths = image_mean_widths * 180 / np.pi * 2
 
-    image = np.swapaxes(image_mean_widths, 0, 1)
-    if normalize:
-        image = normalize_to_rgb(image, normalize_to, percentiles)
+    if directory is not None:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
 
-    imageio.imwrite(f'{directory}/peak_widths_map.tiff', image, format = 'tiff')
+        image = np.copy(image_mean_widths)
+
+        # scale = hwhm for wrapped cauchy distribution
+        image = image * 180 / np.pi * 2
+
+        image = np.swapaxes(image, 0, 1)
+        if normalize:
+            image = normalize_to_rgb(image, normalize_to, percentiles)
+
+        imageio.imwrite(f'{directory}/peak_widths_map.tiff', image, format = 'tiff')
 
     return image_mean_widths
 
@@ -701,19 +720,28 @@ def map_directions(image_peak_pairs = None, image_mus = None, only_peaks_count =
                                 exclude_lone_peaks = exclude_lone_peaks)
         print("Done")
 
-    # Apply significance threshold filter if given
-    if isinstance(image_direction_sig, np.ndarray) and significance_threshold > 0:
-        image_directions[image_direction_sig < significance_threshold] = -1
-
-    if directory != None:
+    if directory is not None:
         if not os.path.exists(directory):
             os.makedirs(directory)
 
-        for dir_n in range(image_directions.shape[-1]):
-            image = np.swapaxes(image_directions[:, :, dir_n], 0, 1)
+        image = np.copy(image_directions)
+
+        # Apply significance threshold filter if given
+        if isinstance(image_direction_sig, np.ndarray) and significance_threshold > 0:
+            image[image_direction_sig < significance_threshold] = -1
+
+        image = np.swapaxes(image, 0, 1)
+        if image_directions.ndim > 2:
+            for dir_n in range(image.shape[-1]):
+                image_slice = image[:, :, dir_n]
+                if normalize:
+                    image_slice = normalize_to_rgb(image_slice, normalize_to, percentiles)
+                filepath = f'{directory}/dir_{dir_n + 1}.tiff'
+                imageio.imwrite(filepath, image_slice, format = 'tiff')
+        else:
             if normalize:
                 image = normalize_to_rgb(image, normalize_to, percentiles)
-            filepath = f'{directory}/dir_{dir_n + 1}.tiff'
+            filepath = f'{directory}/dir_.tiff'
             imageio.imwrite(filepath, image, format = 'tiff')
 
     return image_directions
@@ -791,16 +819,18 @@ def map_direction_significances(image_stack = None, image_peak_pairs = None, ima
                                     weights = weights, sens = sens, only_mus = only_mus, 
                                     num_processes = num_processes)
     
-    if directory != None:
+    if directory is not None:
         if not os.path.exists(directory):
             os.makedirs(directory)
 
+        image = np.copy(image_direction_sig)
+        image = np.swapaxes(image, 0, 1)
         for dir_n in range(image_direction_sig.shape[-1]):
-            image = np.swapaxes(image_direction_sig[:, :, dir_n], 0, 1)
+            image_slice = image[:, :, dir_n]
             if normalize:
-                image = normalize_to_rgb(image, normalize_to, percentiles)
+                image_slice = normalize_to_rgb(image_slice, normalize_to, percentiles)
             filepath = f'{directory}/dir_{dir_n + 1}_sig.tiff'
-            imageio.imwrite(filepath, image, format = 'tiff')
+            imageio.imwrite(filepath, image_slice, format = 'tiff')
 
     return image_direction_sig
 
@@ -831,14 +861,16 @@ def map_data(data, directory = "maps", normalize = False, normalize_to = (None, 
         The mapped data.
     """
     
-    data = np.swapaxes(data, 0, 1)
-    if normalize:
-        data = normalize_to_rgb(data, normalize_to, percentiles)
 
-    if directory != None:
+    if directory is not None:
         if not os.path.exists(directory):
             os.makedirs(directory)
-            
-    imageio.imwrite(f'{directory}/{output_name}.tiff', data, format = 'tiff')
+
+        image = np.copy(data)
+        image = np.swapaxes(image, 0, 1)
+        if normalize:
+            image = normalize_to_rgb(image, normalize_to, percentiles)
+
+        imageio.imwrite(f'{directory}/{output_name}.tiff', image, format = 'tiff')
 
     return data
