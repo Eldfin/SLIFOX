@@ -409,7 +409,7 @@ def map_fom(image_directions = None, direction_files = None, output_path = None,
             raise Exception("You have to input image_directions array or direction_files list.")
 
     if sort:
-        sort_indices = np.argsort(array, axis=-1)[:, :, ::-1]
+        sort_indices = np.argsort(image_directions, axis=-1)[:, :, ::-1]
         image_directions = np.take_along_axis(image_directions, sort_indices, axis = -1)
     
     rgb_fom = create_fom(image_directions, direction_offset = direction_offset)
@@ -418,7 +418,7 @@ def map_fom(image_directions = None, direction_files = None, output_path = None,
     if not image_direction_sig is None:
         if sort:
             image_direction_sig = np.take_along_axis(image_direction_sig, sort_indices, axis = -1)
-            
+
         rgb_fom = apply_sig_on_fom(rgb_fom, image_direction_sig, image_directions)
     
     imwrite_rgb(f"{output_path}/fom.tiff", np.swapaxes(rgb_fom, 0, 1))
