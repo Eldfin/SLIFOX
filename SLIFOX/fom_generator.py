@@ -4,6 +4,7 @@ from numba import njit, prange
 from matplotlib.colors import hsv_to_rgb, rgb_to_hsv
 import tifffile
 from .utils import imread
+import os
 
 # Generate fom in same manner as SLIX
 
