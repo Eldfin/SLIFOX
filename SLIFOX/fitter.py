@@ -951,7 +951,7 @@ def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(imag
                         pre_filter = None, only_peaks_count = -1, max_find_peaks = 12,
                         max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
-                        num_processes = 2):
+                        num_processes = 2, centroid = True):
     """
     Finds the peaks of an image stack using only the peak finder.
 
@@ -986,6 +986,9 @@ def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(imag
         Range of scale (regarding estimated maximum and minimum bounds around true scale).
     - num_processes: int
         Number that defines in how many sub-processes the fitting process should be split into.
+    - centroid: bool
+        Whether to use the (intensity) weighted mean of interpolated peak angles in 6% amplitude range.
+        If False, center is calculated by finding two similar points on each side. 
 
     Returns
     -------
@@ -1037,7 +1040,8 @@ def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(imag
             peaks_mask, peaks_mus = find_peaks(angles, intensities, intensities_err, 
                             only_peaks_count = only_peaks_count, max_find_peaks = max_find_peaks,
                             max_peak_hwhm = max_peak_hwhm, min_peak_hwhm = min_peak_hwhm, 
-                            mu_range = mu_range, scale_range = scale_range)
+                            mu_range = mu_range, scale_range = scale_range,
+                            centroid = centroid)
 
             image_peaks_mask[pixel, 0:len(peaks_mask)] = peaks_mask
             image_peaks_mus[pixel, 0:len(peaks_mus)] = peaks_mus

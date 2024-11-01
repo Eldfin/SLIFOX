@@ -544,7 +544,7 @@ def _find_best_center(angles, current_angles, intensities, current_intensities,
                         peak_angles, peak_intensities, angles_left, index_maximum,
                         angles_right, intensities_left, intensities_right, angle_spacing, mu_maximum, 
                         max_peak_hwhm, local_minima, local_minima_angles, closest_left_border,
-                        closest_right_border, global_amplitude, centroid = True):
+                        closest_right_border, global_amplitude, centroid):
     
     len_left = len(angles_left)
     len_right = len(angles_right)
@@ -926,7 +926,7 @@ def _find_extremas_full(angles, intensities, first_diff, second_diff, params):
     return local_maxima, local_minima, turning_points, turning_points_directions
 
 @njit(cache = True, fastmath = True)
-def _find_peaks_from_extrema(angles, intensities, intensities_err, params, first_diff):
+def _find_peaks_from_extrema(angles, intensities, intensities_err, params, centroid):
     peaks_found = 0
     angle_spacing = 2 * np.pi / len(angles)
 
@@ -1033,7 +1033,7 @@ def _find_peaks_from_extrema(angles, intensities, intensities_err, params, first
                         current_intensities, peak_angles, peak_intensities, angles_left, index_maximum,
                         angles_right, intensities_left, intensities_right, angle_spacing, mu_maximum, 
                         max_peak_hwhm, local_minima, local_minima_angles, closest_left_border,
-                        closest_right_border, global_amplitude)
+                        closest_right_border, global_amplitude, centroid)
 
             # If peak is so strongly merged that only half of the peak visible
             # so that local_maximum = local_minimum, then make the empty side contain this point
@@ -1106,7 +1106,7 @@ def _find_peaks_from_extrema(angles, intensities, intensities_err, params, first
 def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1,
                     max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                     mu_range = 40 * np.pi/180, scale_range = 0.4,
-                    max_find_peaks = 12):
+                    max_find_peaks = 12, centroid = False):
     """
     Finds peaks from given array of measured intensities of a pixel.
 
@@ -1130,6 +1130,9 @@ def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1,
         Range of scale (regarding estimated maximum and minimum bounds around true scale).
     - max_find_peaks: int
         Defines the maximum number for the returned found peaks (more will be cut off).
+    - centroid: bool
+        Whether to use the (intensity) weighted mean of interpolated peak angles in 6% amplitude range.
+        If False, center is calculated by finding two similar points on each side. 
 
     Returns:
     - peaks_mask: np.ndarray (n_peaks, n)
@@ -1199,7 +1202,7 @@ def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1,
     )
 
     peaks_mask, peaks_mus = _find_peaks_from_extrema(angles, intensities, intensities_err, 
-                params, first_diff)
+                params, centroid)
 
     # unflatten peaks_mask array
     peaks_mask = np.reshape(peaks_mask, (len(peaks_mus), len(angles))).astype(np.bool_)
