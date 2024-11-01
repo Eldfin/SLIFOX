@@ -951,7 +951,7 @@ def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(imag
                         pre_filter = None, only_peaks_count = -1, max_find_peaks = 12,
                         max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
                         mu_range = 40 * np.pi/180, scale_range = 0.4,
-                        num_processes = 2, centroid = True):
+                        num_processes = 2, centroid = False):
     """
     Finds the peaks of an image stack using only the peak finder.
 
