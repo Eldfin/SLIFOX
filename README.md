@@ -411,7 +411,7 @@ Calculates the directions from given peak_pairs.
     List of min and max value that defines the range the image is normalized to.
     If min (or max) is None, the minimum (or maximum) of the image will be used.
 - `percentiles`: tuple
-    Tuple of percentiles used for normalization.
+    Tuple of low and high percentiles used for normalization.
 - `image_directions`: np.ndarray (n, m, 3)
     If the directions have already been calculated, they can be inserted here.
 
@@ -465,7 +465,7 @@ Maps the significances of all found directions from given "image_peak_pairs".
     List of min and max value that defines the range the image is normalized to.
     If min (or max) is None, the minimum (or maximum) of the image will be used.
 - `percentiles`: tuple
-    Tuple of percentiles used for normalization.
+    Tuple of low and high percentiles used for normalization.
 - `num_processes`: int
     Defines the number of processes to split the task into.
 - `image_direction_sig:` np.ndarray (n, m, 3)
@@ -584,7 +584,7 @@ Maps the distance between two paired peaks for every pixel.
     List of min and max value that defines the range the image is normalized to.
     If min (or max) is None, the minimum (or maximum) of the image will be used.
 - `percentiles`: tuple
-    Tuple of percentiles used for normalization.
+    Tuple of low and high percentiles used for normalization.
 - `num_processes`: int
     Defines the number of processes to split the task into.
 - `image_sig_peaks_mask`: np.ndarray (n, m, max_find_peaks)
@@ -636,7 +636,7 @@ Maps the mean peak amplitude for every pixel.
     List of min and max value that defines the range the image is normalized to.
     If min (or max) is None, the minimum (or maximum) of the image will be used.
 - `percentiles`: tuple
-    Tuple of percentiles used for normalization.
+    Tuple of low and high percentiles used for normalization.
 - `image_sig_peaks_mask`: np.ndarray (n, m)
     If significant peaks mask is already calculated, 
     it can be provided here to speed up the process.
@@ -680,7 +680,7 @@ Maps the mean peak width for every pixel.
     List of min and max value that defines the range the image is normalized to.
     If min (or max) is None, the minimum (or maximum) of the image will be used.
 - `percentiles`: tuple
-    Tuple of percentiles used for normalization.
+    Tuple of low and high percentiles used for normalization.
 - `image_sig_peaks_mask`: np.ndarray (n, m)
     If significant peaks mask is already calculated, 
     it can be provided here to speed up the process.
@@ -690,6 +690,31 @@ Maps the mean peak width for every pixel.
 ##### Returns
 - `image_mean_widths`: (n, m)
     The mean amplitude for every pixel.
+
+#### Function: `map_data`
+##### Description
+Maps any data to a tiff file.
+
+##### Parameters
+- `data`: np.ndarray (n, m)
+    The data that should be mapped.
+- `directory`: string
+    The directory path defining where the resulting image should be writen to.
+    If None, no image will be writen.
+- `normalize`: bool
+    Whether the created image should be normalized (amd displayed with colors).
+- `normalize_to`: tuple
+    List of min and max value that defines the range the image is normalized to.
+    If min (or max) is None, the minimum (or maximum) of the image will be used.
+- `percentiles`: tuple
+    Tuple of low and high percentiles used for normalization.
+- `output_name`: string
+    The name of the output file.
+    If None, the output name will be "data_map".
+
+##### Returns
+- `data`: np.ndarray (n, m)
+    The mapped data.
 
 ### Examples
 

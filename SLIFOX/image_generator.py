@@ -454,7 +454,7 @@ def map_peak_distances(image_stack = None, image_params = None, image_peaks_mask
         Tuple of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
     - percentiles: tuple
-        Tuple of percentiles used for normalization.
+        Tuple of low and high percentiles used for normalization. 
     - num_processes: int
         Defines the number of processes to split the task into.
     - image_sig_peaks_mask: np.ndarray (n, m, max_find_peaks)
@@ -557,7 +557,7 @@ def map_mean_peak_amplitudes(image_stack = None, image_params = None, image_peak
         Tuple of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
     - percentiles: tuple
-        Tuple of percentiles used for normalization.- image_sig_peaks_mask: np.ndarray (n, m)
+        Tuple of low and high percentiles used for normalization.- image_sig_peaks_mask: np.ndarray (n, m)
         If significant peaks mask is already calculated, 
         it can be provided here to speed up the process.
     - image_mean_ampplitudes: np.ndarray (n, m)
@@ -630,7 +630,7 @@ def map_mean_peak_widths(image_stack = None, image_params = None,
         List of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
     - percentiles: tuple
-        Tuple of percentiles used for normalization.
+        Tuple of low and high percentiles used for normalization.
     - image_sig_peaks_mask: np.ndarray (n, m, max_find_peaks)
         If the significant peaks mask is already calculated,
         it can be provided here to speed up the process.
@@ -705,7 +705,7 @@ def map_directions(image_peak_pairs = None, image_mus = None, only_peaks_count =
         List of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
     - percentiles: tuple
-        Tuple of percentiles used for normalization.
+        Tuple of low and high percentiles used for normalization.
     - image_directions: np.ndarray (n, m, 3)
         If the directions have already been calculated, they can be inserted here.
 
@@ -799,7 +799,7 @@ def map_direction_significances(image_stack = None, image_peak_pairs = None, ima
         List of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
     - percentiles: tuple
-        Tuple of percentiles used for normalization.
+        Tuple of low and high percentiles used for normalization.
     - image_direction_sig: np.ndarray (n, m, 3)
         If the direction significances have already been calculated, they can be inserted here.
 
@@ -851,7 +851,7 @@ def map_data(data, directory = "maps", normalize = False, normalize_to = (None, 
         List of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
     - percentiles: tuple
-        Tuple of percentiles used for normalization.
+        Tuple of low and high percentiles used for normalization.
     - output_name: string
         The name of the output file.
         If None, the output name will be "data_map".
