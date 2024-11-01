@@ -549,7 +549,7 @@ def _find_best_center(angles, current_angles, intensities, current_intensities,
     len_left = len(angles_left)
     len_right = len(angles_right)
     shortest_len = min(len_left, len_right)
-    if shortest_len >= 1:
+    if shortest_len >= 2:
         if not centroid:
             # Find left/right values with lowest diff (most symmetric) and caculate best center
             # check diff also for neighbours (k)
@@ -573,6 +573,8 @@ def _find_best_center(angles, current_angles, intensities, current_intensities,
             if best_distance < 0:
                 best_distance = 2 * np.pi - np.abs(best_distance)
             best_center = (best_left + best_distance / 2) % (2 * np.pi)
+            #if lowest_diff < 0.1 * global_amplitude \
+            #    and np.abs(angle_distance(best_center, mu_maximum)) < angle_spacing:
             if np.abs(angle_distance(best_center, mu_maximum)) > 0.25 * angle_spacing:
                 # Rearrange peak and correct peak values
                 mu_maximum = best_center
@@ -614,7 +616,7 @@ def _find_best_center(angles, current_angles, intensities, current_intensities,
                 intensities_right = peak_intensities[relative_angles > 0]
 
         elif centroid:
-            steps = np.linspace(0, 1, 100)
+            steps = np.linspace(0, 1, 101)
             target_intensity = max(0, intensities[index_maximum] - 0.06 * global_amplitude)
             sum_weighted_x = 0
             sum_weights = 0
@@ -627,7 +629,7 @@ def _find_best_center(angles, current_angles, intensities, current_intensities,
                     next_index = (index_maximum + (i + 1) * k) % len(angles)
                     current_intensity = intensities[index]
                     current_angle = angles[index]
-                    diff_intensity = current_intensity - intensities[next_index]
+                    diff_intensity = intensities[next_index] - current_intensity
                     for step in steps:
                         val = current_intensity + diff_intensity * step
                         sum_weighted_x += val * (current_angle + step * angle_spacing * k)
@@ -687,7 +689,7 @@ def _find_best_center(angles, current_angles, intensities, current_intensities,
             angles_right, intensities_left, intensities_right, closest_left_border, closest_right_border
 
 @njit(cache = True, fastmath = True)
-def _is_real_peak(angles, intensities, peak_angles, peak_intensities, intensities_left,
+def _is_real_peak(angles, intensities, intensities_left,
                 intensities_right, angles_left, angles_right, global_amplitude, 
                     local_max_int, intensities_err, extrema_tolerance, index_maximum,
                     local_maxima, local_minima, turning_points, is_merged, full_peak):
@@ -1026,15 +1028,6 @@ def _find_peaks_from_extrema(angles, intensities, intensities_err, params, centr
             intensities_left = peak_intensities[relative_angles < 0]
             intensities_right = peak_intensities[relative_angles > 0]
 
-            if not is_merged[n]:
-                mu_maximum, peak_angles, peak_intensities, angles_left, angles_right, \
-                    intensities_left, intensities_right, closest_left_border, \
-                        closest_right_border = _find_best_center(angles, current_angles, intensities,
-                        current_intensities, peak_angles, peak_intensities, angles_left, index_maximum,
-                        angles_right, intensities_left, intensities_right, angle_spacing, mu_maximum, 
-                        max_peak_hwhm, local_minima, local_minima_angles, closest_left_border,
-                        closest_right_border, global_amplitude, centroid)
-
             # If peak is so strongly merged that only half of the peak visible
             # so that local_maximum = local_minimum, then make the empty side contain this point
             if not full_peak:
@@ -1044,8 +1037,19 @@ def _find_peaks_from_extrema(angles, intensities, intensities_err, params, centr
                 elif len(intensities_right) == 0:
                     intensities_right = peak_intensities[relative_angles >= 0]
                     angles_right = peak_angles[relative_angles >= 0]
+            
+            if not is_merged[n]:
+                
+                mu_maximum, peak_angles, peak_intensities, angles_left, angles_right, \
+                    intensities_left, intensities_right, closest_left_border, \
+                        closest_right_border = _find_best_center(angles, current_angles, intensities,
+                        current_intensities, peak_angles, peak_intensities, angles_left, index_maximum,
+                        angles_right, intensities_left, intensities_right, angle_spacing, mu_maximum, 
+                        max_peak_hwhm, local_minima, local_minima_angles, closest_left_border,
+                        closest_right_border, global_amplitude, centroid)
 
-            is_peak[n] = _is_real_peak(angles, intensities, peak_angles, peak_intensities, intensities_left,
+
+            is_peak[n] = _is_real_peak(angles, intensities, intensities_left,
                 intensities_right, angles_left, angles_right, global_amplitude, 
                     local_max_int, intensities_err, extrema_tolerance, index_maximum,
                     local_maxima, local_minima, turning_points, is_merged[n], full_peak)
