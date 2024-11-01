@@ -85,7 +85,7 @@ image_direction_sig = map_direction_significances(data, best_image_peak_pairs, i
 #                image_direction_sig = image_direction_sig, significance_threshold = 0.8)
 
 # Create the fiber orientation map (fom) using the two direction files (for max 4 peaks)
-map_fom(image_directions, output_path = "maps")
+map_fom(image_directions, directory = "maps")
 
 # Create a mask for the significant peaks
 image_sig_peaks_mask = get_sig_peaks_mask(image_stack = image_stack, image_params = image_params, 

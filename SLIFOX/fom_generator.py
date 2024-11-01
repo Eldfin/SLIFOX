@@ -375,7 +375,7 @@ def apply_sig_on_fom(rgb_fom, image_direction_sig, image_directions):
     return rgb_fom
 
 
-def map_fom(image_directions = None, direction_files = None, output_path = None, 
+def map_fom(image_directions = None, direction_files = None, directory = "maps", 
             direction_offset = 0, image_direction_sig = None, sort = True):
     """
     Maps the fiber orientation map (fom) from given direction (files).
@@ -387,7 +387,7 @@ def map_fom(image_directions = None, direction_files = None, output_path = None,
     - direction_files: list (of strings)
         List of the paths to the direction files that should be used to create the fom.
         If None, image_directions should be used as input instead.
-    - output_path: string
+    - directory: string
         Path to the output directory.
     - direction_offset: float
         The offset of the direction in degree. Default is zero.
