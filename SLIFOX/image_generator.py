@@ -967,7 +967,7 @@ def map_colorbar(colormap = "viridis", min_val = 0, max_val = 1, latex_unit = ""
     cbar.set_ticks([])  # Remove default ticks
     # Add labels on the left and right ends
     ax.text(0, -0.2, f'{min_val}{latex_unit}', va='top', ha='left', transform=ax.transAxes, size=28)
-    ax.text(1, -0.2, f'{min_val}{latex_unit}', va='top', ha='right', transform=ax.transAxes, size=28)
+    ax.text(1, -0.2, f'{max_val}{latex_unit}', va='top', ha='right', transform=ax.transAxes, size=28)
 
     plt.savefig(f'{directory}/{name}_colorbar.png', bbox_inches='tight', dpi=300)
 
