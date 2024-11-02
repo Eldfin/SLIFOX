@@ -969,10 +969,10 @@ def map_colorpalette(colorpalette = None, directory = "maps", name = ""):
     if not isinstance(colorpalette, np.ndarray):
         colorpalette = np.insert(default_colorpalette, 0, (0, 0, 0), axis = 0).astype(np.uint8)
 
-    # Create a list of legend elements using the colormap
+    # Create a list of legend elements using the colorpalette
     legend_elements = [
-        Patch(facecolor=np.array(colormap[i])/255.0, edgecolor='black', label=f'{i}', linewidth=2)
-        for i in range(len(colormap))
+        Patch(facecolor=np.array(colorpalette[i])/255.0, edgecolor='black', label=f'{i}', linewidth=2)
+        for i in range(len(colorpalette))
     ]
 
     fig, ax = plt.subplots(figsize=(8, 0.5))
