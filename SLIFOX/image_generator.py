@@ -27,6 +27,7 @@ def normalize_to_rgb(array, value_range = (None, None), percentiles = (None, Non
     
     """
     Normalizes an array to a 0-255 range using a colormap.
+    Assumes the array has values > 0, where values <= 0 are background.
 
     Parameters
     ----------
@@ -52,7 +53,7 @@ def normalize_to_rgb(array, value_range = (None, None), percentiles = (None, Non
         The maximum value of the normalization range.
     """
     cmap = plt.get_cmap(colormap)
-    min_val = value_range[0] if value_range[0] is not None else np.min(array)
+    min_val = value_range[0] if value_range[0] is not None else np.min(array[array > 0])
     max_val = value_range[1] if value_range[1] is not None else np.max(array)
 
     if percentiles[0] != None or percentiles[1] != None:
@@ -64,8 +65,8 @@ def normalize_to_rgb(array, value_range = (None, None), percentiles = (None, Non
         elif percentiles[1] != None:
             p_low = min_val
             p_high = np.percentiles(array, percentiles[1])
-        min_val = min(min_val, p_low)
-        max_val = max(max_val, p_high)
+        min_val = max(min_val, p_low)
+        max_val = min(max_val, p_high)
         
     normalized_array = (array - min_val) / (max_val - min_val)
     normalized_array = cmap(normalized_array)[:, :, :3] * 255  # Apply colormap and convert to 0-255 range
