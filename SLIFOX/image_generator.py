@@ -529,14 +529,13 @@ def map_peak_distances(image_stack = None, image_params = None, image_peaks_mask
             os.makedirs(directory)
 
         image = np.copy(image_distances)
+        image = np.swapaxes(image, 0, 1)
 
         image[image != -1] = image[image != -1] * 180 / np.pi
         file_name = "peak_distances_map"
         if deviation:
             image[image != -1] = 180 - image[image != -1]
             file_name = "peak_distances_deviation_map"
-
-        image = np.swapaxes(image, 0, 1)
 
         if image_distances.ndim > 2:
             for dir_n in range(image_distances.shape[-1]):    
@@ -549,7 +548,6 @@ def map_peak_distances(image_stack = None, image_params = None, image_peaks_mask
                 filepath = f'{directory}/{slice_name}.tiff'
                 imageio.imwrite(filepath, image_slice, format = 'tiff')
         else:
-            image = np.swapaxes(image, 0, 1)
             if normalize:
                 image, min_val, max_val = normalize_to_rgb(image, normalize_to, percentiles)
                 map_colorbar(min_val = min_val, max_val = max_val, directory = directory, 
@@ -955,8 +953,8 @@ def map_colorbar(colormap = "viridis", min_val = 0, max_val = 1, latex_unit = ""
 
     val_range = max_val - min_val
     sig_decimals = int(-np.floor(np.log10(val_range))) + 1
-    min_val = round(min_val, sig_decimals)
-    max_val = round(max_val, sig_decimals)
+    min_val = int(round(min_val, sig_decimals))
+    max_val = int(round(max_val, sig_decimals))
 
     fig, ax = plt.subplots(figsize = (8, 0.5))
     cbar = fig.colorbar(sm, cax = ax, orientation = 'horizontal')
