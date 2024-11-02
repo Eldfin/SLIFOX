@@ -424,9 +424,11 @@ def map_number_of_peaks(image_stack = None, image_params = None,
         if not isinstance(colorpalette, np.ndarray):
             colorpalette = np.insert(default_colorpalette, 0, (0, 0, 0), axis = 0).astype(np.uint8)
         
+        max_peaks = min(7, np.max(image_num_peaks))
+        colorpalette = colorpalette[:max_peaks]
         image = np.copy(image_num_peaks)
         image = np.swapaxes(image, 0, 1)
-        image = np.clip(image, 0, 7)
+        image = np.clip(image, 0, max_peaks)
         image = colorpalette[image]
 
         imageio.imwrite(f'{directory}/n_peaks_map.tiff', image, format = 'tiff')
