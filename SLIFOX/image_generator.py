@@ -410,7 +410,7 @@ def map_number_of_peaks(image_stack = None, image_params = None,
         if not os.path.exists(directory):
             os.makedirs(directory)
 
-        if not isinstance(colormap, np.ndarray):
+        if not isinstance(colorpalette, np.ndarray):
             colorpalette = np.insert(default_colorpalette, 0, (0, 0, 0), axis = 0).astype(np.uint8)
         
         image = np.copy(image_num_peaks)
