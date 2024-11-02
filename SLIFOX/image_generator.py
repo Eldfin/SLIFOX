@@ -962,8 +962,12 @@ def map_colorbar(colormap = "viridis", min_val = 0, max_val = 1, latex_unit = ""
     fig, ax = plt.subplots(figsize = (8, 0.5))
     cbar = fig.colorbar(sm, cax = ax, orientation = 'horizontal')
     #cbar.set_label('Value')  # Label for the colorbar
-    cbar.set_ticks([0, 1])  # Set ticks to min and max
-    cbar.set_ticklabels([f'{min_val}{latex_unit}', f'{max_val}{latex_unit}'], size = 24)
+    
+    # Get the height of the colorbar in points
+    cbar.set_ticks([])  # Remove default ticks
+    # Add labels on the left and right ends
+    ax.text(0, -0.2, f'{left_border}', va='top', ha='left', transform=ax.transAxes, size=28)
+    ax.text(1, -0.2, f'{right_border}', va='top', ha='right', transform=ax.transAxes, size=28)
 
     plt.savefig(f'{directory}/{name}_colorbar.png', bbox_inches='tight', dpi=300)
 
@@ -1001,7 +1005,7 @@ def map_colorpalette(colorpalette = None, directory = "maps", name = ""):
 
     ax.legend(handles=legend_elements, loc='center', frameon=False, ncol=len(colorpalette), 
             handleheight=2, handlelength=2, borderpad=1, handletextpad=0.5, 
-            labelspacing=1.5, columnspacing = 2.0, fontsize = 24)
+            labelspacing=1.5, columnspacing = 2.0, fontsize = 28)
 
     plt.savefig(f'{directory}/{name}_colorpalette.png', bbox_inches='tight', dpi=300)
 
