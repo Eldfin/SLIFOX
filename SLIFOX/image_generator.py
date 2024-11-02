@@ -27,7 +27,6 @@ def normalize_to_rgb(array, value_range = (None, None), percentiles = (None, Non
     
     """
     Normalizes an array to a 0-255 range using a colormap.
-    Assumes the array has values > 0, where values <= 0 are background.
 
     Parameters
     ----------
@@ -53,20 +52,30 @@ def normalize_to_rgb(array, value_range = (None, None), percentiles = (None, Non
         The maximum value of the normalization range.
     """
     cmap = plt.get_cmap(colormap)
-    min_val = value_range[0] if value_range[0] is not None else np.min(array[array > 0])
-    max_val = value_range[1] if value_range[1] is not None else np.max(array)
+    background_value = np.min(array)
+    values_mask = (array > background_value)
+    values = array[values_mask]
+    min_val = value_range[0] if value_range[0] is not None else np.min(values)
+    max_val = value_range[1] if value_range[1] is not None else np.max(values)
+    if min_val >= max_val:
+        raise Exception("Minimum value range is larger than maximum value range.")
 
-    if percentiles[0] != None or percentiles[1] != None:
-        if percentiles[0] != None and percentiles[1] != None:
-            p_low, p_high = np.percentile(array, percentiles)
-        elif percentiles[0] != None:
-            p_low = np.percentile(array, percentiles[0])
+    if percentiles[0] is not None or percentiles[1] is not None:
+        if percentiles[0] is not None and percentiles[1] is not None:
+            p_low, p_high = np.percentile(values, percentiles)
+        elif percentiles[0] is not None:
+            p_low = np.percentile(values, percentiles[0])
             p_high = max_val
-        elif percentiles[1] != None:
+        elif percentiles[1] is not None:
             p_low = min_val
-            p_high = np.percentiles(array, percentiles[1])
+            p_high = np.percentiles(values, percentiles[1])
         min_val = max(min_val, p_low)
         max_val = min(max_val, p_high)
+        if min_val >= max_val:
+            if p_low < p_high:
+                min_val, max_val = p_low, p_high
+            else:
+                raise Exception("value_range and percentiles range is disjunct. Check them and format.")
         
     normalized_array = (array - min_val) / (max_val - min_val)
     normalized_array = cmap(normalized_array)[:, :, :3] * 255  # Apply colormap and convert to 0-255 range
