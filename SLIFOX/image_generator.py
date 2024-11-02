@@ -942,7 +942,7 @@ def map_colorbar(colormap = "viridis", min_val = 0, max_val = 1, latex_unit = ""
     sm = plt.cm.ScalarMappable(cmap = colormap, norm=plt.Normalize(vmin=0, vmax=1))
 
     val_range = max_val - min_val
-    sig_decimals = int(-np.floor(np.log10(range_val))) + 1
+    sig_decimals = int(-np.floor(np.log10(val_range))) + 1
     min_val = round(min_val, sig_decimals)
     max_val = round(max_val, sig_decimals)
 
