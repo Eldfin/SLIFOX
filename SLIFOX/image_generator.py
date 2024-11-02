@@ -983,7 +983,8 @@ def map_colorpalette(colorpalette = None, directory = "maps", name = ""):
         os.makedirs(directory)
 
     if not isinstance(colorpalette, np.ndarray):
-        colorpalette = np.insert(default_colorpalette, 0, (0, 0, 0), axis = 0).astype(np.uint8)
+        colorpalette = np.insert(default_colorpalette, 0, (0, 0, 0), axis = 0)
+        colorpalette = colorpalette[:-1].astype(np.uint8)
 
     # Create a list of legend elements using the colorpalette
     legend_elements = [
