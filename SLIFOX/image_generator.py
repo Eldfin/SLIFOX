@@ -11,7 +11,7 @@ from .utils import angle_distance
 import imageio
 
 #Paul Tol's Bright Color Palette for color blindness
-default_colormap = np.array([
+default_colorpalette = np.array([
     (102, 204, 238),  # Cyan
     (170, 51, 119),   # Purple
     (204, 187, 68),   # Yellow
@@ -20,12 +20,36 @@ default_colormap = np.array([
     (238, 102, 119),  # Red
     (187, 187, 187)  # Grey
 ])
-norm_default_colormap = default_colormap / 255
+norm_default_colorpalette = default_colorpalette / 255
 
 def normalize_to_rgb(array, value_range = (None, None), percentiles = (None, None), colormap = "viridis"):
-    # Normalizes an 2d-array using a colormap
-    # if min (or max) in range is None, it will be the min (or max) of the image
     
+    """
+    Normalizes an array to a 0-255 range using a colormap.
+
+    Parameters
+    ----------
+    array : 2D array
+        The array to be normalized.
+    value_range : tuple of two floats
+        The range of values to be used for normalization.
+        If None, the minimum and maximum of the array will be used.
+    percentiles : tuple of two floats
+        The percentiles of the array to be used for normalization.
+        If None, the minimum and maximum of the array will be used.
+    colormap : str
+        The colormap to be used for normalization.
+        Default is "viridis".
+
+    Returns
+    -------
+    normalized_array : 2D array
+        The normalized array.
+    min_val : float
+        The minimum value of the normalization range.
+    max_val : float
+        The maximum value of the normalization range.
+    """
     cmap = plt.get_cmap(colormap)
     min_val = value_range[0] if value_range[0] is not None else np.min(array)
     max_val = value_range[1] if value_range[1] is not None else np.max(array)
@@ -50,7 +74,7 @@ def normalize_to_rgb(array, value_range = (None, None), percentiles = (None, Non
     normalized_array[array < min_val] = [0, 0, 0]
     normalized_array[array > max_val] = [255, 255, 255]
 
-    return normalized_array
+    return normalized_array, min_val, max_val
 
 def alternating_vline(x, ax=None, colors=['blue', 'red'], num_segments=100, **kwargs):
     """
@@ -90,7 +114,7 @@ def plot_peaks_gof(peaks_gof, heights, mus, scales,
     heights = heights[sig_mask]
     
     for k, gof in enumerate(peaks_gof):
-        gof_color = norm_default_colormap[min(k, len(default_colormap))]
+        gof_color = norm_default_colorpalette[min(k, len(default_colorpalette))]
         if gof < 0: gof = 0
         amplitude = heights[k] * distribution_pdf(0, 0, scales[k], distribution)
         ymax = gof**gof_weight * amplitude
@@ -153,7 +177,7 @@ def plot_directions(peak_pairs, mus, distribution, heights = None, scales = None
         mixed_colors = []
         for index in pair:
             if index == -1: continue
-            mixed_colors.append(norm_default_colormap[min(index, len(default_colormap))])
+            mixed_colors.append(norm_default_colorpalette[min(index, len(default_colorpalette))])
 
         if len(mixed_colors) == 1:
             ax = plt.gca()
@@ -298,7 +322,7 @@ def plot_data_pixels(data, image_params, image_peaks_mask, image_peak_pairs = No
                 scales = None   
                 for k, mask in enumerate(peaks_mask):
                     if not np.any(mask): break
-                    color = norm_default_colormap[min(k, len(default_colormap))]
+                    color = norm_default_colorpalette[min(k, len(default_colorpalette))]
                     plt.errorbar(angles[mask]*180/np.pi, intensities[mask], 
                             yerr=intensities_err[mask], marker = "o", linestyle="", capsize=5, color=color)
 
@@ -328,7 +352,7 @@ def map_number_of_peaks(image_stack = None, image_params = None,
                             image_peaks_mask = None, distribution = "wrapped_cauchy", 
                             amplitude_threshold = 3000, rel_amplitude_threshold = 0.1,
                             gof_threshold = 0.5, only_mus = False,
-                            directory = "maps", colormap = None,
+                            directory = "maps", colorpalette = None,
                             image_sig_peaks_mask = None, image_num_peaks = None):
     """
     Maps the number of peaks for every pixel.
@@ -360,8 +384,8 @@ def map_number_of_peaks(image_stack = None, image_params = None,
     - directory: string
         The directory path defining where the resulting image should be writen to.
         If None, no image will be writen.
-    - colormap: np.ndarray (6, 3)
-        Colormap used for the map generation.
+    - colorpalette: np.ndarray (7, 3)
+        Colorpalette used for the map generation.
     - image_sig_peaks_mask: np.ndarray (n, m, max_find_peaks)
         When significant peaks mask is already calculated, 
         it can be provided here to speed up the process.
@@ -387,14 +411,15 @@ def map_number_of_peaks(image_stack = None, image_params = None,
             os.makedirs(directory)
 
         if not isinstance(colormap, np.ndarray):
-            colormap = np.insert(default_colormap, 0, (0, 0, 0), axis = 0).astype(np.uint8)
+            colorpalette = np.insert(default_colorpalette, 0, (0, 0, 0), axis = 0).astype(np.uint8)
         
         image = np.copy(image_num_peaks)
         image = np.swapaxes(image, 0, 1)
         image = np.clip(image, 0, 7)
-        image = colormap[image]
+        image = colorpalette[image]
 
         imageio.imwrite(f'{directory}/n_peaks_map.tiff', image, format = 'tiff')
+        map_colorpalette(colorpalette, directory)
 
     return image_num_peaks
     
@@ -502,15 +527,20 @@ def map_peak_distances(image_stack = None, image_params = None, image_peaks_mask
 
         if image_distances.ndim > 2:
             for dir_n in range(image_distances.shape[-1]):    
-                image = image[:, :, dir_n]
+                image_slice = image[:, :, dir_n]
+                slice_name = f"{file_name}_{dir_n + 1}"
                 if normalize:
-                    image = normalize_to_rgb(image, normalize_to, percentiles)
-                filepath = f'{directory}/{file_name}_{dir_n + 1}.tiff'
-                imageio.imwrite(filepath, image, format = 'tiff')
+                    image_slice, min_val, max_val = normalize_to_rgb(image_slice, normalize_to, percentiles)
+                    map_colorbar(min_val = min_val, max_val = max_val, directory = directory, 
+                                latex_unit = "$\degree$", name = slice_name)
+                filepath = f'{directory}/{slice_name}.tiff'
+                imageio.imwrite(filepath, image_slice, format = 'tiff')
         else:
             image = np.swapaxes(image, 0, 1)
             if normalize:
-                image = normalize_to_rgb(image, normalize_to, percentiles)
+                image, min_val, max_val = normalize_to_rgb(image, normalize_to, percentiles)
+                map_colorbar(min_val = min_val, max_val = max_val, directory = directory, 
+                            latex_unit = "$\degree$", name = file_name)
             filepath = f'{directory}/{file_name}.tiff'
             imageio.imwrite(filepath, image, format = 'tiff')
 
@@ -557,7 +587,7 @@ def map_mean_peak_amplitudes(image_stack = None, image_params = None, image_peak
         Tuple of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
     - percentiles: tuple
-        Tuple of low and high percentiles used for normalization.- image_sig_peaks_mask: np.ndarray (n, m)
+        tuple of low and high percentiles used for normalization.- image_sig_peaks_mask: np.ndarray (n, m)
         If significant peaks mask is already calculated, 
         it can be provided here to speed up the process.
     - image_mean_ampplitudes: np.ndarray (n, m)
@@ -586,7 +616,9 @@ def map_mean_peak_amplitudes(image_stack = None, image_params = None, image_peak
         image = np.copy(image_mean_amplitudes)
         image = np.swapaxes(image, 0, 1)
         if normalize:
-            image = normalize_to_rgb(image, normalize_to, percentiles)
+            image, min_val, max_val = normalize_to_rgb(image, normalize_to, percentiles)
+            map_colorbar(min_val = min_val, max_val = max_val, directory = directory, 
+                        latex_unit = "", name = "peak_amplitudes_map")
 
         imageio.imwrite(f'{directory}/peak_amplitudes_map.tiff', image, format = 'tiff')
 
@@ -630,7 +662,7 @@ def map_mean_peak_widths(image_stack = None, image_params = None,
         List of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
     - percentiles: tuple
-        Tuple of low and high percentiles used for normalization.
+        tuple of low and high percentiles used for normalization.
     - image_sig_peaks_mask: np.ndarray (n, m, max_find_peaks)
         If the significant peaks mask is already calculated,
         it can be provided here to speed up the process.
@@ -664,7 +696,9 @@ def map_mean_peak_widths(image_stack = None, image_params = None,
 
         image = np.swapaxes(image, 0, 1)
         if normalize:
-            image = normalize_to_rgb(image, normalize_to, percentiles)
+            image, min_val, max_val = normalize_to_rgb(image, normalize_to, percentiles)
+            map_colorbar(min_val = min_val, max_val = max_val, directory = directory, 
+                        latex_unit = "$\degree$", name = "peak_widths_map")
 
         imageio.imwrite(f'{directory}/peak_widths_map.tiff', image, format = 'tiff')
 
@@ -705,7 +739,7 @@ def map_directions(image_peak_pairs = None, image_mus = None, only_peaks_count =
         List of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
     - percentiles: tuple
-        Tuple of low and high percentiles used for normalization.
+        tuple of low and high percentiles used for normalization.
     - image_directions: np.ndarray (n, m, 3)
         If the directions have already been calculated, they can be inserted here.
 
@@ -735,13 +769,18 @@ def map_directions(image_peak_pairs = None, image_mus = None, only_peaks_count =
             for dir_n in range(image.shape[-1]):
                 image_slice = image[:, :, dir_n]
                 if normalize:
-                    image_slice = normalize_to_rgb(image_slice, normalize_to, percentiles)
+                    slice_name = f"dir_{dir_n + 1}"
+                    image_slice, min_val, max_val = normalize_to_rgb(image_slice, normalize_to, percentiles)
+                    map_colorbar(min_val = min_val, max_val = max_val, directory = directory, 
+                                latex_unit = "$\degree$", name = slice_name)
                 filepath = f'{directory}/dir_{dir_n + 1}.tiff'
                 imageio.imwrite(filepath, image_slice, format = 'tiff')
         else:
             if normalize:
-                image = normalize_to_rgb(image, normalize_to, percentiles)
-            filepath = f'{directory}/dir_.tiff'
+                image, min_val, max_val = normalize_to_rgb(image, normalize_to, percentiles)
+                map_colorbar(min_val = min_val, max_val = max_val, directory = directory, 
+                        latex_unit = "$\degree$", name = "dir")
+            filepath = f'{directory}/dir.tiff'
             imageio.imwrite(filepath, image, format = 'tiff')
 
     return image_directions
@@ -799,7 +838,7 @@ def map_direction_significances(image_stack = None, image_peak_pairs = None, ima
         List of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
     - percentiles: tuple
-        Tuple of low and high percentiles used for normalization.
+        tuple of low and high percentiles used for normalization.
     - image_direction_sig: np.ndarray (n, m, 3)
         If the direction significances have already been calculated, they can be inserted here.
 
@@ -828,14 +867,17 @@ def map_direction_significances(image_stack = None, image_peak_pairs = None, ima
         for dir_n in range(image_direction_sig.shape[-1]):
             image_slice = image[:, :, dir_n]
             if normalize:
-                image_slice = normalize_to_rgb(image_slice, normalize_to, percentiles)
-            filepath = f'{directory}/dir_{dir_n + 1}_sig.tiff'
+                slice_name = f"dir_{dir_n + 1}_sig"
+                image_slice, min_val, max_val = normalize_to_rgb(image_slice, normalize_to, percentiles)
+                map_colorbar(min_val = min_val, max_val = max_val, directory = directory, 
+                        latex_unit = "", name = slice_name)
+            filepath = f'{directory}/{slice_name}.tiff'
             imageio.imwrite(filepath, image_slice, format = 'tiff')
 
     return image_direction_sig
 
 def map_data(data, directory = "maps", normalize = False, normalize_to = (None, None), 
-                percentiles = (None, None), output_name = "data_map"):
+                percentiles = (None, None), file_name = "data_map"):
     """
     Maps any data to a tiff file.
 
@@ -851,8 +893,8 @@ def map_data(data, directory = "maps", normalize = False, normalize_to = (None, 
         List of min and max value that defines the range the image is normalized to.
         If min (or max) is None, the minimum (or maximum) of the image will be used.
     - percentiles: tuple
-        Tuple of low and high percentiles used for normalization.
-    - output_name: string
+        tuple of low and high percentiles used for normalization.
+    - file_name: string
         The name of the output file.
         If None, the output name will be "data_map".
 
@@ -869,8 +911,75 @@ def map_data(data, directory = "maps", normalize = False, normalize_to = (None, 
         image = np.copy(data)
         image = np.swapaxes(image, 0, 1)
         if normalize:
-            image = normalize_to_rgb(image, normalize_to, percentiles)
+            image, min_val, max_val = normalize_to_rgb(image, normalize_to, percentiles)
+            map_colorbar(min_val = min_val, max_val = max_val, directory = directory, 
+                        latex_unit = "", name = file_name)
 
-        imageio.imwrite(f'{directory}/{output_name}.tiff', image, format = 'tiff')
+        imageio.imwrite(f'{directory}/{file_name}.tiff', image, format = 'tiff')
 
     return data
+
+def map_colorbar(colormap = "viridis", min_val = 0, max_val = 1, latex_unit = "", 
+                    directory = "maps", name = ""):
+    """
+    Generates and saves a color bar image based on the provided colormap and values.
+
+    Parameters:
+    - colormap: string
+        Name of the matplotlib colormap.
+    - min_val: float
+        Minimum value of the color bar.
+    - max_val: float
+        Maximum value of the color bar.
+    - latex_unit: string
+        Unit label in latex math notation, including the start and end "$" sign.
+    - directory: string
+        Directory path where the color bar image will be saved.
+    - name: string
+        Name of the output file, without extension.
+    """
+    sm = plt.cm.ScalarMappable(cmap = colormap, norm=plt.Normalize(vmin=0, vmax=1))
+
+    fig, ax = plt.subplots(figsize = (8, 0.5))
+    cbar = fig.colorbar(sm, cax = ax, orientation = 'horizontal')
+    #cbar.set_label('Value')  # Label for the colorbar
+    cbar.set_ticks([0, 1])  # Set ticks to min and max
+    cbar.set_ticklabels([f'{min_val}{latex_unit}', f'{max_val}{latex_unit}'], size = 24)
+
+    plt.savefig(f'{directory}/{name}_colorbar.png', bbox_inches='tight', dpi=300)
+
+def map_colorpalette(colorpalette = None, directory = "maps", name = ""):
+    """
+    Generates and saves a color palette image based on the provided colorpalette.
+
+    Parameters:
+    - colorpalette: np.ndarray
+        A colorpalette array where each entry defines a color in RGB format. 
+        If None, the default color palette is used.
+    - directory: string
+        The directory path where the resulting color palette image will be saved. 
+        If the directory does not exist, it will be created.
+    - name: string
+        The name prefix for the saved color palette image file.
+
+    """
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    if not isinstance(colorpalette, np.ndarray):
+        colorpalette = np.insert(default_colorpalette, 0, (0, 0, 0), axis = 0).astype(np.uint8)
+
+    # Create a list of legend elements using the colormap
+    legend_elements = [
+        Patch(facecolor=np.array(colormap[i])/255.0, edgecolor='black', label=f'{i}', linewidth=2)
+        for i in range(len(colormap))
+    ]
+
+    fig, ax = plt.subplots(figsize=(8, 0.5))
+    ax.axis('off')
+
+    ax.legend(handles=legend_elements, loc='center', frameon=False, ncol=7, handleheight=2, handlelength=2, 
+            borderpad=1, handletextpad=0.5, labelspacing=1.5, columnspacing = 2.0, fontsize = 24)
+
+    plt.savefig(f'{directory}/{name}_colorpalette.png', bbox_inches='tight', dpi=300)
+

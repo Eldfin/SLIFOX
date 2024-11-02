@@ -708,7 +708,7 @@ Maps any data to a tiff file.
     If min (or max) is None, the minimum (or maximum) of the image will be used.
 - `percentiles`: tuple
     Tuple of low and high percentiles used for normalization.
-- `output_name`: string
+- `file_name`: string
     The name of the output file.
     If None, the output name will be "data_map".
 
