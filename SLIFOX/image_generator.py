@@ -420,7 +420,7 @@ def map_number_of_peaks(image_stack = None, image_params = None,
         image = colorpalette[image]
 
         imageio.imwrite(f'{directory}/n_peaks_map.tiff', image, format = 'tiff')
-        map_colorpalette(colorpalette, directory)
+        map_colorpalette(colorpalette, directory, "n_peaks_map")
 
     return image_num_peaks
     
