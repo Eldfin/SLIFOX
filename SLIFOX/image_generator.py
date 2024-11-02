@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+from matplotlib.patches import Patch
 import os
 from .fitter import full_fitfunction
 from .peaks_evaluator import calculate_peaks_gof, get_number_of_peaks, get_image_direction_significances, \
