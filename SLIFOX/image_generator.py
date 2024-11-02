@@ -425,7 +425,7 @@ def map_number_of_peaks(image_stack = None, image_params = None,
             colorpalette = np.insert(default_colorpalette, 0, (0, 0, 0), axis = 0).astype(np.uint8)
         
         max_peaks = min(7, np.max(image_num_peaks))
-        colorpalette = colorpalette[:max_peaks]
+        colorpalette = colorpalette[:max_peaks + 1]
         image = np.copy(image_num_peaks)
         image = np.swapaxes(image, 0, 1)
         image = np.clip(image, 0, max_peaks)
@@ -953,8 +953,11 @@ def map_colorbar(colormap = "viridis", min_val = 0, max_val = 1, latex_unit = ""
 
     val_range = max_val - min_val
     sig_decimals = int(-np.floor(np.log10(val_range))) + 1
-    min_val = int(round(min_val, sig_decimals))
-    max_val = int(round(max_val, sig_decimals))
+    min_val = round(min_val, sig_decimals)
+    max_val = round(max_val, sig_decimals)
+    if sig_decimals <= 0:
+        min_val = int(min_val)
+        max_val = int(max_val)
 
     fig, ax = plt.subplots(figsize = (8, 0.5))
     cbar = fig.colorbar(sm, cax = ax, orientation = 'horizontal')
@@ -991,6 +994,7 @@ def map_colorpalette(colorpalette = None, directory = "maps", name = ""):
         Patch(facecolor=np.array(colorpalette[i])/255.0, edgecolor='black', label=f'{i}', linewidth=2)
         for i in range(len(colorpalette))
     ]
+    legend_elements[-1].set_label(f'>{len(colorpalette) - 2}')
 
     fig, ax = plt.subplots(figsize=(8, 0.5))
     ax.axis('off')
