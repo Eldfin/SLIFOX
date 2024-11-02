@@ -995,8 +995,9 @@ def map_colorpalette(colorpalette = None, directory = "maps", name = ""):
     fig, ax = plt.subplots(figsize=(8, 0.5))
     ax.axis('off')
 
-    ax.legend(handles=legend_elements, loc='center', frameon=False, ncol=7, handleheight=2, handlelength=2, 
-            borderpad=1, handletextpad=0.5, labelspacing=1.5, columnspacing = 2.0, fontsize = 24)
+    ax.legend(handles=legend_elements, loc='center', frameon=False, ncol=len(colorpalette), 
+            handleheight=2, handlelength=2, borderpad=1, handletextpad=0.5, 
+            labelspacing=1.5, columnspacing = 2.0, fontsize = 24)
 
     plt.savefig(f'{directory}/{name}_colorpalette.png', bbox_inches='tight', dpi=300)
 
