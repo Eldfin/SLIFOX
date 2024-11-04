@@ -1018,25 +1018,28 @@ def plot_2d_histogram(x, y, bins = 100,
 
     counts, x_edges, y_edges = np.histogram2d(x, y, bins=bins)
 
-    # Normalize each x-bin (column) by its total count
-    counts_normalized = counts / np.nansum(counts, axis = 1, keepdims = True)
-    counts_normalized = np.clip(counts_normalized, 0, 0.1)
+    # Calculate the total counts for each x-bin and normalize counts with it
+    xbin_counts = np.nansum(counts, axis = 1)
+    counts_normalized = np.zeros_like(counts)
+    nonzero_mask = (xbin_counts > 0)
+    counts_normalized[nonzero_mask, :] = counts[nonzero_mask, :] / counts[nonzero_mask][:, np.newaxis]
+    #counts_normalized = np.clip(counts_normalized, 0, 1)
 
+    # Plotting
     fig = plt.figure(figsize=(10, 8))
     gs = fig.add_gridspec(2, 2, height_ratios=[3, 1], width_ratios=[20, 0.5])
     
     # Plot the normalized histogram
     ax_hist = fig.add_subplot(gs[0, 0])
-    pcm = ax_hist.pcolormesh(x_edges, y_edges, counts_normalized.T, 
-                             cmap='viridis', norm=LogNorm())
-    ax_hist.set_ylabel(ylabel, fontsize=24)
-    ax_hist.tick_params(axis='x', labelsize=18, width=2, length=7, labelbottom=False)
-    ax_hist.tick_params(axis='y', labelsize=18, width=2, length=7)
+    pcm = ax_hist.pcolormesh(x_edges, y_edges, counts_normalized.T, cmap='viridis', norm=LogNorm())
+    ax_hist.set_ylabel(ylabel, fontsize=38)
+    ax_hist.tick_params(axis='x', labelsize=28, width=5, length=14, labelbottom=False)
+    ax_hist.tick_params(axis='y', labelsize=28, width=5, length=14)
     
     # Colorbar
     cbar_ax = fig.add_subplot(gs[0, 1])
     cbar = fig.colorbar(pcm, cax=cbar_ax, orientation='vertical')
-    cbar.ax.tick_params(labelsize=18, width=2, length=7)
+    cbar.ax.tick_params(labelsize=28, width=5, length=14)
     
     # Standard deviation plot aligned with histogram width
     ax_std = fig.add_subplot(gs[1, 0], sharex=ax_hist)
@@ -1047,11 +1050,15 @@ def plot_2d_histogram(x, y, bins = 100,
         mask = (x >= bin_edges[i]) & (x < bin_edges[i+1])
         std_values.append(np.std(y[mask]))
     
-    ax_std.plot(bin_edges[:-1] + step_size / 2, std_values, color='black')
-    ax_std.set_xlabel(xlabel, fontsize=24)
-    ax_std.set_ylabel(r'$\sigma$', fontsize=24)
-    ax_std.tick_params(axis='x', labelsize=18, width=2, length=7)
-    ax_std.tick_params(axis='y', labelsize=18, width=2, length=7)
+    ax_std.plot(bin_edges[:-1] + step_size / 2, std_values, color='black', linewidth=5)
+    ax_std.set_xlabel(xlabel, fontsize=38)
+    ax_std.set_ylabel(r'$\sigma$', fontsize=38)
+    ax_std.tick_params(axis='x', labelsize=28, width=5, length=14)
+    ax_std.tick_params(axis='y', labelsize=28, width=5, length=14)
+
+    for ax in fig.get_axes():
+        for spine in ax.spines.values():
+            spine.set_linewidth(2)
     
     plt.tight_layout()
     plt.savefig(f"{directory}/{name}_histogram.png", dpi = 80)
