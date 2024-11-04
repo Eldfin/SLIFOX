@@ -1010,7 +1010,7 @@ def map_colorpalette(colorpalette = None, directory = "maps", name = ""):
 
     plt.savefig(f'{directory}/{name}_colorpalette.png', bbox_inches='tight', dpi=300)
 
-def plot_2d_histogram(x, y, bins, 
+def plot_2d_histogram(x, y, bins = 100, 
                     xlabel = "x-data", ylabel = "y-data", directory = "maps", name = "data"):
     # Plots a 2d histogram that y-bins are normalized by the (summed over y-bins) counts in the x-bin
     # so the color represents the probability that a value in the x-bin is in the y-bin.
@@ -1041,7 +1041,7 @@ def plot_2d_histogram(x, y, bins,
     # Standard deviation plot aligned with histogram width
     ax_std = fig.add_subplot(gs[1, 0], sharex=ax_hist)
     std_values = []
-    bin_edges = np.arange(0, 1.1, 0.1)
+    bin_edges = np.linspace(np.min(x), np.max(x), 100)
     for i in range(len(bin_edges) - 1):
         mask = (x >= bin_edges[i]) & (x < bin_edges[i+1])
         std_values.append(np.std(y[mask]))
