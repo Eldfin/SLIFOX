@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+from matplotlib.colors import LogNorm
 from matplotlib.patches import Patch
 import os
 from .fitter import full_fitfunction
@@ -1009,3 +1010,47 @@ def map_colorpalette(colorpalette = None, directory = "maps", name = ""):
 
     plt.savefig(f'{directory}/{name}_colorpalette.png', bbox_inches='tight', dpi=300)
 
+def plot_2d_histogram(x, y, bins, 
+                    xlabel = "x-data", ylabel = "y-data", directory = "maps", name = "data"):
+    # Plots a 2d histogram that y-bins are normalized by the (summed over y-bins) counts in the x-bin
+    # so the color represents the probability that a value in the x-bin is in the y-bin.
+    # also plots standard deviation plot
+
+    counts, x_edges, y_edges = np.histogram2d(x, y, bins=bins)
+
+    # Normalize each x-bin (column) by its total count
+    counts_normalized = counts / np.nansum(counts, axis = 1, keepdims = True)
+    counts_normalized = np.clip(counts_normalized, 0, 0.1)
+
+    fig = plt.figure(figsize=(10, 8))
+    gs = fig.add_gridspec(2, 2, height_ratios=[3, 1], width_ratios=[20, 0.5])
+    
+    # Plot the normalized histogram
+    ax_hist = fig.add_subplot(gs[0, 0])
+    pcm = ax_hist.pcolormesh(x_edges, y_edges, counts_normalized.T, 
+                             cmap='viridis', norm=LogNorm())
+    ax_hist.set_ylabel(ylabel, fontsize=24)
+    ax_hist.tick_params(axis='x', labelsize=18, width=2, length=7, labelbottom=False)
+    ax_hist.tick_params(axis='y', labelsize=18, width=2, length=7)
+    
+    # Colorbar
+    cbar_ax = fig.add_subplot(gs[0, 1])
+    cbar = fig.colorbar(pcm, cax=cbar_ax, orientation='vertical')
+    cbar.ax.tick_params(labelsize=18, width=2, length=7)
+    
+    # Standard deviation plot aligned with histogram width
+    ax_std = fig.add_subplot(gs[1, 0], sharex=ax_hist)
+    std_values = []
+    bin_edges = np.arange(0, 1.1, 0.1)
+    for i in range(len(bin_edges) - 1):
+        mask = (x >= bin_edges[i]) & (x < bin_edges[i+1])
+        std_values.append(np.std(y[mask]))
+    
+    ax_std.plot(bin_edges[:-1] + 0.05, std_values, color='black')
+    ax_std.set_xlabel(xlabel, fontsize=24)
+    ax_std.set_ylabel(r'$\sigma$', fontsize=24)
+    ax_std.tick_params(axis='x', labelsize=18, width=2, length=7)
+    ax_std.tick_params(axis='y', labelsize=18, width=2, length=7)
+    
+    plt.tight_layout()
+    plt.savefig(f"{directory}/{name}_histogram.png", dpi = 80)
