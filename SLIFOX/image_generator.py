@@ -1010,19 +1010,22 @@ def map_colorpalette(colorpalette = None, directory = "maps", name = ""):
 
     plt.savefig(f'{directory}/{name}_colorpalette.png', bbox_inches='tight', dpi=300)
 
-def plot_2d_histogram(x, y, bins = 100, 
+def plot_2d_histogram(x, y, bins = 100, count_threshold = 10,
                     xlabel = "x-data", ylabel = "y-data", directory = "maps", name = "data"):
     # Plots a 2d histogram that y-bins are normalized by the (summed over y-bins) counts in the x-bin
     # so the color represents the probability that a value in the x-bin is in the y-bin.
     # also plots standard deviation plot
+    # count threshold defines how many total values must be in a x-bin
+    # if they are lower, they are not evaluated
 
     counts, x_edges, y_edges = np.histogram2d(x, y, bins=bins)
 
     # Calculate the total counts for each x-bin and normalize counts with it
     xbin_counts = np.nansum(counts, axis = 1)
     counts_normalized = np.zeros_like(counts)
-    nonzero_mask = (xbin_counts > 0)
-    counts_normalized[nonzero_mask, :] = counts[nonzero_mask, :] / xbin_counts[nonzero_mask][:, np.newaxis]
+    enough_counts_mask = (xbin_counts > count_threshold)
+    counts_normalized[enough_counts_mask, :] = counts[enough_counts_mask, :] \
+                                                / xbin_counts[enough_counts_mask][:, np.newaxis]
     #counts_normalized = np.clip(counts_normalized, 0, 1)
 
     # Plotting
