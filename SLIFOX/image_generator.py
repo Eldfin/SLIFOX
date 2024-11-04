@@ -1043,14 +1043,23 @@ def plot_2d_histogram(x, y, bins = 100,
     
     # Standard deviation plot aligned with histogram width
     ax_std = fig.add_subplot(gs[1, 0], sharex=ax_hist)
-    std_values = []
     step_size = (np.max(x) - np.min(x)) / 20
     bin_edges = np.arange(np.min(x), np.max(x), step_size)
+    std_values = np.zeros(len(bin_edges) - 1)
+    valid_bins = np.ones(len(std_values), dtype = np.bool_)
     for i in range(len(bin_edges) - 1):
         mask = (x >= bin_edges[i]) & (x < bin_edges[i+1])
-        std_values.append(np.std(y[mask]))
+        vals = y[mask]
+        if len(vals) == 0: 
+            valid_bins[i] = False
+            continue
+        std_values[i] = np.std(vals)
+
+    std_x_values = bin_edges[:-1] + step_size / 2
+    std_values = std_values[valid_bins]
+    std_x_values = std_x_values[valid_bins]
     
-    ax_std.plot(bin_edges[:-1] + step_size / 2, std_values, color='black', linewidth=5)
+    ax_std.plot(std_x_values, std_values, color='black', linewidth=5)
     ax_std.set_xlabel(xlabel, fontsize=38)
     ax_std.set_ylabel(r'$\sigma$', fontsize=38)
     ax_std.tick_params(axis='x', labelsize=28, width=5, length=14)
