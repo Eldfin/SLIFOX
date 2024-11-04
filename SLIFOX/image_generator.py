@@ -1041,7 +1041,8 @@ def plot_2d_histogram(x, y, bins = 100,
     # Standard deviation plot aligned with histogram width
     ax_std = fig.add_subplot(gs[1, 0], sharex=ax_hist)
     std_values = []
-    bin_edges = np.linspace(np.min(x), np.max(x), 101)
+    step_size = (np.max(x) - np.min(x)) / 20
+    bin_edges = np.arange(np.min(x), np.max(x), step_size)
     for i in range(len(bin_edges) - 1):
         mask = (x >= bin_edges[i]) & (x < bin_edges[i+1])
         std_values.append(np.std(y[mask]))
