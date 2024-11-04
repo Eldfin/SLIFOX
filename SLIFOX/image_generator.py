@@ -1022,7 +1022,7 @@ def plot_2d_histogram(x, y, bins = 100,
     xbin_counts = np.nansum(counts, axis = 1)
     counts_normalized = np.zeros_like(counts)
     nonzero_mask = (xbin_counts > 0)
-    counts_normalized[nonzero_mask, :] = counts[nonzero_mask, :] / counts[nonzero_mask][:, np.newaxis]
+    counts_normalized[nonzero_mask, :] = counts[nonzero_mask, :] / xbin_counts[nonzero_mask][:, np.newaxis]
     #counts_normalized = np.clip(counts_normalized, 0, 1)
 
     # Plotting
