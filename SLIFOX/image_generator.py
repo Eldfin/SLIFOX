@@ -1047,7 +1047,7 @@ def plot_2d_histogram(x, y, bins = 100,
         mask = (x >= bin_edges[i]) & (x < bin_edges[i+1])
         std_values.append(np.std(y[mask]))
     
-    ax_std.plot(bin_edges[:-1] + 0.05, std_values, color='black')
+    ax_std.plot(bin_edges[:-1] + step_size / 2, std_values, color='black')
     ax_std.set_xlabel(xlabel, fontsize=24)
     ax_std.set_ylabel(r'$\sigma$', fontsize=24)
     ax_std.tick_params(axis='x', labelsize=18, width=2, length=7)
