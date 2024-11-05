@@ -1689,19 +1689,19 @@ def peak_pairs_to_amplitudes(intensities, only_mus, params, peaks_mask, distribu
     
     num_peaks = np.count_nonzero(np.any(peaks_mask, axis = -1))
     amplitudes = np.zeros(num_peaks)
-    if only_mus:
+    if not only_mus:
         heights = params[0:-1:3]
         scales = params[2::3]
         
     for i in range(num_peaks):
-        if not only_mus or i > len(heights):
-            peak_intensities = intensities[peaks_mask[i]]
-            if len(peak_intensities) == 0: continue
-            amplitudes[i] = np.max(intensities[peaks_mask[i]]) - np.min(intensities)
-        elif only_mus and i < len(heights):
+        if not only_mus and i < len(heights):
             if heights[i] > 0:
                 amplitudes[i] = heights[i] * distribution_pdf(0, 0, scales[i], distribution)
-
+        else:
+            peak_intensities = intensities[peaks_mask[i]]
+            if len(peak_intensities) == 0: continue
+            amplitudes[i] = np.max(peak_intensities) - np.min(intensities)
+        
     return amplitudes
 @njit(cache = True, fastmath = True)
 def SLI_to_PLI(peak_pairs, mus, amplitudes):
