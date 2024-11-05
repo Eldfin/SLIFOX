@@ -1700,14 +1700,14 @@ def peak_pairs_to_amplitudes(intensities, only_mus, params, peaks_mask, distribu
         elif not np.any(peaks_mask[i]): continue
         elif not only_mus:
             if heights[i] > 0:
-                amplitudes[i] = heights[i] * distribution_pdf(0, 0, scales[i], distribution)
+                amplitudes[i] = heights[i] * distribution_pdf(0, 0, scales[i], distribution)[0]
         else:
             peak_intensities = intensities[peaks_mask[i]]
             amplitudes[i] = np.max(peak_intensities) - np.min(intensities)
         
     return amplitudes
 @njit(cache = True, fastmath = True)
-def SLI_to_PLI(peak_pairs, mus, amplitudes):
+def SLI_to_PLI(peak_pairs, mus, amplitudes, mu_s = 0.2, b = 0.7, amp_0 = 1.1):
     """
     Converts the results from a SLI measurement (peak pairs, mus, heights) to a virtual PLI measurement.
     "What would be measured in a PLI measurement for the found nerve fibers in the SLI measurement?"
@@ -1722,6 +1722,12 @@ def SLI_to_PLI(peak_pairs, mus, amplitudes):
         The center positions of the peaks.
     - amplitudes: np.ndarray (m, )
         The amplitudes of the peaks.
+    - mu_s: float 
+        Scattering coefficient (from a fit).
+    - b: float
+        Constant (depending on wavelength and refractive index) in retardation formula (from fit).
+    - amp_0: float
+        Relative intensity before the scattering (from a fit).
 
     Returns:
     - PLI_direction: float
@@ -1748,7 +1754,7 @@ def SLI_to_PLI(peak_pairs, mus, amplitudes):
             pair_distances[i] = np.abs(angle_distance(mus[peak_indices[0]], mus[peak_indices[1]]))
             pair_amplitudes[i] = (amplitudes[peak_indices[0]] + amplitudes[peak_indices[1]]) / 2
         
-        retardations = SLI_to_PLI_retardation(pair_distances, pair_amplitudes)
+        retardations = SLI_to_PLI_retardation(pair_distances, pair_amplitudes, mu_s, b, amp_0)
 
         PLI_direction, ret = add_birefringence(directions[0], retardations[0], 
                                                 directions[1], retardations[1])
@@ -1776,12 +1782,12 @@ def amplitude_to_thickness(amplitude, mu_s, amp_0):
     # but this formular is just an heuristic estimation
     thickness_limit = np.pi / 2
     thickness = -1 / mu_s * np.log(1 - (amplitude / amp_0))
-    thickness = thickness_limit * (1 - np.exp(-d))
-    return d
+    thickness = thickness_limit * (1 - np.exp(-thickness))
+    return thickness
 
 @njit(cache = True, fastmath = True)
 def SLI_to_PLI_retardation(distance, amplitude, mu_s, b, amp_0):
     # Calculate PLI retardation from SLI parameters peak distance and (mean) peak amplitude of a pair
     thickness = amplitude_to_thickness(amplitude, mu_s, amp_0)
-    retardation = distance_to_retardation(distances, thicknesses, b)
+    retardation = distance_to_retardation(distance, thickness, b)
     return retardation
