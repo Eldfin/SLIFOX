@@ -579,7 +579,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                         elif current_method == "pli":
                             sorted_peak_pair_combs = sig_peak_pair_combs[start_index:]
                             SLI_directions = np.empty(sorted_peak_pair_combs.shape[0])
-                            amplitudes = peak_pairs_to_amplitudes(intensities, only_mus, params, peaks_mask)
+                            amplitudes = peak_pairs_to_amplitudes(intensities, 
+                                        only_mus, params, peaks_mask, distribution)
                             for k, peak_pairs in enumerate(sorted_peak_pair_combs):
                                 SLI_directions[k] = SLI_to_PLI(peak_pairs, mus, amplitudes)
 
@@ -1684,7 +1685,7 @@ def get_mean_peak_widths(image_stack = None, image_params = None, image_peaks_ma
     return image_mean_widths
 
 @njit(cache = True, fastmath = True)
-def peak_pairs_to_amplitudes(intensities, only_mus, params, peaks_mask):
+def peak_pairs_to_amplitudes(intensities, only_mus, params, peaks_mask, distribution):
     
     num_peaks = np.count_nonzero(np.any(peaks_mask, axis = -1))
     amplitudes = np.zeros(num_peaks)
