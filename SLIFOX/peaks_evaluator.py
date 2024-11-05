@@ -1696,7 +1696,7 @@ def peak_pairs_to_amplitudes(intensities, only_mus, params, peaks_mask):
         if not only_mus or i > len(heights):
             peak_intensities = intensities[peaks_mask[i]]
             if len(peak_intensities) == 0: continue
-                amplitudes[i] = np.max(intensities[peaks_mask[i]]) - np.min(intensities)
+            amplitudes[i] = np.max(intensities[peaks_mask[i]]) - np.min(intensities)
         elif only_mus and i < len(heights):
             if heights[i] > 0:
                 amplitudes[i] = heights[i] * distribution_pdf(0, 0, scales[i], distribution)
