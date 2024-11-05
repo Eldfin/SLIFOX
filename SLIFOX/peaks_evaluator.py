@@ -1726,7 +1726,7 @@ def image_SLI_to_PLI(image_peak_pairs, image_params, only_mus, image_peaks_mask,
 
     if not only_mus:
         image_mus = image_params[:, :, 1::3]
-    else
+    else:
         image_mus = image_params
 
     PLI_direction_image = np.full(image_mus.shape[:-1], -1)
