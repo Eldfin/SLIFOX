@@ -1716,14 +1716,15 @@ def peak_pairs_to_amplitudes(intensities, only_mus, params, peaks_mask, distribu
     return amplitudes
 
 #@njit(cache = True, fastmath = True)
-def image_SLI_to_PLI(image_peak_pairs, image_params, only_mus, image_peaks_mask = image_peaks_mask,
+def image_SLI_to_PLI(image_peak_pairs, image_params, only_mus, image_peaks_mask,
                         mu_s = 0.548, b = 0.782, amp_0 = 1.001):
 
-    image_amplitudes = get_peak_amplitudes(image_stack, image_params = image_params, image_peaks_mask = image_peaks_mask, 
+    image_amplitudes = get_peak_amplitudes(image_stack, image_params = image_params, 
+                            image_peaks_mask = image_peaks_mask, 
                             distribution = "wrapped_cauchy", only_mus = only_mus)
     image_amplitudes = image_amplitudes / np.max(image_amplitudes)
 
-    if mot only_mus:
+    if not only_mus:
         image_mus = image_params[:, :, 1::3]
     else
         image_mus = image_params
