@@ -1734,6 +1734,8 @@ def image_SLI_to_PLI(image_peak_pairs, image_params, only_mus, mu_,
             PLI_direction_image[x, y] = SLI_to_PLI(image_peak_pairs[x, y], 
                         image_mus[x, y], norm_amplitudes[x, y], mu_s, b, amp_0)
 
+    return PLI_direction_image
+
 
 @njit(cache = True, fastmath = True)
 def SLI_to_PLI(peak_pairs, mus, norm_amplitudes, mu_s = 0.548, b = 0.782, amp_0 = 1.001):
