@@ -1687,19 +1687,22 @@ def get_mean_peak_widths(image_stack = None, image_params = None, image_peaks_ma
 @njit(cache = True, fastmath = True)
 def peak_pairs_to_amplitudes(intensities, only_mus, params, peaks_mask, distribution):
     
-    num_peaks = np.count_nonzero(np.any(peaks_mask, axis = -1))
-    amplitudes = np.zeros(num_peaks)
     if not only_mus:
         heights = params[0:-1:3]
         scales = params[2::3]
-        
-    for i in range(num_peaks):
-        if not only_mus and i < len(heights):
+    
+    max_peaks = peaks_mask.shape[0]
+    amplitudes = np.zeros(max_peaks)    
+    for i in range(max_peaks):
+        if not only_mus and i >= len(heights):
+            amplitudes = amplitudes[:len(heights)]
+            break
+        elif not np.any(peaks_mask[i]): continue
+        elif not only_mus:
             if heights[i] > 0:
                 amplitudes[i] = heights[i] * distribution_pdf(0, 0, scales[i], distribution)
         else:
             peak_intensities = intensities[peaks_mask[i]]
-            if len(peak_intensities) == 0: continue
             amplitudes[i] = np.max(peak_intensities) - np.min(intensities)
         
     return amplitudes
