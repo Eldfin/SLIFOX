@@ -587,13 +587,13 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             break
                         elif current_method == "pli":
                             sorted_peak_pair_combs = sig_peak_pair_combs[start_index:]
-                            SLI_directions = np.empty(sorted_peak_pair_combs.shape[0])
+                            sim_PLI_directions = np.full(sorted_peak_pair_combs.shape[0], -1)
                             for k, peak_pairs in enumerate(sorted_peak_pair_combs):
-                                SLI_directions[k] = SLI_to_PLI(peak_pairs, mus,
+                                sim_PLI_directions[k] = SLI_to_PLI(peak_pairs, mus,
                                                                 norm_image_amplitudes[x, y])
 
-                            differences = np.abs(angle_distance(image_pli_directions[x, y], SLI_directions, 
-                                                                wrap = np.pi))
+                            differences = np.abs(angle_distance(image_pli_directions[x, y], 
+                                                            sim_PLI_directions, wrap = np.pi))
                             
                             if np.min(differences) <= pli_diff_threshold:
                                 sorting_indices = np.argsort(differences)
@@ -1717,11 +1717,11 @@ def peak_pairs_to_amplitudes(intensities, only_mus, params, peaks_mask, distribu
 
 #@njit(cache = True, fastmath = True)
 def image_SLI_to_PLI(image_stack, image_peak_pairs, image_params, only_mus, image_peaks_mask,
-                        mu_s = 0.548, b = 0.782, amp_0 = 1.001):
+                        distribution, mu_s = 0.548, b = 0.782, amp_0 = 1.001):
 
     image_amplitudes = get_peak_amplitudes(image_stack, image_params = image_params, 
                             image_peaks_mask = image_peaks_mask, 
-                            distribution = "wrapped_cauchy", only_mus = only_mus)
+                            distribution = distribution, only_mus = only_mus)
     image_amplitudes = image_amplitudes / np.max(image_amplitudes)
 
     if not only_mus:
@@ -1729,11 +1729,11 @@ def image_SLI_to_PLI(image_stack, image_peak_pairs, image_params, only_mus, imag
     else:
         image_mus = image_params
 
-    PLI_direction_image = np.full(image_mus.shape[:-1], -1)
+    PLI_direction_image = np.full(image_mus.shape[:-1], -1, dtype = np.float64)
     for x in range(image_mus.shape[0]):
         for y in range(image_mus.shape[1]):
             PLI_direction_image[x, y] = SLI_to_PLI(image_peak_pairs[x, y], 
-                        image_mus[x, y], norm_amplitudes[x, y], mu_s, b, amp_0)
+                        image_mus[x, y], image_amplitudes[x, y], mu_s, b, amp_0)
 
     return PLI_direction_image
 
