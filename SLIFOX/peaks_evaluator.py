@@ -304,6 +304,17 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
     if not isinstance(image_num_peaks, np.ndarray):
         image_num_peaks = np.sum(image_sig_peaks_mask, axis = -1)
 
+    if isinstance(method, str):
+        method = [method]
+    if "pli" in method:
+        # Get amplitudes
+        image_amplitudes = get_peak_amplitudes(image_stack, image_params = image_params, 
+                            image_peaks_mask = image_peaks_mask, 
+                            distribution = distribution, only_mus = only_mus)
+        max_amp = np.max(image_amplitudes)
+        norm_image_amplitudes = image_amplitudes / max_amp
+        
+
     direction_found_mask = pymp.shared.array((n_rows, n_cols), dtype = np.bool_)
 
     max_sig_peaks = np.max(image_num_peaks)
@@ -539,8 +550,6 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                                 continue
 
                     # Try method(s) with loop
-                    if isinstance(method, str):
-                        method = [method]
                     for current_method in method:
                         if current_method not in [None, "None", "single", "pli", 
                                                     "neighbor", "random", "significance"]:
@@ -579,10 +588,9 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                         elif current_method == "pli":
                             sorted_peak_pair_combs = sig_peak_pair_combs[start_index:]
                             SLI_directions = np.empty(sorted_peak_pair_combs.shape[0])
-                            amplitudes = peak_pairs_to_amplitudes(intensities, 
-                                        only_mus, params, peaks_mask, distribution)
                             for k, peak_pairs in enumerate(sorted_peak_pair_combs):
-                                SLI_directions[k] = SLI_to_PLI(peak_pairs, mus, amplitudes)
+                                SLI_directions[k] = SLI_to_PLI(peak_pairs, mus,
+                                                                norm_image_amplitudes[x, y])
 
                             differences = np.abs(angle_distance(image_pli_directions[x, y], SLI_directions, 
                                                                 wrap = np.pi))
@@ -1706,8 +1714,29 @@ def peak_pairs_to_amplitudes(intensities, only_mus, params, peaks_mask, distribu
             amplitudes[i] = np.max(peak_intensities) - np.min(intensities)
         
     return amplitudes
+
+#@njit(cache = True, fastmath = True)
+def image_SLI_to_PLI(image_peak_pairs, image_params, only_mus, mu_,
+                        mu_s = 0.548, b = 0.782, amp_0 = 1.001):
+
+    image_amplitudes = get_peak_amplitudes(image_stack, image_params = image_params, image_peaks_mask = image_peaks_mask, 
+                            distribution = "wrapped_cauchy", only_mus = only_mus)
+    image_amplitudes = image_amplitudes / np.max(image_amplitudes)
+
+    if mot only_mus:
+        image_mus = image_params[:, :, 1::3]
+    else
+        image_mus = image_params
+
+    PLI_direction_image = np.full(image_mus.shape[:-1], -1)
+    for x in range(image_mus.shape[0]):
+        for y in range(image_mus.shape[1]):
+            PLI_direction_image[x, y] = SLI_to_PLI(image_peak_pairs[x, y], 
+                        image_mus[x, y], norm_amplitudes[x, y], mu_s, b, amp_0)
+
+
 @njit(cache = True, fastmath = True)
-def SLI_to_PLI(peak_pairs, mus, amplitudes, mu_s = 0.548, b = 0.782, amp_0 = 1.001):
+def SLI_to_PLI(peak_pairs, mus, norm_amplitudes, mu_s = 0.548, b = 0.782, amp_0 = 1.001):
     """
     Converts the results from a SLI measurement (peak pairs, mus, heights) to a virtual PLI measurement.
     "What would be measured in a PLI measurement for the found nerve fibers in the SLI measurement?"
@@ -1720,8 +1749,8 @@ def SLI_to_PLI(peak_pairs, mus, amplitudes, mu_s = 0.548, b = 0.782, amp_0 = 1.0
         is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
     - mus: np.ndarray (m, )
         The center positions of the peaks.
-    - amplitudes: np.ndarray (m, )
-        The amplitudes of the peaks.
+    - norm_amplitudes: np.ndarray (m, )
+        The norm amplitudes of the peaks (normalized by maximum amplitude of the image).
     - mu_s: float 
         Scattering coefficient (from a fit).
     - b: float
@@ -1752,7 +1781,7 @@ def SLI_to_PLI(peak_pairs, mus, amplitudes, mu_s = 0.548, b = 0.782, amp_0 = 1.0
         for i in range(num_directions):
             peak_indices = peak_pairs[i]
             pair_distances[i] = np.abs(angle_distance(mus[peak_indices[0]], mus[peak_indices[1]]))
-            pair_amplitudes[i] = (amplitudes[peak_indices[0]] + amplitudes[peak_indices[1]]) / 2
+            pair_amplitudes[i] = (norm_amplitudes[peak_indices[0]] + norm_amplitudes[peak_indices[1]]) / 2
         
         retardations = SLI_to_PLI_retardation(pair_distances, pair_amplitudes, mu_s, b, amp_0)
 
