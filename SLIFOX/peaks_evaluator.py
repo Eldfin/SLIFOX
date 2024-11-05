@@ -1707,7 +1707,7 @@ def peak_pairs_to_amplitudes(intensities, only_mus, params, peaks_mask, distribu
         
     return amplitudes
 @njit(cache = True, fastmath = True)
-def SLI_to_PLI(peak_pairs, mus, amplitudes, mu_s = 0.2, b = 0.7, amp_0 = 1.1):
+def SLI_to_PLI(peak_pairs, mus, amplitudes, mu_s = 0.548, b = 0.782, amp_0 = 1.001):
     """
     Converts the results from a SLI measurement (peak pairs, mus, heights) to a virtual PLI measurement.
     "What would be measured in a PLI measurement for the found nerve fibers in the SLI measurement?"
