@@ -579,8 +579,9 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                         elif current_method == "pli":
                             sorted_peak_pair_combs = sig_peak_pair_combs[start_index:]
                             SLI_directions = np.empty(sorted_peak_pair_combs.shape[0])
+                            amplitudes = peak_pairs_to_amplitudes(intensities, only_mus, params, peaks_mask)
                             for k, peak_pairs in enumerate(sorted_peak_pair_combs):
-                                SLI_directions[k] = SLI_to_PLI(peak_pairs, mus)
+                                SLI_directions[k] = SLI_to_PLI(peak_pairs, mus, amplitudes)
 
                             differences = np.abs(angle_distance(image_pli_directions[x, y], SLI_directions, 
                                                                 wrap = np.pi))
@@ -1284,8 +1285,8 @@ def get_peak_amplitudes(image_stack, image_params = None, image_peaks_mask = Non
                             distribution = "wrapped_cauchy", only_mus = False):
     if not only_mus:
         # Use params for amplitudes
-        image_heights = image_params[:, :, 0:-1:3]
-        image_scales = image_params[:, :, 2::3]
+        image_heights = image_params[..., 0:-1:3]
+        image_scales = image_params[..., 2::3]
         image_amplitudes = image_heights * \
                             distribution_pdf(0, 0, image_scales, distribution)[..., 0]
     else:
@@ -1683,7 +1684,26 @@ def get_mean_peak_widths(image_stack = None, image_params = None, image_peaks_ma
     return image_mean_widths
 
 @njit(cache = True, fastmath = True)
-def SLI_to_PLI(peak_pairs, mus):
+def peak_pairs_to_amplitudes(intensities, only_mus, params, peaks_mask):
+    
+    num_peaks = np.count_nonzero(np.any(peaks_mask, axis = -1))
+    amplitudes = np.zeros(num_peaks)
+    if only_mus:
+        heights = params[0:-1:3]
+        scales = params[2::3]
+        
+    for i in range(num_peaks):
+        if not only_mus or i > len(heights):
+            peak_intensities = intensities[peaks_mask[i]]
+            if len(peak_intensities) == 0: continue
+                amplitudes[i] = np.max(intensities[peaks_mask[i]]) - np.min(intensities)
+        elif only_mus and i < len(heights):
+            if heights[i] > 0:
+                amplitudes[i] = heights[i] * distribution_pdf(0, 0, scales[i], distribution)
+
+    return amplitudes
+@njit(cache = True, fastmath = True)
+def SLI_to_PLI(peak_pairs, mus, amplitudes):
     """
     Converts the results from a SLI measurement (peak pairs, mus, heights) to a virtual PLI measurement.
     "What would be measured in a PLI measurement for the found nerve fibers in the SLI measurement?"
@@ -1696,6 +1716,8 @@ def SLI_to_PLI(peak_pairs, mus):
         is the number of the peak pair (up to 3 peak-pairs for 6 peaks).
     - mus: np.ndarray (m, )
         The center positions of the peaks.
+    - amplitudes: np.ndarray (m, )
+        The amplitudes of the peaks.
 
     Returns:
     - PLI_direction: float
@@ -1714,22 +1736,48 @@ def SLI_to_PLI(peak_pairs, mus):
         PLI_direction = directions[0]
     else:
         
-        peak_distances = np.zeros(num_directions)
+        pair_distances = np.zeros(num_directions)
+        pair_amplitudes = np.zeros(num_directions)
+
         for i in range(num_directions):
             peak_indices = peak_pairs[i]
-            peak_distances[i] = np.abs(angle_distance(mus[peak_indices[0]], mus[peak_indices[1]]))
+            pair_distances[i] = np.abs(angle_distance(mus[peak_indices[0]], mus[peak_indices[1]]))
+            pair_amplitudes[i] = (amplitudes[peak_indices[0]] + amplitudes[peak_indices[1]]) / 2
         
-        # Assume retardation1 / retardation2 = distance1 / distance2
-        # and only the ratio (approximately) does matter for add_birefringence
-        # so retardation = distance / sum(distances) is a valid choice
-        normalized_distances = peak_distances / np.sum(peak_distances)
+        retardations = SLI_to_PLI_retardation(pair_distances, pair_amplitudes)
 
-        PLI_direction, ret = add_birefringence(directions[0], normalized_distances[0], 
-                                                directions[1], normalized_distances[1])
+        PLI_direction, ret = add_birefringence(directions[0], retardations[0], 
+                                                directions[1], retardations[1])
         if num_directions == 3:
             # For three directions:
             # To-Do: better handling than again add_birefringence
             PLI_direction, _ = add_birefringence(PLI_direction, ret, 
-                                                directions[2], normalized_distances[2])
+                                                directions[2], retardations[2])
 
     return PLI_direction
+
+@njit(cache = True, fastmath = True)
+def distance_to_retardation(distance, thickness, b):
+    # Calculate retardation from peak distance (radians), thickness and a (fit) constant b
+    # Assuming the relation peak_distance = np.pi * cos(inclination)
+    # which is just an heuristic estimation
+    
+    return np.abs(np.sin(b * thickness * (distance/np.pi)**2))
+    
+    @njit(cache = True, fastmath = True)
+def amplitude_to_thickness(amplitude, mu_s, amp_0):
+    # Calculate thickness from peak amplitude and (fit) constants mu_s and amp_0
+    # (mu_s is the scattering coefficient and amp_0 the relative amplitude before scattering)
+    # Assuming Lamberts beer law and a asymptotic maximum thickness
+    # but this formular is just an heuristic estimation
+    thickness_limit = np.pi / 2
+    thickness = -1 / mu_s * np.log(1 - (amplitude / amp_0))
+    thickness = thickness_limit * (1 - np.exp(-d))
+    return d
+
+@njit(cache = True, fastmath = True)
+def SLI_to_PLI_retardation(distance, amplitude, mu_s, b, amp_0):
+    # Calculate PLI retardation from SLI parameters peak distance and (mean) peak amplitude of a pair
+    thickness = amplitude_to_thickness(amplitude, mu_s, amp_0)
+    retardation = distance_to_retardation(distances, thicknesses, b)
+    return retardation
