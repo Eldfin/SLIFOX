@@ -1764,7 +1764,7 @@ def distance_to_retardation(distance, thickness, b):
     
     return np.abs(np.sin(b * thickness * (distance/np.pi)**2))
     
-    @njit(cache = True, fastmath = True)
+@njit(cache = True, fastmath = True)
 def amplitude_to_thickness(amplitude, mu_s, amp_0):
     # Calculate thickness from peak amplitude and (fit) constants mu_s and amp_0
     # (mu_s is the scattering coefficient and amp_0 the relative amplitude before scattering)
