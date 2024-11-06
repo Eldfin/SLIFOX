@@ -1736,12 +1736,13 @@ def image_SLI_to_PLI(image_stack, image_peak_pairs, image_params, only_mus, imag
         image_mus = image_params
 
     PLI_direction_image = np.full(image_mus.shape[:-1], -1, dtype = np.float64)
+    PLI_retardation_image = np.full(image_mus.shape[:-1], -1, dtype = np.float64)
     for x in range(image_mus.shape[0]):
         for y in range(image_mus.shape[1]):
-            PLI_direction_image[x, y] = SLI_to_PLI(image_peak_pairs[x, y], 
+            PLI_direction_image[x, y], PLI_retardation_image = SLI_to_PLI(image_peak_pairs[x, y], 
                         image_mus[x, y], image_amplitudes[x, y], mu_s, b, amp_0)
 
-    return PLI_direction_image
+    return PLI_direction_image, PLI_retardation_image
 
 
 @njit(cache = True, fastmath = True)
@@ -1769,7 +1770,9 @@ def SLI_to_PLI(peak_pairs, mus, norm_amplitudes, mu_s = 0.548, b = 0.782, amp_0 
 
     Returns:
     - PLI_direction: float
-        Virtual direction value of the PLI measurement.
+        Virtual direction value of PLI measurement.
+    - PLI_retardation: float
+        Virtual retardation value of PLI measurement.
 
     """
 
