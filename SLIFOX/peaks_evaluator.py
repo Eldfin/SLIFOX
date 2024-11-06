@@ -588,15 +588,21 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                         elif current_method == "pli":
                             sorted_peak_pair_combs = sig_peak_pair_combs[start_index:]
                             sim_PLI_directions = np.full(sorted_peak_pair_combs.shape[0], -1)
+                            sim_PLI_retardations = np.full(sorted_peak_pair_combs.shape[0], -1)
                             for k, peak_pairs in enumerate(sorted_peak_pair_combs):
                                 sim_PLI_directions[k] = SLI_to_PLI(peak_pairs, mus,
                                                                 norm_image_amplitudes[x, y])
 
-                            differences = np.abs(angle_distance(image_pli_directions[x, y], 
+                            dir_mask = sim_PLI_directions != -1
+                            if not np.any(dir_mask): continue
+                            sim_PLI_directions = sim_PLI_directions[dir_mask]
+                            sim_PLI_retardations = sim_PLI_retardations[dir_mask]
+
+                            dir_differences = np.abs(angle_distance(image_pli_directions[x, y], 
                                                             sim_PLI_directions, wrap = np.pi))
                             
-                            if np.min(differences) <= pli_diff_threshold:
-                                sorting_indices = np.argsort(differences)
+                            if np.min(dir_differences) <= pli_diff_threshold:
+                                sorting_indices = np.argsort(dir_differences)
                                 sorted_peak_pair_combs = sorted_peak_pair_combs[sorting_indices]
                                 image_peak_pair_combs[x, y, 
                                             start_index:sorted_peak_pair_combs.shape[0],
@@ -1788,15 +1794,15 @@ def SLI_to_PLI(peak_pairs, mus, norm_amplitudes, mu_s = 0.548, b = 0.782, amp_0 
         
         retardations = SLI_to_PLI_retardation(pair_distances, pair_amplitudes, mu_s, b, amp_0)
 
-        PLI_direction, ret = add_birefringence(directions[0], retardations[0], 
+        PLI_direction, PLI_retardation = add_birefringence(directions[0], retardations[0], 
                                                 directions[1], retardations[1])
         if num_directions == 3:
             # For three directions:
             # To-Do: better handling than again add_birefringence
-            PLI_direction, _ = add_birefringence(PLI_direction, ret, 
+            PLI_direction, PLI_retardation = add_birefringence(PLI_direction, ret, 
                                                 directions[2], retardations[2])
 
-    return PLI_direction
+    return PLI_direction, PLI_retardation
 
 @njit(cache = True, fastmath = True)
 def distance_to_retardation(distance, thickness, b):
