@@ -1739,7 +1739,7 @@ def image_SLI_to_PLI(image_stack, image_peak_pairs, image_params, only_mus, imag
     PLI_retardation_image = np.full(image_mus.shape[:-1], -1, dtype = np.float64)
     for x in range(image_mus.shape[0]):
         for y in range(image_mus.shape[1]):
-            PLI_direction_image[x, y], PLI_retardation_image = SLI_to_PLI(image_peak_pairs[x, y], 
+            PLI_direction_image[x, y], PLI_retardation_image[x, y] = SLI_to_PLI(image_peak_pairs[x, y], 
                         image_mus[x, y], image_amplitudes[x, y], mu_s, b, amp_0)
 
     return PLI_direction_image, PLI_retardation_image
@@ -1802,7 +1802,7 @@ def SLI_to_PLI(peak_pairs, mus, norm_amplitudes, mu_s = 0.548, b = 0.782, amp_0 
         if num_directions == 3:
             # For three directions:
             # To-Do: better handling than again add_birefringence
-            PLI_direction, PLI_retardation = add_birefringence(PLI_direction, ret, 
+            PLI_direction, PLI_retardation = add_birefringence(PLI_direction, PLI_retardation, 
                                                 directions[2], retardations[2])
 
     return PLI_direction, PLI_retardation
