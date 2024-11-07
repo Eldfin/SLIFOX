@@ -1775,6 +1775,7 @@ def sli_to_pli_brute(peak_pairs, mus, pli_direction, pli_retardation):
         # For one directions return the direction
         sim_pli_direction = directions[0]
         sim_pli_retardation = pli_retardation
+        min_diff = (angle_distance(total_dir, pli_direction) / np.pi)**2
     elif num_directions == 2 or num_directions == 3:
         # Find best match by looping through retardation values (since SLI has no retardation values)
         # Possible To-Do: For low peak distances (high inclination) the retardation must be low
