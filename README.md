@@ -343,6 +343,9 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
 - `pli_diff_threshold`: float
     If the difference between the measured PLI direction and the calculated PLI direction from SLI
     is larger than this threshold, the "pli" method will not return any peak pair combination.
+- `pli_ret_diff_threshold`: float
+    The difference between the single fiber retardations and the pli retardation must be smaller
+    than this value to count the peak pair combination as valid in the "pli" method.
 - `max_attempts`: int
     Number defining how many times it should be attempted to find a neighboring pixel 
     with a direction difference lower than the given "nb_diff_threshold".
@@ -365,6 +368,8 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
     it can be inserted here to speed up the process.
 - `image_pli_directions`: np.ndarray (n, m)
     The directions in radians (0 to pi) from a pli measurement used for the method "pli".
+- `image_pli_retardations`: np.ndarray (n, m)
+    The retardations from a pli measurement used for the method "pli".
 
 ##### Returns
 - `image_peak_pairs`: np.ndarray (n, m, p, np.ceil(max_paired_peaks / 2), 2)
