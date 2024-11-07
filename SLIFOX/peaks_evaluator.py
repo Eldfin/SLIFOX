@@ -413,7 +413,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                     valid_pairs_mask = np.ones((num_combs, num_pairs), dtype = np.bool_)
                     direction_combs = np.full((num_combs, num_pairs), -1, 
                                                 dtype = np.float64)
-                    comb_significances = np.full((num_combs, num_pairs), -1)
+                    comb_significances = np.full((num_combs, num_pairs), -1, dtype = np.float64)
                     num_unvalid_differences = np.zeros(num_combs, dtype = int)
                     unvalid_dir_indices_1 = np.full((num_combs, num_pairs), -1)
                     unvalid_dir_indices_2 = np.full((num_combs, num_pairs), -1)
@@ -629,7 +629,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                         elif current_method == "neighbor":
                             check_mask = np.copy(direction_found_mask)
                             matched_dir_mask = np.zeros(direction_combs.shape, dtype = np.bool_)
-                            matched_dir_diffs = np.full(direction_combs.shape, np.pi)
+                            matched_dir_diffs = np.full(direction_combs.shape, np.pi, dtype = np.float64)
 
                             # Set matched pairs in every comb as already matched
                             if not all_match_indices is None:
