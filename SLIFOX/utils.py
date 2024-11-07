@@ -865,6 +865,9 @@ def add_birefringence(
     if symmetric:
         ret_new = np.sin(np.arcsin(ret_new) * 2)
 
+    # wrap around 180 degree
+    dir_new = dir_new % np.pi
+
     return dir_new, ret_new
 
 @njit(cache = True, fastmath = True)
