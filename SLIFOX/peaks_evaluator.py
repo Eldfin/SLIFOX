@@ -613,6 +613,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             if not np.any(dir_mask): continue
                             sim_pli_directions = sim_pli_directions[dir_mask]
                             sim_pli_retardations = sim_pli_retardations[dir_mask]
+                            sim_diffs = sim_diffs[dir_mask]
 
                             dir_differences = np.abs(angle_distance(pli_direction, 
                                                             sim_pli_directions, wrap = np.pi))
