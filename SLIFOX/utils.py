@@ -828,33 +828,36 @@ def add_birefringence(
     dirs = np.asarray(dirs)
     rets = np.asarray(rets)
 
-    # Initialize real and imaginary parts
     total_real, total_im = 0.0, 0.0
 
     # Process each (dir, ret) pair
     for i in range(len(dirs)):
-        delta = np.arcsin(rets[i])
-        for j in range(len(dirs)):
-            if i != j:  # Avoid self-combination
-                other_delta = np.arcsin(rets[j])
-                if symmetric:
-                    real, im = mod2cplx(dirs[i], np.sin(delta / 2) * np.cos(other_delta / 2))
-                else:
-                    real, im = mod2cplx(
-                        dirs[i],
-                        np.sin(delta) * np.cos(other_delta) if i == 0 else np.cos(delta / 2) ** 2 * np.sin(other_delta)
-                    )
-                # Accumulate real and imaginary parts
-                total_real += real
-                total_im += im
+        delta_i = np.arcsin(rets[i])
+        for j in range(i + 1, len(dirs)):  # Avoid repeating pairs
+            delta_j = np.arcsin(rets[j])
 
-                if not symmetric:
-                    real_cross, im_cross = mod2cplx(
-                        2 * dirs[i] - dirs[j],
-                        -np.sin(delta / 2) ** 2 * np.sin(other_delta)
-                    )
-                    total_real += real_cross
-                    total_im += im_cross
+            # Calculate main term contributions
+            if symmetric:
+                # Symmetric case interactions
+                real_ij, im_ij = mod2cplx(dirs[i], np.sin(delta_i / 2) * np.cos(delta_j / 2))
+                real_ji, im_ji = mod2cplx(dirs[j], np.sin(delta_j / 2) * np.cos(delta_i / 2))
+            else:
+                # Non-symmetric main terms
+                real_ij, im_ij = mod2cplx(dirs[i], np.sin(delta_i) * np.cos(delta_j))
+                real_ji, im_ji = mod2cplx(dirs[j], np.cos(delta_i / 2) ** 2 * np.sin(delta_j))
+
+            # Sum main terms for this pair
+            total_real += real_ij + real_ji
+            total_im += im_ij + im_ji
+
+            # Add cross term for the non-symmetric case
+            if not symmetric:
+                real_cross, im_cross = mod2cplx(
+                    2 * dirs[i] - dirs[j],
+                    -np.sin(delta_i / 2) ** 2 * np.sin(delta_j)
+                )
+                total_real += real_cross
+                total_im += im_cross
 
     # Convert accumulated real and imaginary parts to new direction and retardation
     dir_new, ret_new = cplx2mod(total_real, total_im)
