@@ -604,7 +604,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             sim_pli_retardations = np.full(num_sorted_combs, -1, dtype = np.float64)
                             sim_diffs = np.full(num_sorted_combs, -1, dtype = np.float64)
                             for k, peak_pairs in enumerate(sorted_peak_pair_combs):
-                                sim_pli_directions[k], sim_pli_retardations[k], sim_diffs = \
+                                sim_pli_directions[k], sim_pli_retardations[k], sim_diffs[k] = \
                                     sli_to_pli_brute(peak_pairs, mus, 
                                                 pli_direction, pli_retardation)
 
