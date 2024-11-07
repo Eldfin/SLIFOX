@@ -53,7 +53,8 @@ def numba_sum_last_axis(arr):
         # Compute the sum along the last axis
         sum_value = 0
         for value in sub_array:
-            sum_value += value
+            if value == value:
+                sum_value += value
         
         # Store the result
         result[index] = sum_value
@@ -84,7 +85,11 @@ def numba_sum_second_last_axis(arr):
         for i in range(second_last_axis_size):
             # Construct the full index manually
             full_index = (*index[:-1], i, index[-1])
-            sum_value += arr[full_index]
+            value = arr[full_index]
+            
+            # Only add the value if it is not NaN
+            if value == value:
+                sum_value += value
         
         # Store the result
         result[index] = sum_value
@@ -778,7 +783,7 @@ def imread(filepath, dataset="/Image"):
     return data
 
 @njit(cache = True, fastmath = True)
-def add_birefringence(
+def add_birefringence_orig(
     dir_1,
     ret_1,
     dir_2,
@@ -810,6 +815,51 @@ def add_birefringence(
             real_part_1 + real_part_2 + real_part_3,
             im_part_1 + im_part_2 + im_part_3,
         )
+
+    return dir_new, ret_new
+
+def add_birefringence(
+    dirs,
+    rets,
+    symmetric=False,
+):
+    """Add multiple birefringencies"""
+    dirs = np.asarray(dirs)
+    rets = np.asarray(rets)
+
+    # Initialize real and imaginary parts
+    total_real, total_im = 0.0, 0.0
+
+    # Process each (dir, ret) pair
+    for i in range(len(dirs)):
+        delta = np.arcsin(rets[i])
+        for j in range(len(dirs)):
+            if i != j:  # Avoid self-combination
+                other_delta = np.arcsin(rets[j])
+                if symmetric:
+                    real, im = mod2cplx(dirs[i], np.sin(delta / 2) * np.cos(other_delta / 2))
+                else:
+                    real, im = mod2cplx(
+                        dirs[i],
+                        np.sin(delta) * np.cos(other_delta) if i == 0 else np.cos(delta / 2) ** 2 * np.sin(other_delta)
+                    )
+                # Accumulate real and imaginary parts
+                total_real += real
+                total_im += im
+
+                if not symmetric:
+                    real_cross, im_cross = mod2cplx(
+                        2 * dirs[i] - dirs[j],
+                        -np.sin(delta / 2) ** 2 * np.sin(other_delta)
+                    )
+                    total_real += real_cross
+                    total_im += im_cross
+
+    # Convert accumulated real and imaginary parts to new direction and retardation
+    dir_new, ret_new = cplx2mod(total_real, total_im)
+
+    if symmetric:
+        ret_new = np.sin(np.arcsin(ret_new) * 2)
 
     return dir_new, ret_new
 
