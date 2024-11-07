@@ -270,6 +270,9 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
     max_distance = np.atleast_1d(max_distance) * np.pi / 180
     nb_diff_threshold = nb_diff_threshold * np.pi / 180
     pli_diff_threshold = pli_diff_threshold * np.pi / 180
+    if image_pli_directions is not None:
+        if np.max(image_pli_directions) > np.pi:
+            image_pli_directions = image_pli_directions * np.pi / 180
     
     if only_mus:
         max_peaks = image_params.shape[2]
