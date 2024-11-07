@@ -611,6 +611,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
 
                             dir_mask = (sim_pli_directions != -1)
                             if not np.any(dir_mask): continue
+                            sorted_peak_pair_combs = sorted_peak_pair_combs[dir_mask]
                             sim_pli_directions = sim_pli_directions[dir_mask]
                             sim_pli_retardations = sim_pli_retardations[dir_mask]
                             sim_diffs = sim_diffs[dir_mask]
