@@ -818,6 +818,7 @@ def add_birefringence_orig(
 
     return dir_new, ret_new
 
+@njit(cache = True, fastmath = True)
 def add_birefringence(
     dirs,
     rets,

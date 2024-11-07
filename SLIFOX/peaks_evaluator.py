@@ -1855,11 +1855,7 @@ def sli_to_pli(peak_pairs, mus, norm_amplitudes,
         retardations = sli_to_pli_retardation(pair_distances, pair_amplitudes, 
                                             mu_s, b, amp_0, inclination_max)
 
-        if num_directions == 2:
-            pli_direction, pli_retardation = add_birefringence_orig(directions[0], retardations[0], 
-                                                directions[1], retardations[1])
-        elif num_directions == 3:
-            pli_direction, pli_retardation = add_birefringence(directions, retardations)
+        pli_direction, pli_retardation = add_birefringence(directions, retardations)
 
     return pli_direction, pli_retardation
 
