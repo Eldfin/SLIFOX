@@ -600,9 +600,9 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             pli_direction = image_pli_directions[x, y]
                             pli_retardation = image_pli_retardations[x, y]
                             num_sorted_combs = sorted_peak_pair_combs.shape[0]
-                            sim_pli_directions = np.full(num_sorted_combs, -1)
-                            sim_pli_retardations = np.full(num_sorted_combs, -1)
-                            sim_diffs = np.full(num_sorted_combs, -1)
+                            sim_pli_directions = np.full(num_sorted_combs, -1, dtype = np.float64)
+                            sim_pli_retardations = np.full(num_sorted_combs, -1, dtype = np.float64)
+                            sim_diffs = np.full(num_sorted_combs, -1, dtype = np.float64)
                             for k, peak_pairs in enumerate(sorted_peak_pair_combs):
                                 sim_pli_directions[k], sim_pli_retardations[k], sim_diffs = \
                                     sli_to_pli_brute(peak_pairs, mus, 
