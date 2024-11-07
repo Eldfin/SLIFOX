@@ -270,6 +270,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
     max_distance = np.atleast_1d(max_distance) * np.pi / 180
     nb_diff_threshold = nb_diff_threshold * np.pi / 180
     pli_diff_threshold = pli_diff_threshold * np.pi / 180
+
     if image_pli_directions is not None:
         if np.max(image_pli_directions) > np.pi:
             image_pli_directions = image_pli_directions * np.pi / 180
@@ -605,7 +606,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                                     sli_to_pli_brute(peak_pairs, mus, 
                                                 pli_direction, pli_retardation)
 
-                            dir_mask = sim_pli_directions != -1
+                            dir_mask = (sim_pli_directions != -1)
                             if not np.any(dir_mask): continue
                             sim_pli_directions = sim_pli_directions[dir_mask]
                             sim_pli_retardations = sim_pli_retardations[dir_mask]
@@ -613,10 +614,12 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             dir_differences = np.abs(angle_distance(pli_direction, 
                                                             sim_pli_directions, wrap = np.pi))
                             ret_differences = np.abs(pli_retardation - sim_pli_retardations)
+                            differences = (dir_differences**2 + ret_differences**2) / 2
+                            best_diff_index = np.argmin(differences)
                             
-                            if np.min(dir_differences) <= pli_diff_threshold \
-                                and np.min(ret_differences) <= pli_ret_diff_threshold:
-                                sorting_indices = np.argsort(dir_differences)
+                            if np.min(dir_differences[best_diff_index]) <= pli_diff_threshold \
+                                and np.min(ret_differences[best_diff_index]) <= pli_ret_diff_threshold:
+                                sorting_indices = np.argsort(differences)
                                 sorted_peak_pair_combs = sorted_peak_pair_combs[sorting_indices]
                                 image_peak_pair_combs[x, y, 
                                             start_index:sorted_peak_pair_combs.shape[0],
@@ -1788,8 +1791,8 @@ def sli_to_pli_brute(peak_pairs, mus, pli_direction, pli_retardation):
                     retardations = np.array([ret_1, ret_2, ret_3])
                     retardations = retardations[:num_directions]
                     total_dir, total_ret = add_birefringence(directions, retardations)
-                    if total_dir > 0 and total_dir < 2 * np.pi\
-                        and total_ret > 0 and total_ret < 1:
+                    if total_dir >= 0 and total_dir <= np.pi\
+                        and total_ret >= 0 and total_ret <= 1:
                         dir_diff = (angle_distance(total_dir, pli_direction))**2
                         dir_diff = dir_diff / (2 * np.pi)
                         ret_diff = (total_ret - pli_retardation)**2
