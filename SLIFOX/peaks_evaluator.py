@@ -599,10 +599,12 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             sorted_peak_pair_combs = sig_peak_pair_combs[start_index:]
                             pli_direction = image_pli_directions[x, y]
                             pli_retardation = image_pli_retardations[x, y]
-                            sim_pli_directions = np.full(sorted_peak_pair_combs.shape[0], -1)
-                            sim_pli_retardations = np.full(sorted_peak_pair_combs.shape[0], -1)
+                            num_sorted_combs = sorted_peak_pair_combs.shape[0]
+                            sim_pli_directions = np.full(num_sorted_combs, -1)
+                            sim_pli_retardations = np.full(num_sorted_combs, -1)
+                            sim_diffs = np.full(num_sorted_combs, -1)
                             for k, peak_pairs in enumerate(sorted_peak_pair_combs):
-                                sim_pli_directions[k], sim_pli_retardations[k] = \
+                                sim_pli_directions[k], sim_pli_retardations[k], sim_diffs = \
                                     sli_to_pli_brute(peak_pairs, mus, 
                                                 pli_direction, pli_retardation)
 
@@ -614,12 +616,11 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             dir_differences = np.abs(angle_distance(pli_direction, 
                                                             sim_pli_directions, wrap = np.pi))
                             ret_differences = np.abs(pli_retardation - sim_pli_retardations)
-                            differences = (dir_differences**2 + ret_differences**2) / 2
-                            best_diff_index = np.argmin(differences)
+                            best_diff_index = np.argmin(sim_diffs)
                             
                             if np.min(dir_differences[best_diff_index]) <= pli_diff_threshold \
                                 and np.min(ret_differences[best_diff_index]) <= pli_ret_diff_threshold:
-                                sorting_indices = np.argsort(differences)
+                                sorting_indices = np.argsort(sim_diffs)
                                 sorted_peak_pair_combs = sorted_peak_pair_combs[sorting_indices]
                                 image_peak_pair_combs[x, y, 
                                             start_index:sorted_peak_pair_combs.shape[0],
@@ -1793,16 +1794,16 @@ def sli_to_pli_brute(peak_pairs, mus, pli_direction, pli_retardation):
                     total_dir, total_ret = add_birefringence(directions, retardations)
                     if total_dir >= 0 and total_dir <= np.pi\
                         and total_ret >= 0 and total_ret <= 1:
-                        dir_diff = (angle_distance(total_dir, pli_direction))**2
-                        dir_diff = dir_diff / (2 * np.pi)
-                        ret_diff = (total_ret - pli_retardation)**2
-                        diff = (dir_diff + ret_diff) / 2
+                        dir_diff = (angle_distance(total_dir, pli_direction))
+                        dir_diff = dir_diff / np.pi
+                        ret_diff = (total_ret - pli_retardation)
+                        diff = (dir_diff**2 + ret_diff**2) / 2
                         if diff < min_diff:
                             min_diff = diff
                             sim_pli_retardation = total_ret
                             sim_pli_direction = total_dir
 
-    return sim_pli_direction, sim_pli_retardation
+    return sim_pli_direction, sim_pli_retardation, min_diff
 
 
 
