@@ -1022,10 +1022,15 @@ def plot_2d_histogram(x, y, bins = 100, count_threshold = 10,
 
     # Calculate the total counts for each x-bin and normalize counts with it
     xbin_counts = np.nansum(counts, axis = 1)
-    counts_normalized = np.zeros_like(counts)
     enough_counts_mask = (xbin_counts > count_threshold)
-    counts_normalized[enough_counts_mask, :] = counts[enough_counts_mask, :] \
-                                                / xbin_counts[enough_counts_mask][:, np.newaxis]
+    counts[enough_counts_mask, :] = counts[enough_counts_mask, :] \
+                                    / xbin_counts[enough_counts_mask][:, np.newaxis]
+    # Trim counts
+    start_idx = np.argmax(enough_counts_mask)
+    end_idx = len(enough_counts_mask) - np.argmax(enough_counts_mask[::-1]) 
+    counts = counts[start_idx:end_idx]
+    counts[~enough_counts_mask, :] = 0
+    x_edges = x_edges[start_idx:end_idx + 1]
     #counts_normalized = np.clip(counts_normalized, 0, 1)
 
     # Plotting
@@ -1034,7 +1039,7 @@ def plot_2d_histogram(x, y, bins = 100, count_threshold = 10,
     
     # Plot the normalized histogram
     ax_hist = fig.add_subplot(gs[0, 0])
-    pcm = ax_hist.pcolormesh(x_edges, y_edges, counts_normalized.T, cmap='viridis', norm=LogNorm())
+    pcm = ax_hist.pcolormesh(x_edges, y_edges, counts.T, cmap='viridis', norm=LogNorm())
     ax_hist.set_ylabel(ylabel, fontsize=38)
     ax_hist.tick_params(axis='x', labelsize=28, width=5, length=14, labelbottom=False)
     ax_hist.tick_params(axis='y', labelsize=28, width=5, length=14)
@@ -1046,8 +1051,8 @@ def plot_2d_histogram(x, y, bins = 100, count_threshold = 10,
     
     # Standard deviation plot aligned with histogram width
     ax_std = fig.add_subplot(gs[1, 0], sharex=ax_hist)
-    step_size = (np.max(x) - np.min(x)) / 20
-    bin_edges = np.arange(np.min(x), np.max(x), step_size)
+    step_size = (np.max(x_edges) - np.min(x_edges)) / 20
+    bin_edges = np.arange(np.min(x_edges), np.max(x_edges), step_size)
     std_values = np.zeros(len(bin_edges) - 1)
     valid_bins = np.ones(len(std_values), dtype = np.bool_)
     for i in range(len(bin_edges) - 1):
