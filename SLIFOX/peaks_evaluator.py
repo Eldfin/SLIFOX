@@ -520,6 +520,9 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                     valid_pairs_mask = valid_pairs_mask[valid_combs_mask]
                     direction_combs = direction_combs[valid_combs_mask]
                     comb_significances = comb_significances[valid_combs_mask]
+                    num_unvalid_differences = num_unvalid_differences[valid_combs_mask]
+                    unvalid_dir_indices_1 = unvalid_dir_indices_1[valid_combs_mask]
+                    unvalid_dir_indices_2 = unvalid_dir_indices_2[valid_combs_mask]
 
                     # Set unvalid pairs to [-1, -1] and move the to the end of pairs
                     for k in range(num_sig_combs):
@@ -527,7 +530,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                         sig_peak_pair_combs[k, :len(valid_pairs)] = valid_pairs
                         sig_peak_pair_combs[k, len(valid_pairs):] = [-1, -1]
 
-                    if num_sig_combs == 1 and num_unvalid_differences[valid_combs_mask.nonzero()[0]] == 0:
+                    if num_sig_combs == 1 and num_unvalid_differences[0] == 0:
                         image_peak_pair_combs[x, y, 
                                         :sig_peak_pair_combs.shape[0],
                                         :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
@@ -1796,16 +1799,14 @@ def sli_to_pli_brute(peak_pairs, mus, pli_direction, pli_retardation):
                     retardations = np.array([ret_1, ret_2, ret_3])
                     retardations = retardations[:num_directions]
                     total_dir, total_ret = add_birefringence(directions, retardations)
-                    if total_dir >= 0 and total_dir <= np.pi\
-                        and total_ret >= 0 and total_ret <= 1:
-                        dir_diff = (angle_distance(total_dir, pli_direction))
-                        dir_diff = dir_diff / np.pi
-                        ret_diff = (total_ret - pli_retardation)
-                        diff = (dir_diff**2 + ret_diff**2) / 2
-                        if diff < min_diff:
-                            min_diff = diff
-                            sim_pli_retardation = total_ret
-                            sim_pli_direction = total_dir
+                    dir_diff = (angle_distance(total_dir, pli_direction, wrap = np.pi))
+                    dir_diff = dir_diff / np.pi
+                    ret_diff = (total_ret - pli_retardation)
+                    diff = (dir_diff**2 + ret_diff**2) / 2
+                    if diff < min_diff:
+                        min_diff = diff
+                        sim_pli_retardation = total_ret
+                        sim_pli_direction = total_dir
 
     return sim_pli_direction, sim_pli_retardation, min_diff
 
