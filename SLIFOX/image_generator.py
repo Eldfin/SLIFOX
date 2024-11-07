@@ -545,14 +545,14 @@ def map_peak_distances(image_stack = None, image_params = None, image_peaks_mask
                 if normalize:
                     image_slice, min_val, max_val = normalize_to_rgb(image_slice, normalize_to, percentiles)
                     map_colorbar(min_val = min_val, max_val = max_val, directory = directory, 
-                                latex_unit = "$\degree$", name = slice_name)
+                                latex_unit = r"$\degree$", name = slice_name)
                 filepath = f'{directory}/{slice_name}.tiff'
                 imageio.imwrite(filepath, image_slice, format = 'tiff')
         else:
             if normalize:
                 image, min_val, max_val = normalize_to_rgb(image, normalize_to, percentiles)
                 map_colorbar(min_val = min_val, max_val = max_val, directory = directory, 
-                            latex_unit = "$\degree$", name = file_name)
+                            latex_unit = r"$\degree$", name = file_name)
             filepath = f'{directory}/{file_name}.tiff'
             imageio.imwrite(filepath, image, format = 'tiff')
 
@@ -710,7 +710,7 @@ def map_mean_peak_widths(image_stack = None, image_params = None,
         if normalize:
             image, min_val, max_val = normalize_to_rgb(image, normalize_to, percentiles)
             map_colorbar(min_val = min_val, max_val = max_val, directory = directory, 
-                        latex_unit = "$\degree$", name = "peak_widths_map")
+                        latex_unit = r"$\degree$", name = "peak_widths_map")
 
         imageio.imwrite(f'{directory}/peak_widths_map.tiff', image, format = 'tiff')
 
@@ -784,14 +784,14 @@ def map_directions(image_peak_pairs = None, image_mus = None, only_peaks_count =
                     slice_name = f"dir_{dir_n + 1}"
                     image_slice, min_val, max_val = normalize_to_rgb(image_slice, normalize_to, percentiles)
                     map_colorbar(min_val = min_val, max_val = max_val, directory = directory, 
-                                latex_unit = "$\degree$", name = slice_name)
+                                latex_unit = r"$\degree$", name = slice_name)
                 filepath = f'{directory}/dir_{dir_n + 1}.tiff'
                 imageio.imwrite(filepath, image_slice, format = 'tiff')
         else:
             if normalize:
                 image, min_val, max_val = normalize_to_rgb(image, normalize_to, percentiles)
                 map_colorbar(min_val = min_val, max_val = max_val, directory = directory, 
-                        latex_unit = "$\degree$", name = "dir")
+                        latex_unit = r"$\degree$", name = "dir")
             filepath = f'{directory}/dir.tiff'
             imageio.imwrite(filepath, image, format = 'tiff')
 
