@@ -1789,7 +1789,7 @@ def sli_to_pli_brute(peak_pairs, mus, pli_direction, pli_retardation):
                     retardations = retardations[:num_directions]
                     total_dir, total_ret = add_birefringence(directions, retardations)
                     if total_dir > 0 and total_dir < 2 * np.pi\
-                        and total_ret > 0 and total_ret < 0:
+                        and total_ret > 0 and total_ret < 1:
                         dir_diff = (angle_distance(total_dir, pli_direction))**2
                         dir_diff = dir_diff / (2 * np.pi)
                         ret_diff = (total_ret - pli_retardation)**2
