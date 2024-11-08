@@ -160,7 +160,8 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
         Can be "single", "neighbor", "pli", "significance" or "random".  
         "single" will only return a combination if there is only one possible (no sorting).
         "neighbor" will sort the possible peak pair combinations by neighbouring peak pairs.
-        "pli" will sort the possible peak pair combinations by given 3d-pli measurement data.
+        "pli" will sort by given 3d-pli measurement data by brute forcing single retardations.
+        "pli_theory" will sort by 3d-pli based on fitted heuristic formulas. 
         "significance" will sort the peak pair combinations by direction significance.
         "random" will sort the peak pair combinations randomly.
         Can also be a list containing multiple methods that are used in order.
@@ -316,13 +317,14 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
 
     if isinstance(method, str):
         method = [method]
-    if "pli" in method:
+    if "pli_theory" in method:
         # Get amplitudes
         image_amplitudes = get_peak_amplitudes(image_stack, image_params = image_params, 
                             image_peaks_mask = image_peaks_mask, 
                             distribution = distribution, only_mus = only_mus)
         max_amp = np.max(image_amplitudes)
-        norm_image_amplitudes = image_amplitudes / max_amp
+        # normalize amplitudes
+        image_amplitudes = image_amplitudes / max_amp
         
 
     direction_found_mask = pymp.shared.array((n_rows, n_cols), dtype = np.bool_)
@@ -598,7 +600,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                                         :sig_peak_pair_combs.shape[0],
                                         :sig_peak_pair_combs.shape[1]] = sig_peak_pair_combs
                             break
-                        elif current_method == "pli":
+                        elif current_method == "pli" or current_method == "pli_theory":
                             sorted_peak_pair_combs = sig_peak_pair_combs[start_index:]
                             pli_direction = image_pli_directions[x, y]
                             pli_retardation = image_pli_retardations[x, y]
@@ -608,9 +610,14 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             sim_diffs = np.full(num_sorted_combs, -1, dtype = np.float64)
                             for k, peak_pairs in enumerate(sorted_peak_pair_combs):
                                 if num_unvalid_differences[start_index + k] > 0: continue
-                                sim_pli_directions[k], sim_pli_retardations[k], sim_diffs[k] = \
-                                    sli_to_pli_brute(peak_pairs, mus, 
-                                                pli_direction, pli_retardation)
+                                if current_method == "pli":
+                                    sim_pli_directions[k], sim_pli_retardations[k], sim_diffs[k] = \
+                                        sli_to_pli_brute(peak_pairs, mus,
+                                                    pli_direction, pli_retardation)
+                                elif current_method == "pli_theory":
+                                    sim_pli_directions[k], sim_pli_retardations[k], sim_diffs[k] = \
+                                        sli_to_pli(peak_pairs, mus, image_amplitudes[x, y]
+                                                    pli_direction, pli_retardation)
 
                             dir_mask = (sim_pli_directions != -1)
                             if not np.any(dir_mask): continue
@@ -1814,8 +1821,8 @@ def sli_to_pli_brute(peak_pairs, mus, pli_direction, pli_retardation):
 
 
 @njit(cache = True, fastmath = True)
-def sli_to_pli(peak_pairs, mus, norm_amplitudes, 
-                    mu_s = 0.548, b = 0.782, amp_0 = 1.001, inclination_max = 80 * np.pi / 180):
+def sli_to_pli(peak_pairs, mus, norm_amplitudes, pli_direction, pli_retardation,
+                    b = 1.422, c = 1.698, inclination_max = 1.360):
     """
     Converts the results from a SLI measurement (peak pairs, mus, heights) to a virtual PLI measurement.
     "What would be measured in a PLI measurement for the found nerve fibers in the SLI measurement?"
@@ -1830,12 +1837,13 @@ def sli_to_pli(peak_pairs, mus, norm_amplitudes,
         The center positions of the peaks.
     - norm_amplitudes: np.ndarray (m, )
         The norm amplitudes of the peaks (normalized by maximum amplitude of the image).
-    - mu_s: float 
-        Scattering coefficient (from a fit).
-    - b: float
-        Constant (depending on wavelength and refractive index) in retardation formula (from fit).
-    - amp_0: float
-        Relative intensity before the scattering (from a fit).
+    - b: float 
+        Constant (depending on wavelength, refractive index and maximum thickness) 
+        in retardation formula (fit).
+    - c: float
+        Constant in retardation formula (from fit).
+    - inclination_max: float
+        Maximum measurable inclination from peak distance in a SLI measurement.
 
     Returns:
     - pli_direction: float
@@ -1848,12 +1856,15 @@ def sli_to_pli(peak_pairs, mus, norm_amplitudes,
     directions = peak_pairs_to_directions(peak_pairs, mus, exclude_lone_peaks = True)
     directions = directions[directions != -1]
     num_directions = len(directions)
-    
-    if num_directions == 0:
-        pli_direction = -1
-    elif num_directions == 1:
+    diff = np.inf
+    sim_pli_direction = -1
+    sim_pli_retardation = -1
+    if num_directions == 1:
         # For one directions return the direction
-        pli_direction = directions[0]
+        sim_pli_direction = directions[0]
+        sim_pli_retardation = pli_retardation
+        diff = angle_distance(sim_pli_direction, pli_direction, wrap = np.pi) / np.pi
+        diff = diff**2
     else:
         
         pair_distances = np.zeros(num_directions)
@@ -1861,15 +1872,21 @@ def sli_to_pli(peak_pairs, mus, norm_amplitudes,
 
         for i in range(num_directions):
             peak_indices = peak_pairs[i]
-            pair_distances[i] = np.abs(angle_distance(mus[peak_indices[0]], mus[peak_indices[1]]))
-            pair_amplitudes[i] = (norm_amplitudes[peak_indices[0]] + norm_amplitudes[peak_indices[1]]) / 2
+            pair_distances[i] = np.abs(angle_distance(mus[peak_indices[0]], 
+                                                      mus[peak_indices[1]]))
+            pair_amplitudes[i] = (norm_amplitudes[peak_indices[0]] + 
+                                  norm_amplitudes[peak_indices[1]]) / 2
         
         retardations = sli_to_pli_retardation(pair_distances, pair_amplitudes, 
-                                            mu_s, b, amp_0, inclination_max)
+                                            b, c, inclination_max)
 
-        pli_direction, pli_retardation = add_birefringence(directions, retardations)
+        sim_pli_direction, sim_pli_retardation = add_birefringence(directions, retardations)
+        dir_diff = angle_distance(pli_direction, sim_pli_direction, wrap = np.pi) / np.pi
+        ret_diff = pli_retardation - sim_pli_retardation
+        
+        diff = (dir_diff**2 + ret_diff**2) / 2
 
-    return pli_direction, pli_retardation
+    return sim_pli_direction, sim_pli_retardation, diff
 
 @njit(cache = True, fastmath = True)
 def distance_to_inclination(distance, inclination_max):
@@ -1883,25 +1900,21 @@ def distance_to_inclination(distance, inclination_max):
 @njit(cache = True, fastmath = True)
 def distance_to_retardation(distance, thickness, b, inclination_max):
     # Calculate retardation from peak distance (radians), thickness and a (fit) constant b
-    # where b = refractive_indice_difference * 2pi / wavelength
+    # where b = refractive_indice_difference * 2pi / wavelength * maximum_thickness
     inclination = distance_to_inclination(distance, inclination_max)
     retardation = np.abs(np.sin(b * thickness * np.cos(inclination)**2))
     return retardation
 
 @njit(cache = True, fastmath = True)
-def amplitude_to_thickness(amplitude, mu_s, amp_0):
-    # Calculate thickness from peak amplitude and (fit) constants mu_s and amp_0
-    # (mu_s is the scattering coefficient and amp_0 the relative amplitude before scattering)
-    # Assuming Lamberts beer law and a asymptotic maximum thickness
-    # but this formular is just a heuristic estimation
-    thickness_limit = np.pi / 2
-    thickness = -1 / mu_s * np.log(1 - (amplitude / amp_0))
-    thickness = thickness_limit * (1 - np.exp(-thickness))
+def amplitude_to_thickness(amplitude, c):
+    # Calculate thickness from peak amplitude and (fit) constantc c
+    # this formular is just a heuristic estimation
+    thickness = 1 - (1 - amplitude)**c
     return thickness
 
 @njit(cache = True, fastmath = True)
-def sli_to_pli_retardation(distance, amplitude, mu_s, b, amp_0, inclination_max):
+def sli_to_pli_retardation(distance, amplitude, b, c, inclination_max):
     # Calculate pli retardation from SLI parameters peak distance and (mean) peak amplitude of a pair
-    thickness = amplitude_to_thickness(amplitude, mu_s, amp_0)
+    thickness = amplitude_to_thickness(amplitude, c)
     retardation = distance_to_retardation(distance, thickness, b, inclination_max)
     return retardation
