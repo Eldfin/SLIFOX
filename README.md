@@ -320,8 +320,6 @@ Finds all the peak_pairs for a whole image stack and sorts them by comparing wit
 - `significance_threshold`: float
     Value between 0 and 1. Peak Pairs with peaks that have a significance
     lower than this threshold are not considered for possible pairs.
-    This Value should stay low, so that the number of possible pairs is not reduced too much.
-    A too high value can lead to wrong pairs, because of pairing only "good" peaks.
     See also "direction_significance" function for more info.
 - `nb_significance_threshold`: float
     Value between 0 and 1. Neighboring directions with a lower significance are not considered

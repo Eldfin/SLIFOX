@@ -133,7 +133,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             min_distance = 30, max_distance = 180, 
                             distribution = "wrapped_cauchy", only_mus = False, 
                             num_processes = 2, amplitude_threshold = 1000, rel_amplitude_threshold = 0.1,
-                            gof_threshold = 0.5, significance_threshold = 0,
+                            gof_threshold = 0, significance_threshold = 0.3,
                             nb_significance_threshold = 0.9, 
                             significance_weights = [1, 1], significance_sens = [1, 1],
                             max_paired_peaks = 4,
@@ -194,8 +194,6 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
     - significance_threshold: float
         Value between 0 and 1. Peak Pairs with peaks that have a significance
         lower than this threshold are not considered for possible pairs.
-        This Value should stay low, so that the number of possible pairs is not reduced too much.
-        A too high value can lead to wrong pairs, because of pairing only "good" peaks.
         See also "direction_significance" function for more info.
     - nb_significance_threshold: float
         Value between 0 and 1. Neighboring directions with a lower significance are not considered
