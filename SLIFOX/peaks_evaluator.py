@@ -133,7 +133,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
                             min_distance = 30, max_distance = 180, 
                             distribution = "wrapped_cauchy", only_mus = False, 
                             num_processes = 2, amplitude_threshold = 1000, rel_amplitude_threshold = 0.1,
-                            gof_threshold = 0, significance_threshold = 0.3,
+                            gof_threshold = 0, significance_threshold = 0,
                             nb_significance_threshold = 0.9, 
                             significance_weights = [1, 1], significance_sens = [1, 1],
                             max_paired_peaks = 4,
