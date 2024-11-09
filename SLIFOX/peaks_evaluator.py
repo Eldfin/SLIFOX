@@ -564,7 +564,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
 
                     # Try method(s) with loop
                     for current_method in method:
-                        if current_method not in [None, "None", "single", "pli", 
+                        if current_method not in [None, "None", "single", "pli", "pli_theory",
                                                     "neighbor", "random", "significance"]:
                             raise Exception("Method not found.")
                         if direction_found_mask[x, y]: 
