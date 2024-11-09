@@ -161,7 +161,7 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
         "single" will only return a combination if there is only one possible (no sorting).
         "neighbor" will sort the possible peak pair combinations by neighbouring peak pairs.
         "pli" will sort by given 3d-pli measurement data by brute forcing single retardations.
-        "pli_theory" will sort by 3d-pli based on fitted heuristic formulas (fast but imprecise). 
+        "pli_theory" will sort by 3d-pli based on fitted heuristic formulas. 
         "significance" will sort the peak pair combinations by direction significance.
         "random" will sort the peak pair combinations randomly.
         Can also be a list containing multiple methods that are used in order.
