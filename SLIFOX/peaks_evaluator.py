@@ -1167,7 +1167,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
 
         significances[i] = ((weights[0] * amplitude_significance**sens[0] 
                             + weights[1] * gof_significance**sens[1]) 
-                            / np.sum(weights))
+                            / (weights[0] + weights[1]))
 
     significances = np.clip(significances, 0, 1)
 
