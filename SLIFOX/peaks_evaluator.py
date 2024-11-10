@@ -1060,7 +1060,6 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
                             exclude_lone_peaks = True):
     """
     Calculates the significances of the directions for one (fitted) pixel.
-    (Old function, performance can be improved similar to get_image_direction_significances).
 
     Parameters:
     - peak_pairs: np.ndarray (np.ceil(max_paired_peaks / 2), 2)
@@ -1100,14 +1099,15 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
     paired_peak_indices = np.unique(peak_pairs)
     paired_peak_indices = paired_peak_indices[paired_peak_indices != -1]
 
-    if len(paired_peak_indices) == 0: return significances
+    if len(paired_peak_indices) == 0 or global_amplitude <= 0: 
+        return significances
     num_peaks = np.max(paired_peak_indices)
     for i in range(num_peaks, peaks_mask.shape[0]):
         if np.any(peaks_mask[i]):
             num_peaks += 1
             
     # Get indices of unpaired peaks (Note: lone peaks can be paired peaks by semantic definition)
-    is_unpaired = np.ones(num_peaks, dtype=np.bool_)
+    is_unpaired = np.ones(num_peaks, dtype = np.bool_)
     for idx in paired_peak_indices:
         is_unpaired[idx] = False
     unpaired_peak_indices = np.where(is_unpaired)[0]
@@ -1130,7 +1130,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
                 malus_amplitude = np.max(amplitudes[unpaired_peak_indices])
             else:
                 malus_amplitude = 0
-            significances[i] = np.mean((amplitudes[indices] - malus_amplitude)/ global_amplitude)
+            significances[i] = np.mean((amplitudes[indices] - malus_amplitude) / global_amplitude)
             significances = np.clip(significances, 0, 1)
 
         return significances
