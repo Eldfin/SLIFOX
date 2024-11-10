@@ -1055,7 +1055,7 @@ def get_possible_pairs(num_peaks):
     pair_combinations = np.array(all_index_pairs)
     return pair_combinations
 
-@njit(cache = True, fastmath = True, parallel = True)
+@njit(cache = True, fastmath = True)
 def direction_significances(peak_pairs, params, peaks_mask, intensities, angles, 
                             weights = [1, 1], sens = [1, 1],
                             distribution = "wrapped_cauchy", only_mus = False,
@@ -1100,7 +1100,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
     num_directions = peak_pairs.shape[0]
     significances = np.zeros(num_directions)
     num_peaks = 0
-    for i in prange(peaks_mask.shape[0]):
+    for i in range(peaks_mask.shape[0]):
         mask = peaks_mask[i]
         if np.any(mask):
             num_peaks += 1
@@ -1117,12 +1117,12 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
 
     if only_mus:
         # If only mus are provided, just use amplitude significance
-        for i in prange(num_peaks):
+        for i in range(num_peaks):
             peak_intensities = intensities[peaks_mask[i]]
             if len(peak_intensities) == 0: continue
             amplitudes[i] = np.max(peak_intensities) - np.min(intensities)
 
-        for i in prange(num_directions):
+        for i in range(num_directions):
             peak_pair = peak_pairs[i]
             indices = peak_pair[peak_pair != -1]
             if len(indices) == 0 or (len(indices) == 1 and exclude_lone_peaks): continue
@@ -1141,7 +1141,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
     heights = params[0:-1:3]
     scales = params[2::3]
 
-    for i in prange(num_peaks):
+    for i in range(num_peaks):
         if i < len(heights):
             amplitudes[i] = heights[i] * distribution_pdf(0, 0, scales[i], distribution)[0]
         else:
