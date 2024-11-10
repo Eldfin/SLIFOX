@@ -604,11 +604,11 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
         Only returned if return_result_errors is True.
     """
 
-    # Ensure no overflow in (subtract) operations happen:
-    if intensities.dtype != np.int32:
+    # Ensure dtype is sufficient:
+    if intensities.dtype != np.int32 and intensities.dtype != np.int64:
         intensities = intensities.astype(np.int32)
 
-    if intensities_err.dtype != np.int32:
+    if intensities_err.dtype != np.int32 and intensities_err.dtype != np.int64:
         intensities_err = intensities_err.astype(np.int32)
 
     min_int = np.min(intensities)
@@ -872,6 +872,10 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
         Only returned if return_result_errors is True.
     """
 
+    # Ensure dtype is sufficient
+    if image_stack.dtype != np.int32 and image_stack.dtype != np.int64:
+        image_stack = image_stack.astype(np.int32)
+
     total_pixels = image_stack.shape[0]*image_stack.shape[1]
     flattened_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))
     mask = np.mean(flattened_stack, axis = 1) > threshold
@@ -998,6 +1002,10 @@ def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(imag
         Array that stores the indices of the measurements that corresponds (mainly) to a peak,
         for every pixel (of n*m pixels).
     """
+
+    # Ensure dtype is sufficient
+    if image_stack.dtype != np.int32 and image_stack.dtype != np.int64:
+        image_stack = image_stack.astype(np.int32)
 
     total_pixels = image_stack.shape[0] * image_stack.shape[1]
     flattened_stack = image_stack.reshape((total_pixels, image_stack.shape[2]))

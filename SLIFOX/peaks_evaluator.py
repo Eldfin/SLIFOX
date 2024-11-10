@@ -257,6 +257,10 @@ def get_image_peak_pairs(image_stack, image_params, image_peaks_mask, method = "
         The first two dimensions are the image dimensions.
         
     """
+    # Ensure dtype is sufficient
+    if image_stack.dtype != np.int32 and image_stack.dtype != np.int64:
+        image_stack = image_stack.astype(np.int32)
+        
     n_rows = image_stack.shape[0]
     n_cols = image_stack.shape[1]
     total_pixels = n_rows * n_cols
