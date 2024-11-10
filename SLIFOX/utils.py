@@ -833,7 +833,7 @@ def add_birefringence(
     # Process each (dir, ret) pair
     for i in range(len(dirs)):
         delta_i = np.arcsin(rets[i])
-        for j in range(i + 1, len(dirs)):  # Avoid repeating pairs
+        for j in range(i + 1, len(dirs)):
             delta_j = np.arcsin(rets[j])
 
             # Calculate main term contributions
@@ -885,7 +885,7 @@ def mod2cplx(direction, retardation, scale=2.0):
     real_part = retardation * np.cos(scale * direction)
     return real_part, im_part
 
-def find_closest_true_pixel(mask, start_pixel, radius):
+def find_closest_true_pixel(mask, start_pixel):
     """
     Finds the closest true pixel for a given 2d-mask and a start_pixel within a given radius.
 
@@ -894,9 +894,6 @@ def find_closest_true_pixel(mask, start_pixel, radius):
         The boolean mask defining which pixels are False or True.
     - start_pixel: tuple
         The x- and y-coordinates of the start_pixel.
-    - radius: int
-        The radius within which to search for the closest true pixel.
-
     Returns:
     - closest_true_pixel: tuple
         The x- and y-coordinates of the closest true pixel, or (-1, -1) if no true pixel is found.
@@ -918,11 +915,10 @@ def find_closest_true_pixel(mask, start_pixel, radius):
             nr, nc = r + dr, c + dc
 
             if 0 <= nr < rows and 0 <= nc < cols and not visited[nr, nc]:
-                if abs(nr - sr) <= radius and abs(nc - sc) <= radius:
-                    visited[nr, nc] = True
-                    queue.append((nr, nc))
+                visited[nr, nc] = True
+                queue.append((nr, nc))
 
-    # When no true pixel in the mask within the radius, return (-1, -1)
+    # When no true pixel in the mask, return (-1, -1)
     return (-1, -1)
 
 @njit(cache = True, fastmath = True)
