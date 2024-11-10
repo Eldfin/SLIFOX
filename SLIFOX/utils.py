@@ -885,41 +885,72 @@ def mod2cplx(direction, retardation, scale=2.0):
     real_part = retardation * np.cos(scale * direction)
     return real_part, im_part
 
-def find_closest_true_pixel(mask, start_pixel):
+def find_closest_true_pixel(mask, start_pixel, radius, queue=None, visited=None):
     """
     Finds the closest true pixel for a given 2d-mask and a start_pixel within a given radius.
-
+    
     Parameters:
     - mask: np.ndarray (n, m)
         The boolean mask defining which pixels are False or True.
     - start_pixel: tuple
         The x- and y-coordinates of the start_pixel.
+    - radius: int
+        The radius within which to search for the closest true pixel.
+    - queue: deque (optional)
+        The current state of the search queue for resuming.
+    - visited: np.ndarray (optional)
+        The visited array tracking the search state.
+        
     Returns:
     - closest_true_pixel: tuple
-        The x- and y-coordinates of the closest true pixel, or (-1, -1) if no true pixel is found.
+        The x- and y-coordinates of the closest true pixel or (-1, -1) if no true pixel is found.
+    - queue: deque
+        The queue at the current state for resuming the search.
+    - visited: np.ndarray
+        The visited array at the current state for resuming the search.
     """
     rows, cols = mask.shape
     sr, sc = start_pixel
 
-    visited = np.zeros_like(mask, dtype=bool)
-    queue = deque([(sr, sc)])
-    visited[sr, sc] = True
+    # Define the cropping boundaries within the mask limits
+    left = max(0, sr - radius)
+    right = min(rows, sr + radius + 1)
+    top = max(0, sc - radius)
+    bottom = min(cols, sc + radius + 1)
+
+    cropped_mask = mask[left:right, top:bottom]
+
+    if not np.any(cropped_mask):
+        return (-1, -1), None, None
+
+    # Adjust the starting pixel's coordinates for the cropped mask
+    cropped_start = (sr - left, sc - top)
+    cropped_rows, cropped_cols = cropped_mask.shape
+
+    # Initialize queue and visited array if not resuming
+    if queue is None:
+        queue = deque([cropped_start])
+    if visited is None:
+        visited = np.zeros_like(cropped_mask, dtype = np.bool_)
+        visited[cropped_start] = True
 
     while queue:
         r, c = queue.popleft()
 
-        if mask[r, c]:
-            return (r, c)
+        if cropped_mask[r, c]:
+            # Return the original coordinates by offsetting with the crop boundaries
+            return (r + left, c + top), queue, visited
 
+        # Check neighbors within the cropped region bounds
         for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nr, nc = r + dr, c + dc
-
-            if 0 <= nr < rows and 0 <= nc < cols and not visited[nr, nc]:
+            if 0 <= nr < cropped_rows and 0 <= nc < cropped_cols and not visited[nr, nc]:
                 visited[nr, nc] = True
                 queue.append((nr, nc))
 
-    # When no true pixel in the mask, return (-1, -1)
-    return (-1, -1)
+    # If no true pixel is found within the radius, return (-1, -1)
+    return (-1, -1), queue, visited
+
 
 @njit(cache = True, fastmath = True)
 def calculate_inclination(retardation, birefringence, thickness , wavelength,):
