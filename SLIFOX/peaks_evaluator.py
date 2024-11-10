@@ -31,7 +31,7 @@ def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2"):
     """
 
     # Ensure intensity dtype is sufficient for calculations
-    if intensities.dtype != np.int32:
+    if intensities.dtype != np.int32 and intensities.dtype != np.int64:
         intensities = intensities.astype(np.int32)
 
     peaks_gof = np.zeros(peaks_mask.shape[:-1])
@@ -93,7 +93,7 @@ def calculate_pixel_peaks_gof(intensities, model_y, peaks_mask, method = "r2"):
         The goodness-of-fit values, one value for each of the m-peaks
     """
 
-    number_of_peaks = len(peaks_mask)
+    number_of_peaks = peaks_mask.shape[0]
     peaks_gof = np.zeros(number_of_peaks, dtype = np.float64)
     for i in range(number_of_peaks):
 
@@ -106,8 +106,8 @@ def calculate_pixel_peaks_gof(intensities, model_y, peaks_mask, method = "r2"):
         elif method == "nrmse":
             # normalized peak data
             intensity_range = np.max(intensities) - np.min(intensities)
-            peak_intensities = peak_intensities / intensity_range
-            peak_model_y = peak_model_y / intensity_range
+            peak_intensities = peak_intensities / intensity_range if intensity_range != 0 else 0
+            peak_model_y = peak_model_y / intensity_range if intensity_range != 0 else 0
 
             # calculate normalized root mean squared error (NRMSE)
             residuals = peak_intensities - peak_model_y
@@ -116,12 +116,12 @@ def calculate_pixel_peaks_gof(intensities, model_y, peaks_mask, method = "r2"):
         elif method == "r2":
             ss_res = np.sum((peak_intensities - peak_model_y) ** 2)
             ss_tot = np.sum((peak_intensities - np.mean(peak_intensities)) ** 2)
-            r2 = 1 - (ss_res / ss_tot)
+            r2 = 1 - (ss_res / ss_tot) if ss_tot != 0 else 0
             peaks_gof[i] = max(r2, 0)
         elif method == "mae":
             intensity_range = np.max(intensities) - np.min(intensities)
-            peak_intensities = peak_intensities / intensity_range
-            peak_model_y = peak_model_y / intensity_range
+            peak_intensities = peak_intensities / intensity_range if intensity_range != 0 else 0
+            peak_model_y = peak_model_y / intensity_range if intensity_range != 0 else 0
             mae = np.mean(np.abs(peak_intensities - peak_model_y))
             peaks_gof[i] = max(1 - mae, 0)
 
