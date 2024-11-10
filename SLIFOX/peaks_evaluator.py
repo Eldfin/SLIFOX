@@ -74,8 +74,8 @@ def calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2"):
 
     return peaks_gof
 
-@njit(cache = True, fastmath = True)
-def calculate_image_peaks_gof(image_stack, image_model_y, peaks_mask, method = "nrmse"):
+@njit(cache = True, fastmath = True, parallel = True)
+def calculate_pixel_peaks_gof(intensities, model_y, peaks_mask, method = "r2"):
     """
     Calculate the goodness-of-fit for given peaks.
 
@@ -96,10 +96,11 @@ def calculate_image_peaks_gof(image_stack, image_model_y, peaks_mask, method = "
     number_of_peaks = len(peaks_mask)
     if number_of_peaks == 0:
         return np.zeros(1)
-    peaks_gof = np.empty(number_of_peaks)
-    for peak_number in range(number_of_peaks):
+    peaks_gof = np.zeros(number_of_peaks)
+    for peak_number in prange(number_of_peaks):
 
         mask = peaks_mask[peak_number]
+        if not np.any(mask): continue
         peak_intensities = intensities[mask]
         peak_model_y = model_y[mask]
 
@@ -118,6 +119,7 @@ def calculate_image_peaks_gof(image_stack, image_model_y, peaks_mask, method = "
         elif method == "r2":
             ss_res = np.sum((peak_intensities - peak_model_y) ** 2)
             ss_tot = np.sum((peak_intensities - np.mean(peak_intensities)) ** 2)
+            if ss_tot == 0: ss_tot = 1
             r2 = 1 - (ss_res / ss_tot)
             peaks_gof[peak_number] = max(r2, 0)
         elif method == "mae":
@@ -1131,7 +1133,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
         return significances
     
     model_y = full_fitfunction(angles, params, distribution)
-    peaks_gof = calculate_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
+    peaks_gof = calculate_pixel_peaks_gof(intensities, model_y, peaks_mask, method = "r2")
     heights = params[0:-1:3]
     scales = params[2::3]
 
