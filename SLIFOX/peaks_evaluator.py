@@ -1096,8 +1096,8 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
     paired_peak_indices = np.unique(peak_pairs)
     paired_peak_indices = paired_peak_indices[paired_peak_indices != -1]
 
+    if len(paired_peak_indices) == 0: return significances
     num_peaks = np.max(paired_peak_indices)
-    if num_peaks == 0: return significances
     for i in range(num_peaks, peaks_mask.shape[0]):
         if np.any(peaks_mask[i]):
             num_peaks += 1
