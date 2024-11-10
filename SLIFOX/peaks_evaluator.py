@@ -1099,7 +1099,11 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
         global_amplitude = np.max(intensities) - np.min(intensities)
     num_directions = peak_pairs.shape[0]
     significances = np.zeros(num_directions)
-    num_peaks = np.count_nonzero(np.any(peaks_mask, axis = -1))
+    num_peaks = 0
+    for i in prange(peaks_mask.shape[0]):
+        mask = peaks_mask[i]
+        if np.any(mask):
+            num_peaks += 1
     
     # Get indices of unpaired peaks (Note: lone peaks can be paired peaks by semantic definition)
     paired_peak_indices = np.unique(peak_pairs)
