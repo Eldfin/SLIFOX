@@ -1143,7 +1143,7 @@ def direction_significances(peak_pairs, params, peaks_mask, intensities, angles,
 
     for i in prange(num_peaks):
         if i < len(heights):
-            amplitudes[i] = heights[i] * distribution_pdf(0, 0, scales[i], distribution)
+            amplitudes[i] = heights[i] * distribution_pdf(0, 0, scales[i], distribution)[0]
         else:
             amplitudes[i] = np.max(intensities[peaks_mask[i]]) - np.min(intensities)
 
