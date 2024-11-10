@@ -106,8 +106,8 @@ def calculate_pixel_peaks_gof(intensities, model_y, peaks_mask, method = "r2"):
         elif method == "nrmse":
             # normalized peak data
             intensity_range = np.max(intensities) - np.min(intensities)
-            peak_intensities = peak_intensities / intensity_range if intensity_range != 0 else 0
-            peak_model_y = peak_model_y / intensity_range if intensity_range != 0 else 0
+            peak_intensities = peak_intensities / intensity_range
+            peak_model_y = peak_model_y / intensity_range
 
             # calculate normalized root mean squared error (NRMSE)
             residuals = peak_intensities - peak_model_y
@@ -120,8 +120,8 @@ def calculate_pixel_peaks_gof(intensities, model_y, peaks_mask, method = "r2"):
             peaks_gof[i] = max(r2, 0)
         elif method == "mae":
             intensity_range = np.max(intensities) - np.min(intensities)
-            peak_intensities = peak_intensities / intensity_range if intensity_range != 0 else 0
-            peak_model_y = peak_model_y / intensity_range if intensity_range != 0 else 0
+            peak_intensities = peak_intensities / intensity_range
+            peak_model_y = peak_model_y / intensity_range
             mae = np.mean(np.abs(peak_intensities - peak_model_y))
             peaks_gof[i] = max(1 - mae, 0)
 
