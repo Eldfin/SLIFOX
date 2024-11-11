@@ -937,10 +937,6 @@ def find_closest_true_pixel(mask, start_pixel, radius, queue=None, visited=None)
     while queue:
         r, c = queue.popleft()
 
-        if cropped_mask[r, c]:
-            # Return the original coordinates by offsetting with the crop boundaries
-            return (r + left, c + top), queue, visited
-
         # Check neighbors within the cropped region bounds
         for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nr, nc = r + dr, c + dc
@@ -948,6 +944,10 @@ def find_closest_true_pixel(mask, start_pixel, radius, queue=None, visited=None)
                 visited[nr, nc] = True
                 queue.append((nr, nc))
 
+        if cropped_mask[r, c]:
+            # Return the original coordinates by offsetting with the crop boundaries
+            return (r + left, c + top), queue, visited
+    
     # If no true pixel is found within the radius, return (-1, -1)
     return (-1, -1), queue, visited
 
