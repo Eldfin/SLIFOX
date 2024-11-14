@@ -622,6 +622,7 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
     """
     Processes image data in square chunks and applies a given function `func` to each chunk.
     This is usefull e.g. for map creation of very large datasets that does not fit into memory.
+    Does not work for finding / fitting yet.
 
     Parameters:
     - filepaths: list of strings
@@ -683,17 +684,26 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
     else:
         initial_result = func(*tuple(data_arguments), *args, **kwargs)
     
-    multi_dim_result = False
-    if isinstance(initial_result, list) or isinstance(initial_result, tuple):
-        multi_dim_result = True
-        initial_result = initial_result[0]
-    
     # Determine the full result shape based on the initial function's output
-    result_shape = (total_rows, total_cols) + initial_result.shape[2:]
-    full_result = pymp.shared.array(result_shape, dtype=initial_result.dtype)
-
-    full_result[0:initial_chunk_data.shape[0], 0:initial_chunk_data.shape[1], ...] = initial_result
+    multi_dim_result = True
+    if isinstance(initial_result, np.ndarray):
+       # Only one result array
+       multi_dim_result = False
+       initial_result = tuple([initial_result])
     
+    # Define shapes for each shared array based on initial_result shapes and total dimensions
+    result_shapes = tuple(
+        (total_rows, total_cols) + initial_result[i].shape[2:]
+        for i in range(len(initial_result))
+    )
+    # Create a tuple of pymp.shared.array objects with the specified shapes and data types
+    full_results = tuple(
+        pymp.shared.array(result_shapes[i], dtype=initial_result[i].dtype)
+        for i in range(len(initial_result))
+    )
+    for i in range(len(initial_result)):
+        full_results[i][0:initial_chunk_data.shape[0], 0:initial_chunk_data.shape[1], ...] = initial_result[i]
+
     # Create a list of chunk coordinates to process
     chunk_coords = [(row_start, col_start)
                     for row_start in range(0, total_rows, square_size)
@@ -718,7 +728,6 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
             if row_start == 0 and col_start == 0:
                 result_chunk = initial_result
             else: 
-                full_result
                 area = [row_start, row_end, col_start, col_end]
 
                 data_arguments = []
@@ -735,10 +744,10 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
                 else:
                     result_chunk = func(*tuple(data_arguments), *args, **kwargs)
 
-                if multi_dim_result:
-                    result_chunk = result_chunk[0]
-            
-            full_result[row_start:row_end, col_start:col_end, ...] = result_chunk
+                if not multi_dim_result:
+                    result_chunk = tuple([result_chunk])
+                for k, result in enumerate(result_chunk):
+                    full_results[k][row_start:row_end, col_start:col_end] = result
 
             # Update progress bar
             shared_counter[p.thread_num] += 1
@@ -748,7 +757,7 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
     # Set the progress bar to 100%
     pbar.update(pbar.total - pbar.n)
 
-    return full_result
+    return full_results
 
 def get_data_shape_and_dtype(filepath, dataset_path = ""):
     if filepath.endswith(".nii") or filepath.endswith(".nii-gz"):
