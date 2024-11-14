@@ -622,7 +622,6 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
     """
     Processes image data in square chunks and applies a given function `func` to each chunk.
     This is usefull e.g. for map creation of very large datasets that does not fit into memory.
-    Does not work for finding / fitting yet.
 
     Parameters:
     - filepaths: list of strings
@@ -648,8 +647,8 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
         Additional keyword arguments for the function `func`.
 
     Returns:
-    - full_result: np.ndarray
-        A numpy array where the first two dimensions match the input data and are filled with the processed results.
+    - full_result: (tuple of) np.ndarray
+        The result from the function for the whole data.
     """
 
     if isinstance(dataset_paths, list):
