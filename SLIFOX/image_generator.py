@@ -970,7 +970,7 @@ def map_colorbar(colormap = "viridis", min_val = 0, max_val = 1, latex_unit = ""
     ax.text(0, -0.2, f'{min_val}{latex_unit}', va='top', ha='left', transform=ax.transAxes, size=28)
     ax.text(1, -0.2, f'{max_val}{latex_unit}', va='top', ha='right', transform=ax.transAxes, size=28)
 
-    plt.savefig(f'{directory}/{name}_colorbar.png', bbox_inches='tight', dpi=300)
+    plt.savefig(f'{directory}/{name}_colorbar.png', bbox_inches='tight', dpi=80)
 
 def map_colorpalette(colorpalette = None, directory = "maps", name = ""):
     """
@@ -994,21 +994,42 @@ def map_colorpalette(colorpalette = None, directory = "maps", name = ""):
         colorpalette = np.insert(default_colorpalette, 0, (0, 0, 0), axis = 0)
         colorpalette = colorpalette[:-1].astype(np.uint8)
 
-    # Create a list of legend elements using the colorpalette
-    legend_elements = [
-        Patch(facecolor=np.array(colorpalette[i])/255.0, edgecolor='black', label=f'{i}', linewidth=2)
-        for i in range(len(colorpalette))
-    ]
-    legend_elements[-1].set_label(f'>{len(colorpalette) - 2}')
+    fig, ax = plt.subplots(figsize=(7, 2))
+    num_colors = len(colorpalette)
+    squares = []
+    labels = [f'{i}' for i in range(num_colors)]
+    labels[-1] = f'>{num_colors - 2}'  # Update last label
 
-    fig, ax = plt.subplots(figsize=(8, 0.5))
-    ax.axis('off')
+    space = 0.5 
+    rect_size = 1 - space
 
-    ax.legend(handles=legend_elements, loc='center', frameon=False, ncol=len(colorpalette), 
-            handleheight=2, handlelength=2, borderpad=1, handletextpad=0.5, 
-            labelspacing=1.5, columnspacing = 2.0, fontsize = 28)
+    # Draw color squares using Rectangle
+    for i, color in enumerate(colorpalette):
+        rect = Rectangle((i * (rect_size + space), 0), rect_size, rect_size,
+                        facecolor=np.array(color) / 255.0, edgecolor='black', linewidth=2)
+        squares.append(rect)
+        ax.add_patch(rect)
 
-    plt.savefig(f'{directory}/{name}_colorpalette.png', bbox_inches='tight', dpi=300)
+    # Add labels below the squares
+    for i, label in enumerate(labels):
+        label_x = i * (rect_size + space) + rect_size / 2  # Centering the label
+        ax.text(label_x, -0.05, label, ha='center', va='top', fontsize=26)  # Slightly below the squares
+
+    # Remove axis and ticks
+    ax.set_axis_off()
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    # Adjust x-axis limits to fit the patches exactly
+    ax.set_xlim(0, (num_colors - 1) * (rect_size + space) + rect_size)
+    ax.set_ylim(0, rect_size)
+
+    # Set equal aspect ratio to avoid stretching
+    ax.set_aspect('equal', adjustable='box')
+
+    # Adjust the figure size and tight layout to remove padding around the whole image
+    plt.tight_layout(pad=0)
+    plt.savefig(f'{directory}/{name}_colorpalette.png', bbox_inches='tight', dpi=80)
 
 def plot_2d_histogram(x, y, bins = 100, count_threshold = 10,
                     xlabel = "x-data", ylabel = "y-data", directory = "maps", name = "data"):
