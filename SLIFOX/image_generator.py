@@ -889,7 +889,7 @@ def map_direction_significances(image_stack = None, image_peak_pairs = None, ima
     return image_direction_sig
 
 def map_data(data, directory = "maps", normalize = False, normalize_to = (None, None), 
-                percentiles = (None, None), file_name = "data_map"):
+                percentiles = (None, None), file_name = "data_map", latex_unit = ""):
     """
     Maps any data to a tiff file.
 
@@ -909,6 +909,8 @@ def map_data(data, directory = "maps", normalize = False, normalize_to = (None, 
     - file_name: string
         The name of the output file.
         If None, the output name will be "data_map".
+    - latex_unit: string
+        Unit label for the colorbar in latex math notation, including the start and end "$" sign.
 
     Returns:
     - data: np.ndarray (n, m)
@@ -925,7 +927,7 @@ def map_data(data, directory = "maps", normalize = False, normalize_to = (None, 
         if normalize:
             image, min_val, max_val = normalize_to_rgb(image, normalize_to, percentiles)
             map_colorbar(min_val = min_val, max_val = max_val, directory = directory, 
-                        latex_unit = "", name = file_name)
+                        latex_unit = latex_unit, name = file_name)
 
         imageio.imwrite(f'{directory}/{file_name}.tiff', image, format = 'tiff')
 
