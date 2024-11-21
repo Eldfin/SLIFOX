@@ -537,7 +537,7 @@ def fit_pixel_stack(angles, intensities, intensities_err, distribution = "wrappe
                     refit_steps = 0, init_fit_filter = None,
                     method = "leastsq", only_peaks_count = -1, max_fit_peaks = 4, max_find_peaks = 12,
                     max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
-                    mu_range = 40 * np.pi/180, scale_range = 0.4,
+                    mu_range = 40 * np.pi/180, scale_range = 0.6,
                     return_result_errors = False):
     """
     Fits the data of one pixel.
@@ -798,10 +798,10 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
                     n_steps_height = 10, n_steps_mu = 10, n_steps_scale = 10,
                         n_steps_fit = 3, min_steps_diff = 5, refit_steps = 0,
                         init_fit_filter = None, method = "leastsq", 
-                        only_peaks_count = -1, max_fit_peaks = 4, max_find_peaks = 12,
+                        only_peaks_count = -1, max_fit_peaks = 6, max_find_peaks = 12,
                         max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
-                        mu_range = 40 * np.pi/180, scale_range = 0.4,
-                        num_processes = 2, return_result_errors = False):
+                        mu_range = 40 * np.pi/180, scale_range = 0.6,
+                        num_processes = 16, return_result_errors = False):
     """
     Fits the data (of a full image stack).
 
@@ -959,8 +959,8 @@ def fit_image_stack(image_stack, distribution = "wrapped_cauchy", fit_height_non
 def find_image_peaks(image_stack, threshold = 1000, image_stack_err = "sqrt(image_stack)",
                         pre_filter = None, only_peaks_count = -1, max_find_peaks = 12,
                         max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
-                        mu_range = 40 * np.pi/180, scale_range = 0.4,
-                        num_processes = 2, centroid = True):
+                        mu_range = 40 * np.pi/180, scale_range = 0.6,
+                        num_processes = 16, centroid = True):
     """
     Finds the peaks of an image stack using only the peak finder.
 
