@@ -112,6 +112,11 @@ def _calculate_scale_bounds(distribution, min_peak_hwhm, max_peak_hwhm, hwhm, sc
         Maximum bound for the scale parameter.
     """
 
+    if hwhm >= max_peak_hwhm:
+        hwhm = max(min_peak_hwhm, max_peak_hwhm - scale_range / 2)
+    elif hwhm <= min_peak_hwhm:
+        hwhm = min(max_peak_hwhm, min_peak_hwhm + scale_range / 2)
+
     if distribution == "wrapped_cauchy":
         # hwhm = scale (=: gamma)
         # scale = 95_ci_width / (2 * tan(pi/40))
@@ -227,7 +232,8 @@ def create_bounds(angles, intensities, intensities_err, distribution,
 
         #local_max_int = peak_intensities[np.argmin(np.abs(relative_angles))]
         # Use maximum intensity from neighbouring mus around the peak mu
-        local_max_int = np.max(peak_intensities[np.argsort(np.abs(relative_angles))[:2]])
+        #local_max_int = np.max(peak_intensities[np.argsort(np.abs(relative_angles))[:2]])
+        local_max_int = np.max(peak_intensities)
         amplitude = local_max_int - min_int
 
         # Calculate estimate of scale parameter with Half Width at Half Maximum (HWHM)
@@ -307,7 +313,8 @@ def create_init_guesses(angles, intensities, intensities_err, bounds_min, bounds
         First entry of rows are the calculated chi2 and the following entries are the params.
     """
 
-    n_peaks = len(bounds_min) // 3
+    num_parameters = len(bounds_min)
+    n_peaks = num_parameters // 3
 
     height_tests = np.empty((n_peaks, n_steps_height))
     mu_tests = np.empty((n_peaks, n_steps_mu))
@@ -327,8 +334,6 @@ def create_init_guesses(angles, intensities, intensities_err, bounds_min, bounds
             scale_tests[i] = np.array([bounds_min[3 * i + 2], bounds_max[3 * i + 2]]).mean()
         else: 
             scale_tests[i] = np.linspace(bounds_min[3 * i + 2], bounds_max[3 * i + 2], n_steps_scale)
-
-    num_parameters = len(bounds_min)
 
     # Create a numpy nd-array
     # First entry of rows are the redchis and the following entries are the params
