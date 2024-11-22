@@ -1109,7 +1109,7 @@ def _find_peaks_from_extrema(angles, intensities, intensities_err, params, centr
 
 def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1,
                     max_peak_hwhm = 50 * np.pi/180, min_peak_hwhm = 10 * np.pi/180, 
-                    mu_range = 40 * np.pi/180, scale_range = 0.4,
+                    mu_range = 40 * np.pi/180,
                     max_find_peaks = 12, centroid = False):
     """
     Finds peaks from given array of measured intensities of a pixel.
@@ -1130,8 +1130,6 @@ def find_peaks(angles, intensities, intensities_err, only_peaks_count = -1,
         Estimated minimum peak half width at half maximum.
     - mu_range: float
         Range of mu (regarding estimated maximum and minimum bounds around true mu).
-    - scale_range: float
-        Range of scale (regarding estimated maximum and minimum bounds around true scale).
     - max_find_peaks: int
         Defines the maximum number for the returned found peaks (more will be cut off).
     - centroid: bool
