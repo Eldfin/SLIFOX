@@ -523,7 +523,7 @@ def mean_angle(angles):
 def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = None, 
                 dtype = None):
     """
-    Picks data from a HDF5 or nii file.
+    Picks data from a HDF5, nii or tiff file.
 
     Parameters:
     - filepath: string
@@ -557,12 +557,15 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
         if data_shape[-1] == 1:
             data_shape = data_shape[:-1]
             data_proxy = data_proxy[..., 0]
-    else:
-        with h5py.File(filepath, "r") as h5f:
-            data_shape = h5f[dataset_path].shape
-            data_dtype = h5f[dataset_path].dtype
+    elif filepath.endswith('.h5'):
+        h5f = h5py.File(filepath, 'r')
+        data_shape = h5f[dataset_path].shape
+        data_dtype = h5f[dataset_path].dtype
+    elif filepath.endswith('.tiff') or filepath.endswith('.tif'):
+        tif = tifffile.TiffFile(filepath)
+        data_shape, data_dtype = get_data_shape_and_dtype(filepath)
 
-    if area == None:
+    if area is not None:
         x_indices, y_indices = np.indices((data_shape[0], data_shape[1]), dtype = np.uint16)
 
     elif not isinstance(indices, np.ndarray):
@@ -577,11 +580,13 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
         data = np.empty((randoms, 1) + (data_shape[2:]), dtype = data_dtype)
         indices = np.empty((randoms, 1, 2), dtype = np.uint16)
         for i in range(randoms):
-            if filepath.endswith(".nii"):
+            if filepath.endswith('.nii'):
                 data[i, 0, ...] = data_proxy[random_x_indices[i], random_y_indices[i], ...]
-            else:
-                with h5py.File(filepath, "r") as h5f:
-                    data[i, 0, ...] = h5f[dataset_path][random_x_indices[i], random_y_indices[i], ...]
+            elif filepath.endswith('.h5'):
+                data[i, 0, ...] = h5f[dataset_path][random_x_indices[i], random_y_indices[i], ...]
+            elif filepath.endswith('.tiff') or filepath.endswith('.tif'):
+                data[i, 0, ...] = tif.asarray()[random_x_indices[i], random_y_indices[i], ...]
+
             indices[i, 0, 0] = random_x_indices[i]
             indices[i, 0, 1] = random_y_indices[i]
 
@@ -593,27 +598,34 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
             for i in range(num_pixels):
                 if filepath.endswith(".nii"):
                     data[i, 0, ...] = data_proxy[flat_indices[i, 0], flat_indices[i, 1], ...]
-                else:
-                    with h5py.File(filepath, "r") as h5f:
-                        data[i, 0, ...] = h5f[dataset_path][flat_indices[i, 0], flat_indices[i, 1], ...]
-            return data, indices
-        elif area == None:
+                elif filepath.endswith('.h5'):
+                    data[i, 0, ...] = h5f[dataset_path][flat_indices[i, 0], flat_indices[i, 1], ...]
+                elif filepath.endswith('.tiff') or filepath.endswith('.tif'):
+                    data[i, 0, ...] = tif.asarray()[flat_indices[i], flat_indices[i], ...]
+        elif area is not None:
             if filepath.endswith(".nii"):
                 data = data_proxy[:]
-            else:
-                with h5py.File(filepath, "r") as h5f:
-                    data = h5f[dataset_path][:]
+            elif filepath.endswith('.h5'):
+                data = h5f[dataset_path][:]
+            elif filepath.endswith('.tiff') or filepath.endswith('.tif'):
+                data = tif.asarray()
         else:
-            if filepath.endswith(".nii"):
+            if filepath.endswith('.nii'):
                 data = data_proxy[area[0]:area[1], area[2]:area[3], ...]
-            else:
-                with h5py.File(filepath, "r") as h5f:
-                    data = h5f[dataset_path][area[0]:area[1], area[2]:area[3], ...]
+            elif filepath.endswith('.h5'):
+                data = h5f[dataset_path][area[0]:area[1], area[2]:area[3], ...]
+            elif filepath.endswith('.tiff') or filepath.endswith('.tif'):
+                data = tif.asarray()[area[0]:area[1], area[2]:area[3], ...]
 
-        indices = np.stack((x_indices, y_indices), axis = -1, dtype = np.uint16)
+        indices = indices = np.stack((x_indices, y_indices), axis=-1).astype(np.uint16)
     
-    if not dtype is None:
+    if dtype is not None:
         data = data.astype(dtype)
+
+    if filepath.endswith('.h5'):
+        h5f.close()
+    elif filepath.endswith('.tiff') or filepath.endswith('.tif'):
+        tif.close()
 
     return data, indices
 
@@ -758,15 +770,20 @@ def process_image_in_chunks(filepaths, func, square_size = None, dataset_paths =
 
     return full_results
 
-def get_data_shape_and_dtype(filepath, dataset_path = ""):
+def get_data_shape_and_dtype(filepath, dataset_path=""):
     if filepath.endswith(".nii") or filepath.endswith(".nii-gz"):
         nii_file = nib.load(filepath)
         data_shape = nii_file.shape
         data_dtype = nii_file.get_data_dtype()
-    else:
+    elif filepath.endswith('.h5'):
         with h5py.File(filepath, "r") as h5f:
             data_shape = h5f[dataset_path].shape
             data_dtype = h5f[dataset_path].dtype
+    elif filepath.endswith('.tif') or filepath.endswith('.tiff'):
+        with tifffile.TiffFile(filepath) as tif:
+            first_page = tif.pages[0]
+            data_shape = first_page.shape
+            data_dtype = first_page.dtype
 
     return data_shape, data_dtype
 
