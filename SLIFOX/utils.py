@@ -565,7 +565,7 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
         tif = tifffile.TiffFile(filepath)
         data_shape, data_dtype = get_data_shape_and_dtype(filepath)
 
-    if area is not None:
+    if area is None:
         x_indices, y_indices = np.indices((data_shape[0], data_shape[1]), dtype = np.uint16)
 
     elif not isinstance(indices, np.ndarray):
@@ -602,7 +602,7 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
                     data[i, 0, ...] = h5f[dataset_path][flat_indices[i, 0], flat_indices[i, 1], ...]
                 elif filepath.endswith('.tiff') or filepath.endswith('.tif'):
                     data[i, 0, ...] = tif.asarray()[flat_indices[i], flat_indices[i], ...]
-        elif area is not None:
+        elif area is None:
             if filepath.endswith(".nii"):
                 data = data_proxy[:]
             elif filepath.endswith('.h5'):
