@@ -960,8 +960,9 @@ def map_colorbar(colormap = "viridis", min_val = 0, max_val = 1, latex_unit = ""
     min_val = round(min_val, sig_decimals)
     max_val = round(max_val, sig_decimals)
     if sig_decimals <= 0:
-        min_val = int(min_val)
-        max_val = int(max_val)
+        factor = 10 ** (-sig_decimals)
+        min_val = round(min_val / factor) * factor
+        max_val = round(max_val / factor) * factor
 
     fig, ax = plt.subplots(figsize = (8, 0.5))
     cbar = fig.colorbar(sm, cax = ax, orientation = 'horizontal')
@@ -970,9 +971,9 @@ def map_colorbar(colormap = "viridis", min_val = 0, max_val = 1, latex_unit = ""
     # Get the height of the colorbar in points
     cbar.set_ticks([])  # Remove default ticks
     # Add labels on the left and right ends
-    ax.text(0, -0.2, f'{min_val:.{sig_decimals}f}{latex_unit}', 
+    ax.text(0, -0.2, f'{min_val:.{max(0, sig_decimals)}f}{latex_unit}', 
             va='top', ha='left', transform=ax.transAxes, size=28)
-    ax.text(1, -0.2, f'{max_val:.{sig_decimals}f}{latex_unit}', 
+    ax.text(1, -0.2, f'{max_val:.{max(0, sig_decimals)}f}{latex_unit}', 
             va='top', ha='right', transform=ax.transAxes, size=28)
 
     plt.savefig(f'{directory}/{name}_colorbar.png', bbox_inches='tight', dpi=80)
