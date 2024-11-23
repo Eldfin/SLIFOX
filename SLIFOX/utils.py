@@ -585,7 +585,7 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
             elif filepath.endswith('.h5'):
                 data[i, 0, ...] = h5f[dataset_path][random_x_indices[i], random_y_indices[i], ...]
             elif filepath.endswith('.tiff') or filepath.endswith('.tif'):
-                data[i, 0, ...] = tif.asarray()[random_x_indices[i], random_y_indices[i], ...]
+                data[i, 0, ...] = tif.asarray()[random_y_indices[i], random_x_indices[i], ...]
 
             indices[i, 0, 0] = random_x_indices[i]
             indices[i, 0, 1] = random_y_indices[i]
@@ -601,21 +601,21 @@ def pick_data(filepath, dataset_path = "", area = None, randoms = 0, indices = N
                 elif filepath.endswith('.h5'):
                     data[i, 0, ...] = h5f[dataset_path][flat_indices[i, 0], flat_indices[i, 1], ...]
                 elif filepath.endswith('.tiff') or filepath.endswith('.tif'):
-                    data[i, 0, ...] = tif.asarray()[flat_indices[i], flat_indices[i], ...]
+                    data[i, 0, ...] = tif.asarray()[flat_indices[i, 1], flat_indices[i, 0], ...]
         elif area is None:
             if filepath.endswith(".nii"):
                 data = data_proxy[:]
             elif filepath.endswith('.h5'):
                 data = h5f[dataset_path][:]
             elif filepath.endswith('.tiff') or filepath.endswith('.tif'):
-                data = tif.asarray()
+                data = np.swapaxes(tif.asarray(), 0, 1)
         else:
             if filepath.endswith('.nii'):
                 data = data_proxy[area[0]:area[1], area[2]:area[3], ...]
             elif filepath.endswith('.h5'):
                 data = h5f[dataset_path][area[0]:area[1], area[2]:area[3], ...]
             elif filepath.endswith('.tiff') or filepath.endswith('.tif'):
-                data = tif.asarray()[area[0]:area[1], area[2]:area[3], ...]
+                data = np.swapaxis(tif.asarray()[area[2]:area[3], area[0]:area[1], ...], 0, 1)
 
         indices = indices = np.stack((x_indices, y_indices), axis=-1).astype(np.uint16)
     
@@ -782,7 +782,9 @@ def get_data_shape_and_dtype(filepath, dataset_path=""):
     elif filepath.endswith('.tif') or filepath.endswith('.tiff'):
         with tifffile.TiffFile(filepath) as tif:
             first_page = tif.pages[0]
-            data_shape = first_page.shape
+            data_shape = list(first_page.shape)
+            data_shape[0], data_shape[1] = data_shape[1], data_shape[0]
+            data_shape = tuple(data_shape)
             data_dtype = first_page.dtype
 
     return data_shape, data_dtype
