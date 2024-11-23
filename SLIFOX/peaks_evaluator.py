@@ -1178,6 +1178,10 @@ def get_image_direction_significances(image_stack, image_peak_pairs, image_param
                             gof_threshold = 0,
                             weights = [1, 1], sens = [1, 1], only_mus = False, num_processes = 2):
 
+    # Ensure intensity dtype is sufficient for calculations
+    if image_stack.dtype != np.int32 and image_stack.dtype != np.int64:
+        image_stack = image_stack.astype(np.int32)
+    
     angles = np.linspace(0, 2*np.pi, num = image_stack.shape[2], endpoint = False)
     n_rows = image_stack.shape[0]
     n_cols = image_stack.shape[1]
