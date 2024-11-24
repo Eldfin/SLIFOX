@@ -83,6 +83,9 @@ def normalize_to_rgb(array, value_range = (None, None), percentiles = (None, Non
     normalized_array = cmap(normalized_array)[:, :, :3] * 255  # Apply colormap and convert to 0-255 range
     normalized_array = normalized_array.astype(np.uint8)
     
+    # Set background to black
+    normalized_array[array == background_value] = [0, 0, 0]
+
     # Set values below normalization range to black and above to white
     normalized_array[array < min_val] = [0, 0, 0]
     normalized_array[array > max_val] = [255, 255, 255]
